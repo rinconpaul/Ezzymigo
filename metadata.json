@@ -1,0 +1,6 @@
+{
+  "name": "Ezzymigo",
+  "description": "Personal intention memory assistant that persistently stores thoughts and structures them using Gemini 3.5 Flash Lite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
