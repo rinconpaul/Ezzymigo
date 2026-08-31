@@ -6,7 +6,7 @@ import { upsertCalendarEvents, retrieveTargetedCalendarEvents } from '../server/
 import { executeNativeRetrievalPipeline } from '../server/retrieval/native_search.js';
 import { buildDynamicRetrievalContext } from '../server/retrieval/dcr.js';
 import { formatLocalTimeContext } from '../server/utils/time.js';
-import { resolveRelationshipsInQuery } from '../server/relationships.js';
+import { resolveRelationshipsInQuery } from '../server/relationships/index.js';
 
 const LOCAL_CONTEXT = {
   clientNow: '2026-08-28T00:00:00.000Z', // Friday 28 August 2026 10:00:00 AM AEST (+10:00)

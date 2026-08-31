@@ -98,7 +98,7 @@ export async function generateEmbedding(
     },
   });
 
-  const rawValues = response.embeddings?.[0]?.values || response.embedding?.values || [];
+  const rawValues = response.embeddings?.[0]?.values || [];
   if (!rawValues || rawValues.length === 0) {
     throw new Error(`Empty embedding returned by ${EMBEDDING_MODEL}`);
   }
