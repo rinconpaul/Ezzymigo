@@ -1,0 +1,964 @@
+{
+  "timestamp": "2026-08-31T19:25:23.764Z",
+  "summary": {
+    "total": 22,
+    "passed": 22,
+    "failed": 0,
+    "passRate": "100.0%"
+  },
+  "latencyStats": {
+    "embedding": {
+      "mean": 425,
+      "min": 395,
+      "max": 449,
+      "count": 22
+    },
+    "vectorSql": {
+      "mean": 717,
+      "min": 690,
+      "max": 744,
+      "count": 22
+    },
+    "arbitration": {
+      "mean": 526,
+      "min": 0,
+      "max": 930,
+      "count": 22
+    },
+    "ambiguityRescue": {
+      "mean": 191,
+      "min": 180,
+      "max": 200,
+      "count": 4
+    },
+    "hydration": {
+      "mean": 658,
+      "min": 0,
+      "max": 800,
+      "count": 22
+    },
+    "total": {
+      "mean": 3349,
+      "min": 2074,
+      "max": 3841,
+      "count": 22
+    }
+  },
+  "cleanupProof": {
+    "tempTablesCount": 0
+  },
+  "testCases": [
+    {
+      "id": "TC-01-EN",
+      "category": "1. English",
+      "query": "Where did I put the spare car key?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_ask_mem_spare_key",
+      "topSimilarity": 0.7655998170375824,
+      "topDistance": 0.2344001829624176,
+      "siblingBandCount": 3,
+      "compositeScores": {
+        "test_ask_mem_spare_key": 0.7655998170375824,
+        "test_shadow_archd_en_key": 0.9655998170375824,
+        "mem_1787523423129_0_vtusg5e": 0.6317777931690216
+      },
+      "lexicalAnchors": {
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [
+          "where",
+          "spare",
+          "car",
+          "key"
+        ],
+        "mem_1787523423129_0_vtusg5e": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 415,
+        "vector_sql_ms": 694,
+        "exact_and_fts_sql_ms": 2215,
+        "arbitration_ms": 693,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 702,
+        "total_architecture_d_ms": 3624
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_key"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-02-FR",
+      "category": "2. French",
+      "query": "Combien a coûté la révision de la voiture chez le garagiste ?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_fr_garage",
+      "topSimilarity": 0.8005981892347336,
+      "topDistance": 0.19940181076526642,
+      "siblingBandCount": 4,
+      "compositeScores": {
+        "test_shadow_archd_fr_garage": 1.3005981892347336,
+        "test_shadow_archd_sibling_lucy_ins": 0.6170845329761505,
+        "test_shadow_archd_en_plumber": 0.6061161756515503,
+        "test_ask_mem_plumber_quote": 0.6008600890636444
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_fr_garage": [
+          "a",
+          "coûté",
+          "la",
+          "révision",
+          "de",
+          "la",
+          "voiture",
+          "chez",
+          "le",
+          "garagiste"
+        ],
+        "test_shadow_archd_sibling_lucy_ins": [],
+        "test_shadow_archd_en_plumber": [],
+        "test_ask_mem_plumber_quote": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 397,
+        "vector_sql_ms": 716,
+        "exact_and_fts_sql_ms": 2231,
+        "arbitration_ms": 748,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 724,
+        "total_architecture_d_ms": 3703
+      },
+      "retrievedIds": [
+        "test_shadow_archd_fr_garage"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-03-ES",
+      "category": "3. Spanish",
+      "query": "¿Dónde guardé los pasaportes para el viaje a Madrid?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_es_passport",
+      "topSimilarity": 0.7965246737003326,
+      "topDistance": 0.20347532629966736,
+      "siblingBandCount": 6,
+      "compositeScores": {
+        "test_shadow_archd_es_passport": 1.1465246737003327,
+        "mem_1787523423129_0_vtusg5e": 0.6115784645080566,
+        "mem_1787891227708_0_d2153ab": 0.6075260639190674,
+        "test_ask_mem_spare_key": 0.601708859205246,
+        "test_shadow_archd_en_key": 0.601708859205246,
+        "test_shadow_archd_ar_safe": 0.6001789271831512
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_es_passport": [
+          "los",
+          "pasaportes",
+          "para",
+          "el",
+          "viaje",
+          "a",
+          "madrid"
+        ],
+        "mem_1787523423129_0_vtusg5e": [],
+        "mem_1787891227708_0_d2153ab": [],
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [],
+        "test_shadow_archd_ar_safe": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 407,
+        "vector_sql_ms": 744,
+        "exact_and_fts_sql_ms": 2125,
+        "arbitration_ms": 724,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 719,
+        "total_architecture_d_ms": 3569
+      },
+      "retrievedIds": [
+        "test_shadow_archd_es_passport"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-04-DE",
+      "category": "4. German",
+      "query": "Wann muss der Mietvertrag für die Wohnung in Berlin gekündigt werden?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_unambiguous",
+      "topCandidateId": "test_shadow_archd_de_lease",
+      "topSimilarity": 0.7577369511127472,
+      "topDistance": 0.2422630488872528,
+      "siblingBandCount": 1,
+      "compositeScores": {
+        "test_shadow_archd_de_lease": 0.7577369511127472
+      },
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 416,
+        "vector_sql_ms": 725,
+        "exact_and_fts_sql_ms": 2192,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 687,
+        "total_architecture_d_ms": 2880
+      },
+      "retrievedIds": [
+        "test_shadow_archd_de_lease"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-05-JA",
+      "category": "5. Japanese",
+      "query": "京都旅行のホテル予約番号は何番ですか？",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_unambiguous",
+      "topCandidateId": "test_shadow_archd_ja_hotel",
+      "topSimilarity": 0.8267149329185486,
+      "topDistance": 0.17328506708145142,
+      "siblingBandCount": 1,
+      "compositeScores": {
+        "test_shadow_archd_ja_hotel": 0.8267149329185486
+      },
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 422,
+        "vector_sql_ms": 739,
+        "exact_and_fts_sql_ms": 2156,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 691,
+        "total_architecture_d_ms": 2849
+      },
+      "retrievedIds": [
+        "test_shadow_archd_ja_hotel"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-06-AR",
+      "category": "6. Arabic",
+      "query": "أين وضعت مفتاح الخزنة في المكتب؟",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_ar_safe",
+      "topSimilarity": 0.8096739649772644,
+      "topDistance": 0.1903260350227356,
+      "siblingBandCount": 5,
+      "compositeScores": {
+        "test_shadow_archd_ar_safe": 1.0096739649772644,
+        "test_ask_mem_spare_key": 0.6426753401756287,
+        "test_shadow_archd_en_key": 0.6426753401756287,
+        "test_shadow_archd_es_passport": 0.6113708913326263,
+        "mem_1787523423129_0_vtusg5e": 0.6064138114452362
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_ar_safe": [
+          "مفتاح",
+          "الخزنة",
+          "في",
+          "المكتب"
+        ],
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [],
+        "test_shadow_archd_es_passport": [],
+        "mem_1787523423129_0_vtusg5e": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 440,
+        "vector_sql_ms": 693,
+        "exact_and_fts_sql_ms": 2127,
+        "arbitration_ms": 731,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 721,
+        "total_architecture_d_ms": 3579
+      },
+      "retrievedIds": [
+        "test_shadow_archd_ar_safe"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-07-XL-EN-FR",
+      "category": "7. Cross-Language",
+      "query": "How much was the car service invoice in Paris?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_unambiguous",
+      "topCandidateId": "test_shadow_archd_fr_garage",
+      "topSimilarity": 0.7598253637552261,
+      "topDistance": 0.24017463624477386,
+      "siblingBandCount": 1,
+      "compositeScores": {
+        "test_shadow_archd_fr_garage": 0.7598253637552261
+      },
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 395,
+        "vector_sql_ms": 718,
+        "exact_and_fts_sql_ms": 2155,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 736,
+        "total_architecture_d_ms": 2892
+      },
+      "retrievedIds": [
+        "test_shadow_archd_fr_garage"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-08-XL-FR-EN",
+      "category": "7. Cross-Language",
+      "query": "Où se trouve le double des clés de la voiture ?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "ambiguity_rescue",
+      "topCandidateId": "test_ask_mem_spare_key",
+      "topSimilarity": 0.6894083023071289,
+      "topDistance": 0.3105916976928711,
+      "siblingBandCount": 3,
+      "compositeScores": {
+        "test_ask_mem_spare_key": 0.6894083023071289,
+        "test_shadow_archd_en_key": 0.6894083023071289,
+        "test_shadow_archd_ar_safe": 0.6132106781005859
+      },
+      "lexicalAnchors": {
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [],
+        "test_shadow_archd_ar_safe": []
+      },
+      "ambiguityRescueTriggered": true,
+      "ambiguityRescueReason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+      "ambiguityRescueOutput": {
+        "winningId": "test_ask_mem_spare_key",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      },
+      "timings": {
+        "embedding_api_ms": 424,
+        "vector_sql_ms": 692,
+        "exact_and_fts_sql_ms": 2154,
+        "arbitration_ms": 886,
+        "ambiguity_rescue_ms": 185,
+        "hydration_ms": 800,
+        "total_architecture_d_ms": 3841
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_key"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-09-XL-EN-JA",
+      "category": "7. Cross-Language",
+      "query": "What is my Kyoto hotel reservation confirmation code?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_unambiguous",
+      "topCandidateId": "test_shadow_archd_ja_hotel",
+      "topSimilarity": 0.7604559063911438,
+      "topDistance": 0.2395440936088562,
+      "siblingBandCount": 1,
+      "compositeScores": {
+        "test_shadow_archd_ja_hotel": 0.7604559063911438
+      },
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 427,
+        "vector_sql_ms": 744,
+        "exact_and_fts_sql_ms": 2158,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 748,
+        "total_architecture_d_ms": 2906
+      },
+      "retrievedIds": [
+        "test_shadow_archd_ja_hotel"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-10-XL-JA-EN",
+      "category": "7. Cross-Language",
+      "query": "予備の車の鍵はどこに置いてありますか？",
+      "passed": true,
+      "failureReasons": [],
+      "route": "ambiguity_rescue",
+      "topCandidateId": "test_ask_mem_spare_key",
+      "topSimilarity": 0.7313748300075531,
+      "topDistance": 0.2686251699924469,
+      "siblingBandCount": 4,
+      "compositeScores": {
+        "test_ask_mem_spare_key": 0.7313748300075531,
+        "test_shadow_archd_en_key": 0.7313748300075531,
+        "test_shadow_archd_ar_safe": 0.6572933197021484,
+        "mem_1787523423129_0_vtusg5e": 0.608254075050354
+      },
+      "lexicalAnchors": {
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [],
+        "test_shadow_archd_ar_safe": [],
+        "mem_1787523423129_0_vtusg5e": []
+      },
+      "ambiguityRescueTriggered": true,
+      "ambiguityRescueReason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+      "ambiguityRescueOutput": {
+        "winningId": "test_ask_mem_spare_key",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      },
+      "timings": {
+        "embedding_api_ms": 431,
+        "vector_sql_ms": 718,
+        "exact_and_fts_sql_ms": 2208,
+        "arbitration_ms": 922,
+        "ambiguity_rescue_ms": 199,
+        "hydration_ms": 693,
+        "total_architecture_d_ms": 3823
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_key"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-11-SIB-LUCY-HR",
+      "category": "8. Sibling Memories",
+      "query": "What did Lucy say about the remote work policy?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_sibling_lucy_hr",
+      "topSimilarity": 0.7993914186954498,
+      "topDistance": 0.20060858130455017,
+      "siblingBandCount": 3,
+      "compositeScores": {
+        "test_shadow_archd_sibling_lucy_hr": 0.9493914186954499,
+        "test_shadow_archd_sibling_lucy_ins": 0.6256930530071259,
+        "mem_1788170285590_0_s8loued": 0.6042726635932922
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_sibling_lucy_hr": [
+          "remote",
+          "work",
+          "policy"
+        ],
+        "test_shadow_archd_sibling_lucy_ins": [],
+        "mem_1788170285590_0_s8loued": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 416,
+        "vector_sql_ms": 691,
+        "exact_and_fts_sql_ms": 2198,
+        "arbitration_ms": 735,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 745,
+        "total_architecture_d_ms": 3678
+      },
+      "retrievedIds": [
+        "test_shadow_archd_sibling_lucy_hr"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-12-SIB-LUCY-INS",
+      "category": "8. Sibling Memories",
+      "query": "What was Lucy's quote for car insurance renewal?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_sibling_lucy_ins",
+      "topSimilarity": 0.7913981080055237,
+      "topDistance": 0.20860189199447632,
+      "siblingBandCount": 4,
+      "compositeScores": {
+        "test_shadow_archd_sibling_lucy_ins": 1.0413981080055237,
+        "test_shadow_archd_sibling_lucy_hr": 0.6379378139972687,
+        "mem_1788036102764_0_9nq1la3": 0.6614359498023987,
+        "test_ask_mem_sold_ruler": 0.6040790677070618
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_sibling_lucy_ins": [
+          "quote",
+          "for",
+          "car",
+          "insurance",
+          "renewal"
+        ],
+        "test_shadow_archd_sibling_lucy_hr": [],
+        "mem_1788036102764_0_9nq1la3": [
+          "was"
+        ],
+        "test_ask_mem_sold_ruler": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 425,
+        "vector_sql_ms": 744,
+        "exact_and_fts_sql_ms": 2180,
+        "arbitration_ms": 694,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 700,
+        "total_architecture_d_ms": 3575
+      },
+      "retrievedIds": [
+        "test_shadow_archd_sibling_lucy_ins"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-13-SIB-TANAKA-SALES",
+      "category": "8. Sibling Memories",
+      "query": "田中さんの営業戦略会議のメモ",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_sibling_tanaka_sales",
+      "topSimilarity": 0.778965175151825,
+      "topDistance": 0.22103482484817505,
+      "siblingBandCount": 12,
+      "compositeScores": {
+        "test_shadow_archd_sibling_tanaka_sales": 0.928965175151825,
+        "test_ask_mem_sold_ruler": 0.6335365474224091,
+        "mem_1788036011287_0_6ah9w15": 0.6291275322437286,
+        "test_ask_mem_sold_chair": 0.6275439560413361,
+        "mem_1788036102764_0_9nq1la3": 0.6227997839450836,
+        "mem_1788035969791_0_by9xklu": 0.6216029524803162,
+        "test_ask_mem_sold_clock": 0.6204968094825745,
+        "test_shadow_archd_subj_mum_lamp": 0.6199232041835785,
+        "test_shadow_archd_sibling_lucy_hr": 0.6159912943840027,
+        "test_shadow_archd_subj_mum_sofa": 0.614408940076828,
+        "test_shadow_archd_sibling_tanaka_tech": 0.6142764687538147,
+        "test_shadow_archd_done_groceries": 0.6015971302986145
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_sibling_tanaka_sales": [
+          "営業",
+          "戦略",
+          "会議"
+        ],
+        "test_ask_mem_sold_ruler": [],
+        "mem_1788036011287_0_6ah9w15": [],
+        "test_ask_mem_sold_chair": [],
+        "mem_1788036102764_0_9nq1la3": [],
+        "mem_1788035969791_0_by9xklu": [],
+        "test_ask_mem_sold_clock": [],
+        "test_shadow_archd_subj_mum_lamp": [],
+        "test_shadow_archd_sibling_lucy_hr": [],
+        "test_shadow_archd_subj_mum_sofa": [],
+        "test_shadow_archd_sibling_tanaka_tech": [],
+        "test_shadow_archd_done_groceries": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 429,
+        "vector_sql_ms": 726,
+        "exact_and_fts_sql_ms": 2106,
+        "arbitration_ms": 731,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 709,
+        "total_architecture_d_ms": 3547
+      },
+      "retrievedIds": [
+        "test_shadow_archd_sibling_tanaka_sales"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-14-SIB-TANAKA-TECH",
+      "category": "8. Sibling Memories",
+      "query": "田中さんの技術サポート電話番号",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_sibling_tanaka_tech",
+      "topSimilarity": 0.8085918128490448,
+      "topDistance": 0.1914081871509552,
+      "siblingBandCount": 2,
+      "compositeScores": {
+        "test_shadow_archd_sibling_tanaka_tech": 1.0085918128490448,
+        "test_shadow_archd_sibling_tanaka_sales": 0.6284280717372894
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_sibling_tanaka_tech": [
+          "技術",
+          "サポート",
+          "電話",
+          "番号"
+        ],
+        "test_shadow_archd_sibling_tanaka_sales": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 425,
+        "vector_sql_ms": 721,
+        "exact_and_fts_sql_ms": 2134,
+        "arbitration_ms": 740,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 742,
+        "total_architecture_d_ms": 3617
+      },
+      "retrievedIds": [
+        "test_shadow_archd_sibling_tanaka_tech"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-15-SUBJ-MUM-ITEMS",
+      "category": "9. Same-Subject Lists",
+      "query": "What's in Mum's sold items?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "exact_subject",
+      "topCandidateId": "test_ask_mem_sold_ruler",
+      "topSimilarity": 0.75065678358078,
+      "topDistance": 0.24934321641921997,
+      "siblingBandCount": 0,
+      "compositeScores": {},
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 449,
+        "vector_sql_ms": 724,
+        "exact_and_fts_sql_ms": 2182,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 750,
+        "total_architecture_d_ms": 2932
+      },
+      "retrievedIds": [
+        "test_shadow_archd_subj_mum_sofa",
+        "test_shadow_archd_subj_mum_lamp",
+        "mem_1788035969791_0_by9xklu",
+        "mem_1788036011287_0_6ah9w15",
+        "mem_1788036102764_0_9nq1la3"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-16-PARAPHRASE",
+      "category": "10. Paraphrase",
+      "query": "Can you remind me where the backup automobile ignition key was stored?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_ask_mem_spare_key",
+      "topSimilarity": 0.7267419695854187,
+      "topDistance": 0.2732580304145813,
+      "siblingBandCount": 3,
+      "compositeScores": {
+        "test_ask_mem_spare_key": 0.7267419695854187,
+        "test_shadow_archd_en_key": 0.8267419695854187,
+        "mem_1787523423129_0_vtusg5e": 0.6288267970085144
+      },
+      "lexicalAnchors": {
+        "test_ask_mem_spare_key": [],
+        "test_shadow_archd_en_key": [
+          "where",
+          "key"
+        ],
+        "mem_1787523423129_0_vtusg5e": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 441,
+        "vector_sql_ms": 718,
+        "exact_and_fts_sql_ms": 2161,
+        "arbitration_ms": 709,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 734,
+        "total_architecture_d_ms": 3604
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_key"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-17-MESSY",
+      "category": "11. Messy Conversational Phrasing",
+      "query": "hey um quick question who did that gutter cleaning price quote and how much was it again?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "ambiguity_rescue",
+      "topCandidateId": "test_ask_mem_plumber_quote",
+      "topSimilarity": 0.7262732982635498,
+      "topDistance": 0.2737267017364502,
+      "siblingBandCount": 2,
+      "compositeScores": {
+        "test_ask_mem_plumber_quote": 0.7262732982635498,
+        "test_shadow_archd_en_plumber": 0.9725161194801331
+      },
+      "lexicalAnchors": {
+        "test_ask_mem_plumber_quote": [],
+        "test_shadow_archd_en_plumber": [
+          "gutter",
+          "cleaning",
+          "price",
+          "quote",
+          "and"
+        ]
+      },
+      "ambiguityRescueTriggered": true,
+      "ambiguityRescueReason": "CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS",
+      "ambiguityRescueOutput": {
+        "winningId": "test_shadow_archd_en_plumber",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      },
+      "timings": {
+        "embedding_api_ms": 434,
+        "vector_sql_ms": 716,
+        "exact_and_fts_sql_ms": 2163,
+        "arbitration_ms": 891,
+        "ambiguity_rescue_ms": 200,
+        "hydration_ms": 711,
+        "total_architecture_d_ms": 3765
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_plumber"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-18-NUM-CURRENCY",
+      "category": "13. Numbers, Currency & Locale",
+      "query": "How much was the $450 quote from Dave?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_en_plumber",
+      "topSimilarity": 0.7659492790699005,
+      "topDistance": 0.2340507209300995,
+      "siblingBandCount": 3,
+      "compositeScores": {
+        "test_shadow_archd_en_plumber": 0.9159492790699005,
+        "test_ask_mem_plumber_quote": 0.6945623755455017,
+        "mem_1788036011287_0_6ah9w15": 0.7536364436149597
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_en_plumber": [
+          "450",
+          "quote",
+          "dave"
+        ],
+        "test_ask_mem_plumber_quote": [],
+        "mem_1788036011287_0_6ah9w15": [
+          "how",
+          "much",
+          "was"
+        ]
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 441,
+        "vector_sql_ms": 690,
+        "exact_and_fts_sql_ms": 2196,
+        "arbitration_ms": 724,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 728,
+        "total_architecture_d_ms": 3649
+      },
+      "retrievedIds": [
+        "test_shadow_archd_en_plumber"
+      ],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-19-STATUS-ISOLATION",
+      "category": "14. Deleted / Done Knowledge Isolation",
+      "query": "Do I still need to buy oat milk and eggs from the store?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_done_groceries",
+      "topSimilarity": 0.7513886243104935,
+      "topDistance": 0.24861137568950653,
+      "siblingBandCount": 2,
+      "compositeScores": {
+        "test_shadow_archd_done_groceries": 1.1513886243104934,
+        "test_ask_mem_bunnings_yesterday": 0.6122266054153442
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_done_groceries": [
+          "buy",
+          "oat",
+          "milk",
+          "and",
+          "eggs",
+          "from",
+          "the",
+          "store"
+        ],
+        "test_ask_mem_bunnings_yesterday": []
+      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 415,
+        "vector_sql_ms": 735,
+        "exact_and_fts_sql_ms": 2131,
+        "arbitration_ms": 709,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 709,
+        "total_architecture_d_ms": 3549
+      },
+      "retrievedIds": [],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-20-ZERO-DISTRACTOR-1",
+      "category": "15. Genuine Zero-Result Questions",
+      "query": "What is the secret recipe for Martian sourdough bread baked on Jupiter?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "zero_result",
+      "topCandidateId": "mem_1787695795490_0_7603r73",
+      "topSimilarity": 0.5608802139759064,
+      "topDistance": 0.43911978602409363,
+      "siblingBandCount": 0,
+      "compositeScores": {},
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 448,
+        "vector_sql_ms": 696,
+        "exact_and_fts_sql_ms": 2194,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 0,
+        "total_architecture_d_ms": 2194
+      },
+      "retrievedIds": [],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-21-ZERO-DISTRACTOR-2",
+      "category": "15. Genuine Zero-Result Questions",
+      "query": "How do I build a nuclear fusion reactor in Minecraft hardcore mode?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "zero_result",
+      "topCandidateId": "test_shadow_archd_done_groceries",
+      "topSimilarity": 0.5125817060470581,
+      "topDistance": 0.4874182939529419,
+      "siblingBandCount": 0,
+      "compositeScores": {},
+      "lexicalAnchors": {},
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
+      "timings": {
+        "embedding_api_ms": 411,
+        "vector_sql_ms": 717,
+        "exact_and_fts_sql_ms": 2074,
+        "arbitration_ms": 0,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 0,
+        "total_architecture_d_ms": 2074
+      },
+      "retrievedIds": [],
+      "shadowIsolationPassed": true
+    },
+    {
+      "id": "TC-22-AMBIGUOUS-SIBLING",
+      "category": "18. Genuinely Ambiguous Sibling Question",
+      "query": "What did Lucy say?",
+      "passed": true,
+      "failureReasons": [],
+      "route": "ambiguity_rescue",
+      "topCandidateId": "test_shadow_archd_sibling_lucy_hr",
+      "topSimilarity": 0.6809207499027252,
+      "topDistance": 0.3190792500972748,
+      "siblingBandCount": 4,
+      "compositeScores": {
+        "test_shadow_archd_sibling_lucy_hr": 0.6809207499027252,
+        "test_shadow_archd_sibling_lucy_ins": 0.6563214659690857,
+        "mem_1788170285590_0_s8loued": 0.6429661214351654,
+        "mem_1787799864116_0_bf9dpob": 0.7061813235282898
+      },
+      "lexicalAnchors": {
+        "test_shadow_archd_sibling_lucy_hr": [],
+        "test_shadow_archd_sibling_lucy_ins": [],
+        "mem_1788170285590_0_s8loued": [],
+        "mem_1787799864116_0_bf9dpob": [
+          "what",
+          "did"
+        ]
+      },
+      "ambiguityRescueTriggered": true,
+      "ambiguityRescueReason": "CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS",
+      "ambiguityRescueOutput": {
+        "winningId": "mem_1787799864116_0_bf9dpob",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      },
+      "timings": {
+        "embedding_api_ms": 446,
+        "vector_sql_ms": 723,
+        "exact_and_fts_sql_ms": 2179,
+        "arbitration_ms": 930,
+        "ambiguity_rescue_ms": 180,
+        "hydration_ms": 717,
+        "total_architecture_d_ms": 3827
+      },
+      "retrievedIds": [
+        "mem_1787799864116_0_bf9dpob",
+        "test_shadow_archd_sibling_lucy_hr"
+      ],
+      "shadowIsolationPassed": true
+    }
+  ]
+}

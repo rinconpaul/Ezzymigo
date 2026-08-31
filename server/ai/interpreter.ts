@@ -50,6 +50,15 @@ export function isProductOrShoppingSuggestedAction(action: { label?: string; que
   return false;
 }
 
+// Helper to determine if an item or user text has genuine action/reminder intent
+export function hasActionOrReminderIntent(item: any, unitText: string): boolean {
+  if (item?.kind === 'reminder' || item?.kind === 'task') return true;
+  const intent = typeof item?.intent === 'string' ? item.intent.toLowerCase() : '';
+  if (['reminder', 'task', 'appointment', 'contact', 'action', 'purchase'].includes(intent)) return true;
+  if (/\b(remind\s+me|don'?t\s+forget|need\s+to|have\s+to|must\s+|remember\s+to)\b/i.test(unitText)) return true;
+  return false;
+}
+
 // Fallback heuristic extraction if Gemini is unreachable or key is missing
 export function fallbackInterpretation(text: string, now: Date = new Date()) {
   const words = text.split(/\s+/).filter(Boolean);
@@ -57,8 +66,8 @@ export function fallbackInterpretation(text: string, now: Date = new Date()) {
   const isTemporal = !!triggerTime;
   const isActionable = /^(?:i\s+need\s+to|need\s+to|i\s+have\s+to|have\s+to|i\s+must|must|i\s+should|should|got\s+to|remember\s+to|don't\s+forget\s+to|todo|book|ring|call|phone|buy|get|pick\s+up|order|pay|email|send|write|make|schedule|arrange|fix|repair|wash|check|ask|tell|remind|take|put|clean|vacuum)\b/i.test(text.trim());
   const isNotSure = /^(this|that|it)('s| is| was)?\s+(just\s+)?(going nowhere|so reckless|pointless|too much|so crazy)/i.test(text.trim()) || /^(what even was that|i don't know what to do about it)/i.test(text.trim());
-  const kind = isNotSure ? 'not_sure' : (isTemporal || isActionable) ? 'reminder' : 'fact';
-  const intent = isNotSure ? 'not_sure' : /buy|purchase|get/i.test(text) ? 'purchase' : /ring|call|phone|email|contact/i.test(text) ? 'contact' : /book|schedule|appointment/i.test(text) ? 'appointment' : isActionable ? 'task' : isTemporal ? 'reminder' : 'fact';
+  const kind = isNotSure ? 'not_sure' : isActionable ? 'reminder' : 'fact';
+  const intent = isNotSure ? 'not_sure' : /buy|purchase|get/i.test(text) ? 'purchase' : /ring|call|phone|email|contact/i.test(text) ? 'contact' : /book|schedule|appointment/i.test(text) ? 'appointment' : isActionable ? 'task' : isTemporal ? 'fact' : 'fact';
   const items = extractItemsFromText(text, text);
 
   let fallbackAction: any = null;
@@ -165,8 +174,8 @@ Your purpose: Classify each newly captured intention according to the circumstan
   * If the thought represents something the USER intends or needs to do, buy, contact, arrange, or complete, classify as "reminder" (intent: "task", "purchase", "contact", "appointment", "follow-up").
   * Timing is Orthogonal: Actionable intentions are ALWAYS kind: "reminder" whether timed ("Buy milk tomorrow at 9am" -> date_based) or untimed ("Buy milk", "Book dentist" -> contextual, all date/time fields null).
 - Information, Notes & Third-Party Statements (kind: "fact"):
-  * Knowledge, observations, relationships/roles, preferences, reference facts, or completed events -> kind: "fact" (intent: "fact" or "note").
-  * Third-Party Commitments: If a future event is committed or stated by a third party (e.g. "Mum needs new shoes and Barb said she'll take her shopping Friday"), set kind: "fact", intent: "fact" or "note", populate "original_time_expression" and "event_time_expression" with the date/time, set "resurfacing.mode" to "date_based", but keep "reminder_time_expression" and "reminder_datetime" null.
+  * Knowledge, observations, relationships/roles, preferences, reference facts, completed events, or incoming third-party actions -> kind: "fact" (intent: "fact" or "note").
+  * Third-Party Commitments & Incoming Events: If an event is to be done or initiated by a third party (e.g. "Lucy is calling me tomorrow at 3pm", "Mum needs new shoes and Barb said she'll take her shopping Friday", "Steve is coming over on Tuesday"), set kind: "fact", intent: "fact" or "note", populate "original_time_expression" and "event_time_expression" with the date/time, set "resurfacing.mode" to "date_based", but keep "reminder_time_expression" and "reminder_datetime" null.
 - Uncertain State (kind: "not_sure", intent: "not_sure"):
   * Reserved strictly for captures lacking an identifiable referent or coherent meaning (e.g. "This is going nowhere", "What even was that"). Understandable statements ("My foot hurts", "I like cheese") are "fact". Set resurfacing.mode: "none", timing: "Uncertain".
 
@@ -240,6 +249,16 @@ Your purpose: Classify each newly captured intention according to the circumstan
   let reminderDatetime: string | null = cleanOriginalTime ? (item.reminder_datetime || null) : null;
   let eventDatetime: string | null = cleanOriginalTime ? (item.event_datetime || null) : null;
 
+  if (hasActionOrReminderIntent(item, unitText)) {
+    if (resolvedDatetime && !reminderDatetime) {
+      reminderDatetime = resolvedDatetime;
+    }
+  } else {
+    if (resolvedDatetime && !eventDatetime) {
+      eventDatetime = resolvedDatetime;
+    }
+  }
+
   // Check for clock time ambiguity across languages (e.g. "at 4", "4 o'clock", "Monday at 7", "tomorrow at 4", "à 4h", "um 7")
   const clockAmbiguity = detectClockTimeAmbiguity(
     unitText,
@@ -259,7 +278,7 @@ Your purpose: Classify each newly captured intention according to the circumstan
     if (!cleanOriginalTime) {
       cleanOriginalTime = clockAmbiguity.timeExpr || null;
     }
-    if (!item.kind || item.kind === 'fact' || item.kind === 'thought') {
+    if (hasActionOrReminderIntent(item, unitText)) {
       item.kind = 'reminder';
     }
   } else if (clockAmbiguity.dayPart) {
@@ -283,10 +302,12 @@ Your purpose: Classify each newly captured intention according to the circumstan
         const iso = `${targetYmd}T${String(finalH).padStart(2, '0')}:${String(rawM).padStart(2, '0')}:00${localContext.offsetStr}`;
         if (!isNaN(new Date(iso).getTime())) {
           if (!resolvedDatetime) resolvedDatetime = iso;
-          if (!reminderDatetime) reminderDatetime = iso;
           if (!cleanOriginalTime) cleanOriginalTime = hourMatch[0];
-          if (!item.kind || item.kind === 'fact' || item.kind === 'thought') {
+          if (hasActionOrReminderIntent(item, unitText)) {
+            if (!reminderDatetime) reminderDatetime = iso;
             item.kind = 'reminder';
+          } else {
+            if (!eventDatetime) eventDatetime = iso;
           }
         }
       }
@@ -294,7 +315,7 @@ Your purpose: Classify each newly captured intention according to the circumstan
   }
 
   // Deterministic fallback for standalone clock times in unit text (e.g. "at 5:51am", "ring Peter at 5:51am", "at 3pm", "16:00")
-  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || !reminderDatetime)) {
+  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || (!reminderDatetime && !eventDatetime))) {
     const clockMatch = unitText.match(/(?:at\s+|@\s*)?(\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b)/i) ||
                        (typeof item.resurfacing?.timing === 'string' ? item.resurfacing.timing.match(/(\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b)/i) : null);
     if (clockMatch) {
@@ -310,9 +331,11 @@ Your purpose: Classify each newly captured intention according to the circumstan
         if (!isNaN(new Date(iso).getTime())) {
           cleanOriginalTime = explicitTimeExpr;
           if (!resolvedDatetime) resolvedDatetime = iso;
-          if (!reminderDatetime) reminderDatetime = iso;
-          if (!item.kind || item.kind === 'fact' || item.kind === 'thought') {
+          if (hasActionOrReminderIntent(item, unitText)) {
+            if (!reminderDatetime) reminderDatetime = iso;
             item.kind = 'reminder';
+          } else {
+            if (!eventDatetime) eventDatetime = iso;
           }
         }
       }
@@ -320,17 +343,19 @@ Your purpose: Classify each newly captured intention according to the circumstan
   }
 
   // Deterministic fallback for relative duration offsets (e.g. "in 10 minutes", "in 2 hours")
-  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || !reminderDatetime)) {
+  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || (!reminderDatetime && !eventDatetime))) {
     const triggerIso = parseReminderTriggerTime(unitText, item.resurfacing?.timing || '', localContext.referenceDate);
     if (triggerIso) {
       if (!resolvedDatetime) resolvedDatetime = triggerIso;
-      if (!reminderDatetime) reminderDatetime = triggerIso;
       if (!cleanOriginalTime) {
         const relMatch = unitText.match(/\bin\s+\d+\s*(?:minutes?|mins?|min|m|hours?|hrs?|hr|h|seconds?|secs?|s|days?|d)\b/i);
         cleanOriginalTime = relMatch ? relMatch[0].trim() : (item.resurfacing?.timing || 'in 10 minutes');
       }
-      if (!item.kind || item.kind === 'fact' || item.kind === 'thought') {
+      if (hasActionOrReminderIntent(item, unitText)) {
+        if (!reminderDatetime) reminderDatetime = triggerIso;
         item.kind = 'reminder';
+      } else {
+        if (!eventDatetime) eventDatetime = triggerIso;
       }
     }
   }
@@ -392,7 +417,7 @@ Your purpose: Classify each newly captured intention according to the circumstan
   if (canonicalKind === 'task') {
     canonicalKind = 'reminder';
   } else if (canonicalKind !== 'reminder' && canonicalKind !== 'fact' && canonicalKind !== 'not_sure') {
-    canonicalKind = (resolvedDatetime || item.intent === 'task' || item.intent === 'purchase' || item.intent === 'contact') ? 'reminder' : 'fact';
+    canonicalKind = (reminderDatetime || item.intent === 'task' || item.intent === 'purchase' || item.intent === 'contact' || item.intent === 'reminder') ? 'reminder' : 'fact';
   }
 
   const canonicalIntent = item.intent || (canonicalKind === 'reminder' ? 'task' : canonicalKind === 'not_sure' ? 'not_sure' : 'remember');

@@ -90,6 +90,44 @@ export async function initBunnyDb(): Promise<void> {
             metadata TEXT NOT NULL DEFAULT '{}',
             updated_at TEXT NOT NULL
           );`
+        },
+        {
+          sql: `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+            memory_id UNINDEXED,
+            content,
+            original_text,
+            people,
+            places,
+            topics,
+            retrieval_cues,
+            items,
+            subject
+          );`
+        },
+        {
+          sql: `CREATE TABLE IF NOT EXISTS memory_search_projection (
+            memory_id TEXT PRIMARY KEY,
+            subject TEXT,
+            subject_normalized TEXT,
+            status TEXT NOT NULL,
+            createdAt TEXT NOT NULL
+          );`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_msp_subject_norm ON memory_search_projection(subject_normalized);`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_msp_status ON memory_search_projection(status);`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_msp_created_at ON memory_search_projection(createdAt);`
+        },
+        {
+          sql: `CREATE TABLE IF NOT EXISTS memory_vectors (
+            memory_id TEXT PRIMARY KEY,
+            vector_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );`
         }
       ]);
       dbInitialized = true;

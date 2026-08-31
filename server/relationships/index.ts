@@ -47,6 +47,58 @@ export async function readActiveRelationships(): Promise<Array<{ id: string; per
   }
 }
 
+// Targeted query to look up a specific active relationship by normalized role
+export async function getActiveRelationshipByRole(role: string): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
+  const norm = normalizeRoleName(role);
+  if (!norm) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    return {
+      id: row.id,
+      person: row.person,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      is_active: Boolean(Number(row.is_active)),
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Relationships] Error finding active relationship by role:', err);
+    return null;
+  }
+}
+
+// Targeted query to look up a specific active relationship by person name
+export async function getActiveRelationshipByPerson(person: string): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
+  const p = (person || '').trim();
+  if (!p) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1;',
+      args: [p]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    return {
+      id: row.id,
+      person: row.person,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      is_active: Boolean(Number(row.is_active)),
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Relationships] Error finding active relationship by person:', err);
+    return null;
+  }
+}
+
 // Save or update reusable user entity (supporting future metadata like phone, email, notes)
 export async function saveUserEntity(entity: {
   name: string;

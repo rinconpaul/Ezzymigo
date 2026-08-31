@@ -1,113 +1,120 @@
-# Ezzymigo Project Handover Checkpoint
+# EZZYMIGO ARCHITECTURAL CHECKPOINT & KNOWN STATE
 
-**Date**: 2026-08-23  
-**Status**: Active Handover Documentation  
-**Primary Stack**: React 18, Vite, Express (full-stack container on Cloud Run), Firebase Firestore, Google GenAI SDK (`gemini-2.5-flash`), Google Calendar API (OAuth), Web Push.
+**Last Updated**: 31 August 2026  
+**Document Status**: Authoritative Architecture Checkpoint (Phase 1 Rescue Baseline)  
 
----
-
-## 1. Executive Summary & Current Implemented Architecture
-
-Ezzymigo is an AI-powered personal memory and intention assistant that captures user thoughts, structures them into actionable intention memories, provides intelligent grounding via search/calendar, surfaces daily relevant items, and answers questions using contextual reasoning.
+> ⚠️ **CRITICAL SOURCE OF TRUTH DIRECTIVE**  
+> **Production code is the sole authority.** This document describes the application that actually exists in production code today. If this document and production code ever disagree, **production code wins** and this document must be corrected immediately. Under no circumstances should planned, proposed, or experimental designs be documented as implemented unless verified in production code.
 
 ---
 
-## 2. Implemented Subsystems & Code References
+## 1. System Overview & Runtime Architecture
 
-### A. Tell Ezzymigo (Capture, Multi-Memory Splitting & Interpretation)
-* **Description**: Users enter raw natural-language thoughts. The backend interprets the intention using Gemini 2.5 Flash, automatically detecting and splitting multi-part intentions (e.g. "Buy milk and call dentist on Friday") into discrete intention records.
-* **Key Files & Handlers**:
-  * `src/components/InputSection.tsx`: UI text area and voice/text capture.
-  * `server.ts` -> `app.post("/api/memories")`: Handles prompt assembly and calls `interpretMemoryWithGemini()`.
-  * `interpretMemoryWithGemini()` in `server.ts`: Uses structured schema output to extract `kind`, `content`, `people`, `places`, `topics`, `timing`, `actionableSteps`, and `priority`.
+Ezzymigo is a personal intention memory assistant powered by Gemini 2.5 Flash, full-text deterministic candidate retrieval, and structured persistence. It enables users to capture natural language intentions (Tell), answer grounded personal queries without general web hallucinations (Ask), view deterministic daily agendas (TODAY), and integrate personal schedules via Google Calendar.
 
-### B. Firestore Memory Persistence
-* **Description**: Persistent cloud storage backing all memories, status toggles, edits, and deletions.
-* **Key Files & Helpers**:
-  * `server.ts` -> `getAllMemories(userId)`, `saveMemory(userId, memory)`, `updateMemory(userId, id, updates)`, `deleteMemory(userId, id)`.
-  * `firebase-applet-config.json` & `firestore.rules`: Firebase configuration and access rules.
-
-### C. Ask Ezzymigo & Google Calendar Integration
-* **Description**: Natural language Q&A interface that answers user questions grounded in their stored memories and scheduled Google Calendar events.
-* **Key Files & Handlers**:
-  * `src/components/AskSection.tsx`: Search/question input, answer streaming/rendering, and suggestion display.
-  * `server.ts` -> `app.post("/api/ask")`: Fetches user memories, retrieves Google Calendar events (range: -30 days to +90 days, max 250 events via Google OAuth token), and prompts Gemini 2.5 Flash.
-
-### D. Surfaced Supporting Memory Cards
-* **Description**: Beneath the Ask response, Ezzymigo renders interactive memory cards directly corresponding to the memories referenced in the answer, allowing immediate toggle, edit, or delete actions without leaving the Ask context.
-* **Key Files**:
-  * `src/components/AskSection.tsx` & `src/components/MemoryCard.tsx`.
-
-### E. Reminder Functionality & Background Web Push
-* **Description**: Timed reminders with automated scheduling and browser/mobile push notifications via Service Worker.
-* **Key Files**:
-  * `src/utils/pushManager.ts`: Client-side subscription and permission management.
-  * `public/sw.js`: Background Web Push event listener (`push` and `notificationclick`).
-  * `server.ts` -> `app.post("/api/reminders")` & background push dispatch scheduler.
-
-### F. Internationalisation Architecture
-* **Description**: Timezone, language, region, and currency awareness. Client passes local formatting preferences with every request.
-* **Key Files**:
-  * `src/utils/userPreferences.ts`: `getUserPreferences()`, `setUserPreferences()`, and locale defaults (`Australia/Sydney`, `en-AU`, `AUD`).
-
-### G. Suggested Actions & Grounded External Lookup
-* **Description**: Actionable suggestion buttons generated alongside Ask responses, including Google Search grounding / external links.
-* **Key Files**:
-  * `server.ts` -> Gemini function/search integration in `/api/ask`.
-  * `src/components/AskSection.tsx`: Action button renderers.
-
-### H. Today Relevance Backend
-* **Description**: Deterministic daily relevance ranking engine evaluating active memories and calendar events against local date, time, and stored structured metadata (no LLM latency on app load).
-* **Key Files**:
-  * `server.ts` -> `computeTodayRelevance()`, `app.get("/api/today-relevance")`, `app.post("/api/today-relevance")`.
-  * `src/components/TodayTicker.tsx`.
+* **Frontend**: Single-page application built with React 19 (`^19.0.1`), Vite, Tailwind CSS, Lucide icons, and Motion animations.
+* **Backend**: Node.js Express server running on Google Cloud Run container infrastructure.
+* **AI Provider**: Google GenAI SDK (`@google/genai` 0.1.2) utilizing `gemini-2.5-flash` strictly server-side.
+* **Production Build**: `vite build` for client bundle + `esbuild server.ts` bundled into CommonJS `dist/server.cjs`.
 
 ---
 
-## 3. Current In-Progress & Resolved Issues
+## 2. Persistence Layer (Bunny Database / libSQL)
 
-### ✅ Resolved Issue: Today Relevance Per-Load LLM Latency & Double-Fetch
-* **Resolution**:
-  * **Zero LLM Overhead**: Replaced per-load Gemini generative prompt in `computeTodayRelevance` with fast, deterministic ranking (Priority 1: Reminders strictly due today; Priority 2: Calendar events today; Priority 3: Memories with resolved/event dates today; Priority 4: Explicitly pinned intentions for today).
-  * **Temporal Anchoring Fix**: Relative time expressions (e.g. "tomorrow morning") are permanently anchored at capture time into absolute ISO timestamps (`resolved_datetime` / `reminder_datetime`). Today relevance strictly compares the absolute resolved date against `clientTodayYMD` in the user's timezone (`remYMD === clientTodayYMD`), preventing past or stale reminders from resurfacing as "today" and preventing matches against literal "today" substrings in historical retrieval cues.
-  * **Single Request per Load**: Removed React StrictMode double-invocation and added component mount fetch deduplication ref.
-  * **Latency**: Reduced backend processing time from ~4.5–5.5s (LLM inference) down to local database query execution (~10–50ms).
-  * **Compatibility**: Kept exact `TodayRelevanceCandidate` schema, `source_id` mapping, and `TodayTicker` tap / surfaced card interactions.
+The database persistence layer is **Bunny Database / libSQL** (SQLite-compatible cloud-backed SQL), accessed via `server/db/client.ts` over HTTP `/v2/pipeline`. **Firestore is NOT used.**
 
-### ⚠️ Pending Engineering Task: `/api/ask` Full-Memory Context Dump (Scalability Bottleneck)
-* **Current Discovery**:
-  * `/api/ask` currently executes `readMemories()` with **no pre-filtering**, sending every memory document directly into the Gemini prompt.
-  * Hard limit is currently uncapped (limited only by model context window).
-  * While functional for small sets (<200 memories), this will become slow, expensive, and eventually exceed context/token limits at 500, 5,000, or 50,000 memories.
+### Core Tables & Stores (`server/db/schema.ts`):
+1. `memories`: Stores original capture text, created timestamp, completion status (`isDone`), structured content, kind (`fact`, `intention`, `decision`, etc.), status, entity arrays (people, places, topics as JSON strings), and resurfacing metadata.
+2. `calendar_events`: Canonical local cache of external Google Calendar events (`id`, `source`, `sourceEventId`, `title`, `description`, `location`, `attendees`, `startDatetime`, `endDatetime`, `isAllDay`, `status`, `updatedAt`).
+3. `user_relationships`: Stores resolved human relationships (`id`, `person`, `role`, `normalized_role`, `is_active`, `updated_at`) supporting singular-role supersession and active/inactive state.
+4. `user_entities`: Secondary directory of recognized personal entities (`id`, `name`, `entity_type`, `role`, `normalized_role`, `metadata`, `updated_at`).
+5. `scheduled_reminders`: Dispatched time-based reminders linked to source memories (`id`, `memoryId`, `title`, `body`, `remindAt`, `notified`, `createdAt`).
+6. `push_subscriptions` & `vapid_config`: Web Push registration endpoints and keys.
+
+> ⚠️ **Single Live Database Notice**: There is currently **only one live database** in the application environment. There is no separate or isolated test/staging database.
 
 ---
 
-## 4. Key Architectural Decisions
+## 3. Implemented Subsystems & Pipelines
 
-1. **Memory Lifecycle**:
-   * Memories persist indefinitely in Firestore until **explicitly deleted** by the user.
-   * Marking a memory as `Done` (`isDone: true`) **preserves** historical memory and does not delete it. Completed items remain searchable and accessible.
-2. **Next Planned Engineering Task**:
-   * Implement a scalable **Semantic Candidate Retrieval / Embeddings pipeline** before Gemini reasoning in `/api/ask` (e.g. vector similarity search, structured metadata filtering, and relevance thresholding).
-3. **Pending Security & Storage Audit**:
-   * A comprehensive audit is still required for:
-     - Exact Bunny.net CDN / storage usage and integration.
-     - Firestore user isolation and multi-tenant security rule validation.
-     - Environment variable and credential exposure checks.
+### A. Tell Pipeline (Capture, Splitting, Interpretation & Persistence)
+* **Capture UI**: `src/components/InputSection.tsx` captures natural language text or voice transcriptions.
+* **Route & Logic**: `server.ts` -> `app.post("/api/memories")` -> `server/ai/interpreter.ts:interpretMemoryWithGemini()`.
+* **Multi-Intention Splitting**: Gemini decomposes compound inputs (e.g. "Buy milk and call Dave on Friday") into discrete, structured memory items.
+* **Information-Preservation**: The original raw utterance is preserved in `originalText`. Interpretation schema extracts `content`, `kind`, `people`, `places`, `topics`, `contexts`, `retrieval_cues`, `timing`, `resurfacing`, and `relationships`.
+* **Relationship Extraction**: Any detected `relationships` in the payload are automatically processed through `server/relationships/index.ts:saveRelationships()` which handles normalized role aliasing and active/deactivated state updates.
+
+### B. Ask Pipeline (Deterministic Retrieval + Grounded Gemini Synthesis)
+* **Q&A Interface**: `src/components/AskSection.tsx`.
+* **Route**: `server.ts` -> `app.post("/api/ask")`.
+* **Pipeline Flow**:
+  1. **Full Database Read (Current Scalability Constraint)**: Server fetches `readMemories()`, `readCalendarEvents()`, and `getActiveRelationships()`.
+  2. **DCR Candidate Retrieval (`server/retrieval/dcr.ts`)**: Deterministic Candidate Retrieval (DCR v1) scores and filters candidates locally in Node memory. It performs query normalization, stop-word elimination, entity/role resolution against active relationships, temporal anchor parsing (months, relative day calculations), generic schedule intent detection, and keyword/token matching.
+  3. **Bounded Candidate Window**: Only top-scoring candidate memories and relevant calendar events are bundled into the prompt context. **The entire personal database is NOT sent to Gemini.**
+  4. **Strict Scope & Citations**: Gemini synthesizes an answer strictly grounded in the candidate context. The response schema returns `{ answer, memory_ids, calendar_event_ids, is_out_of_scope }`.
+  5. **Out-of-Scope Guard**: General knowledge queries without personal grounding return friendly deflections (`is_out_of_scope: true`) with empty ID arrays.
+  6. **Separation of Stores**: Memories and calendar events remain distinct database stores throughout retrieval and citation mapping.
+
+### C. TODAY / Daily Relevance Engine
+* **UI**: `src/components/TodayTicker.tsx`.
+* **Route & Engine**: `server.ts` -> `app.get("/api/today-relevance")` -> `server/today/relevance.ts:computeTodayRelevance()`.
+* **Zero-LLM Execution**: Pure deterministic scoring and ranking evaluated in Node with zero LLM API latency on app load.
+* **Eligibility Rules**: Evaluates active memories, scheduled reminders due today, and calendar events against the user's local timezone date (`clientTodayYMD`). Prevents past, completed, or irrelevant future items from surfacing.
+
+### D. Google Calendar Integration (Current Implementation)
+* **Client-Side OAuth**: Client requests short-lived access tokens via Google Identity Services (`initTokenClient`) directly in browser memory.
+* **Discovery & Event Types**: Multi-calendar discovery and query fetching with support for standard events and `eventTypes` (including Google Calendar birthdays).
+* **Sync Window**: Rolling sync window of -2 days to +60 days (capturing from 2 days prior through `DEFAULT_CALENDAR_SYNC_DAYS_AHEAD = 60` days ahead, up to 250 events per calendar).
+* **Local Caching**: Synced events are upserted into the `calendar_events` table in Bunny DB with deterministic canonical IDs.
+* **Current Limitations**: No server-side refresh tokens (tokens expire when browser session ends), no automated background sync without client interaction, and limited historical event coverage outside the rolling window.
+
+### E. Relationships & Entity Resolution
+* **Module**: `server/relationships/index.ts`.
+* **Role Resolution**: Normalizes common aliases (e.g. "mum" -> "mother", "gardener", "doctor", "plumber").
+* **Singular-Role Supersession**: Assigning a new person to a singular role deactivates prior holders while preserving audit history.
+* **Deactivated Knowledge Suppression**: Forgotten or deactivated relationships are filtered out during Ask queries, preventing obsolete relationship claims.
 
 ---
 
-## 5. Quick Reference Directory Map
+## 4. Health Check Specification & Verification Baseline
 
-| Path | Description |
-|---|---|
-| `/src/App.tsx` | Main application shell, state management, and component mounting |
-| `/src/components/TodayTicker.tsx` | Today's relevant memories ticker and diagnostic banner |
-| `/src/components/AskSection.tsx` | Ask Ezzymigo chat, supporting memory cards, and suggested actions |
-| `/src/components/InputSection.tsx` | Tell Ezzymigo capture interface |
-| `/src/components/MemoryCard.tsx` | Individual intention memory card component |
-| `/src/utils/userPreferences.ts` | Localisation and timezone configuration helpers |
-| `/src/utils/pushManager.ts` | Web Push subscription manager |
-| `/public/sw.js` | Service worker for push notification delivery |
-| `/server.ts` | Express backend, Gemini API integration, Firestore operations, Calendar API |
-| `/dist/` | Production build output (`server.cjs`, `assets/`, `index.html`) |
+### Route: `GET /api/health`
+* **Implementation**: Explicit route in `server.ts` positioned before Vite/SPA catch-all middleware. Returns `application/json` with HTTP 200 (healthy) or HTTP 503 (unhealthy).
+* **Checks Included**:
+  1. `checks.database`: Executes `SELECT 1 as health_check;` against Bunny DB, measuring roundtrip latency (`latency_ms`). Returns `status: "ok"` on success, or `status: "error"` with HTTP 503 on database query failure.
+  2. `checks.gemini_config`: Verifies `process.env.GEMINI_API_KEY` is present and non-empty (`configured: true`).
+
+> ⚠️ **Health Endpoint Qualification**:
+> * The **healthy database path** (HTTP 200, JSON response, latency reporting) was **live-verified against Bunny DB**.
+> * The **database failure / 503 path** was verified by **code inspection and structural logic review**, NOT live fault injection.
+> * `gemini_config.status: ok` means **only** that `GEMINI_API_KEY` is configured/present in the environment. It does **NOT** prove the key is valid or that the Gemini upstream API is reachable. No paid generation requests are made on health checks.
+
+---
+
+## 5. Testing & Verification Baseline
+
+* **Ask Parity Harness (`scripts/test-ask-parity.ts`)**:
+  * Evaluates 12 core query archetypes + database immutability audit across live `/api/ask` and Bunny DB.
+  * **Collision-Proof Fixtures**: Uses reserved fixture identities (`ZzTestFixturePlumberAlpha`, `ZzTestFixtureMechanicBeta`) inserted via direct raw SQL to prevent singular-role supersession against genuine user data.
+  * **Deterministic Teardown**: Guaranteed fixture cleanup in `finally` block targeting exact test IDs.
+  * **Verified Live Baseline**: **13 / 13 PASSED (100%)** on 31 August 2026.
+  * **Safety Audit**: Post-run verification confirmed 0 leftover test fixtures, and all 22 pre-existing real relationship rows remained **100% unchanged field-for-field**.
+
+---
+
+## 6. Known Architectural & Scalability Limitations
+
+1. **Full-Table In-Memory Loading**: `/api/ask` currently reads entire tables (`readMemories()`, `readCalendarEvents()`) from Bunny DB over HTTP before DCR filtering occurs in Node. While efficient for current dataset sizes (<1,000 items), database-level SQL filtering and indexing are needed for long-term multi-thousand record scalability.
+2. **Single Database Environment**: No separate development/staging/production database instances exist; all tests and application sessions share the single configured Bunny DB.
+3. **Browser-Memory Calendar Tokens**: Google OAuth access tokens reside only in browser client memory. There is no server-side offline refresh-token store or background daemon synchronization.
+4. **Rolling Calendar Window**: Calendar sync covers -2 to +60 days; historical multi-year event retrieval requires manual pagination or explicit archive sync.
+5. **DCR & TODAY Module Size**: `server/retrieval/dcr.ts` and `server/today/relevance.ts` contain dense heuristic scoring blocks that would benefit from modular decomposition.
+6. **Gemini Rate & Cost Guard**: Current endpoints lack token-bucket rate limiting or per-user cost caps.
+
+---
+
+## 7. Rescue & Implementation Phase Status
+
+* **Phase 0 (Safety & Health Baseline)**: ✅ **COMPLETE** (Ask test fixture collision-proofing verified live; genuine `/api/health` endpoint implemented and verified).
+* **Phase 1 (Authoritative Checkpoint)**: ✅ **COMPLETE** (This document).
+* **Phase 2+ (Architecture, Portability & Functional Enhancements)**: 🛑 **NOT IMPLEMENTED** (Strictly frozen pending explicit authorization).

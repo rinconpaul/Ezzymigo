@@ -45,6 +45,8 @@ import {
 import {
   normalizeRoleName,
   readActiveRelationships,
+  getActiveRelationshipByRole,
+  getActiveRelationshipByPerson,
   saveUserEntity,
   saveRelationships,
   backfillStoredRelationships,
@@ -66,6 +68,8 @@ import {
   DynamicRetrievalResult,
   RequestedTimeWindow,
 } from './server/retrieval/dcr';
+import { executeNativeRetrievalPipeline } from './server/retrieval/native_search';
+import { executeArchitectureDRetrieval } from './server/retrieval/architecture_d';
 import {
   initVapidKeys,
   dispatchDueReminders,
@@ -82,6 +86,8 @@ import {
 } from './server/db/memories';
 import {
   readCalendarEvents,
+  queryCalendarEvents,
+  retrieveTargetedCalendarEvents,
   upsertCalendarEvents,
   deleteCalendarEventFromDb,
 } from './server/calendar/store';
@@ -92,6 +98,53 @@ import {
 
 // Start background push dispatcher interval
 startReminderDispatcherInterval(10000);
+
+// -------------------------------------------------------------
+// HEALTH CHECK API ENDPOINT
+// -------------------------------------------------------------
+app.get('/api/health', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const checks: {
+    database: { status: 'ok' | 'error'; latency_ms?: number; message?: string };
+    gemini_config: { status: 'ok' | 'error'; configured: boolean };
+  } = {
+    database: { status: 'error' },
+    gemini_config: { status: 'error', configured: false },
+  };
+
+  // 1. Check Gemini configuration without performing paid LLM generation
+  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+  checks.gemini_config = {
+    status: hasGeminiKey ? 'ok' : 'error',
+    configured: hasGeminiKey,
+  };
+
+  // 2. Check Bunny Database connectivity with minimal query
+  const startDbTime = Date.now();
+  try {
+    const dbResult = await executeBunnySql([{ sql: 'SELECT 1 as health_check;' }]);
+    const latency = Date.now() - startDbTime;
+    if (dbResult && dbResult.length > 0 && dbResult[0]?.rows?.[0]?.health_check !== undefined) {
+      checks.database = { status: 'ok', latency_ms: latency };
+    } else {
+      checks.database = { status: 'error', message: 'Unexpected query response from database' };
+    }
+  } catch (err: any) {
+    checks.database = {
+      status: 'error',
+      message: 'Database query failed',
+    };
+  }
+
+  const isHealthy = checks.database.status === 'ok' && checks.gemini_config.status === 'ok';
+  const statusCode = isHealthy ? 200 : 503;
+
+  return res.status(statusCode).json({
+    status: isHealthy ? 'ok' : 'error',
+    timestamp,
+    checks,
+  });
+});
 
 // -------------------------------------------------------------
 // PUSH NOTIFICATION API ENDPOINTS
@@ -1080,8 +1133,6 @@ app.post('/api/ask', async (req, res) => {
     const trimmedQuestion = question.trim();
     console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
-    const memories = await readMemories();
-    const calendarEvents = await readCalendarEvents();
     const activeRelationships = await readActiveRelationships();
 
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
@@ -1109,6 +1160,19 @@ app.post('/api/ask', async (req, res) => {
 
     const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
 
+    // Targeted SQL retrieval for Calendar events (Step 2.1)
+    const targetedCalendar = await retrieveTargetedCalendarEvents({
+      question: trimmedQuestion,
+      referenceDate: localContext.referenceDate,
+      timeZone: localContext.timeZone,
+      resolvedEntities,
+      activeRelationships,
+    });
+    const calendarEvents = targetedCalendar.events;
+    console.log(`[Targeted Calendar Retrieval] Strategy: "${targetedCalendar.queryStrategy}", Loaded: ${calendarEvents.length} events (Targeted: ${targetedCalendar.usedTargetedPath})`);
+
+    const memories = await readMemories();
+
     // Run Context Builder Stage (DYNAMIC CONTEXT RETRIEVAL v1)
     const dynamicRetrieval = buildDynamicRetrievalContext(
       trimmedQuestion,
@@ -1118,8 +1182,47 @@ app.post('/api/ask', async (req, res) => {
       localContext
     );
 
+    // Rollback / Fallback safety net for Step 2.1: If targeted calendar returned 0 candidates for a calendar query, check full table
+    if (dynamicRetrieval.candidateCalendarEvents.length === 0 && targetedCalendar.usedTargetedPath) {
+      const isCalQuery = /\b(?:calendar|schedule|appointments?|meetings?|agenda|dr|doctor|dentist|physio)\b/i.test(trimmedQuestion);
+      if (isCalQuery) {
+        const fullCalendar = await readCalendarEvents();
+        if (fullCalendar.length > calendarEvents.length) {
+          const fallbackRetrieval = buildDynamicRetrievalContext(
+            trimmedQuestion,
+            memories,
+            fullCalendar,
+            activeRelationships,
+            localContext
+          );
+          if (fallbackRetrieval.candidateCalendarEvents.length > 0) {
+            console.log(`[Targeted Calendar Fallback] Activated full table fallback for: "${trimmedQuestion}"`);
+            dynamicRetrieval.candidateCalendarEvents = fallbackRetrieval.candidateCalendarEvents;
+          }
+        }
+      }
+    }
+
     const { candidateMemories, candidateCalendarEvents, retrievalMetadata } = dynamicRetrieval;
     console.log(`[Dynamic Retrieval v1] Built focused candidate set: ${candidateMemories.length}/${memories.length} memories, ${candidateCalendarEvents.length}/${calendarEvents.length} calendar events. Anchors: people=[${retrievalMetadata.resolvedPeople.join(', ')}], roles=[${retrievalMetadata.resolvedRoles.join(', ')}], places=[${retrievalMetadata.detectedPlaces.join(', ')}], topics=[${retrievalMetadata.topicsAndKeywords.join(', ')}], temporal=[${retrievalMetadata.temporalAnchors.months.concat(retrievalMetadata.temporalAnchors.relativeExpressions).join(', ')}]`);
+
+    // -------------------------------------------------------------
+    // SHADOW ARCHITECTURE D & NATIVE RETRIEVAL (Step 2.2B)
+    // Non-blocking shadow execution for diagnostic comparison only.
+    // Legacy DCR candidateMemories remains strictly authoritative for prompt synthesis.
+    // -------------------------------------------------------------
+    try {
+      const archDResult = await executeArchitectureDRetrieval({
+        question: trimmedQuestion,
+        nowIso: localContext.referenceDate.toISOString(),
+        activeRoleLabels: activeRelationships.map(r => r.role),
+        legacyCandidateIds: candidateMemories.map(m => m.id),
+      });
+      const ad = archDResult.shadowTelemetry;
+      console.log(`[Architecture D Shadow Telemetry] Query: "${trimmedQuestion}" (${ad.query_language_script}) | Route: ${ad.route_taken} | Top: ${ad.top_candidate_id} (Sim: ${ad.top_cosine_similarity?.toFixed(4) ?? 'N/A'}) | Ambiguity Rescue: ${ad.ambiguity_rescue_triggered ? `YES (${ad.ambiguity_rescue_reason})` : 'NO'} | Counts: Legacy=${ad.legacy_ids.length}, ArchD=${ad.architecture_d_ids.length}, Inter=${ad.intersection_ids.length}, LegacyOnly=${ad.legacy_only_ids.length}, ArchDOnly=${ad.architecture_d_only_ids.length} | Latency: Total=${ad.timings.total_architecture_d_ms}ms (Embed=${ad.timings.embedding_api_ms}ms, VecSQL=${ad.timings.vector_sql_ms}ms, Arb=${ad.timings.arbitration_ms}ms, Rescue=${ad.timings.ambiguity_rescue_ms}ms, Hydrate=${ad.timings.hydration_ms}ms)`);
+    } catch (shadowErr) {
+      console.warn('[Architecture D Shadow Non-Fatal Error]:', shadowErr);
+    }
 
     if (!ai) {
       const qLower = trimmedQuestion.toLowerCase();

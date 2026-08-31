@@ -3,6 +3,8 @@ import { initBunnyDb } from './schema';
 import { parseReminderTriggerTime } from '../utils/time';
 import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
 import { saveRelationships } from '../relationships/index';
+import { extractSearchDoc, getSearchSyncStatements, getSearchDeleteStatements } from './search_sync';
+import { buildMemoryDocumentString, syncMemoryVector, deleteMemoryVector } from '../retrieval/vector_service';
 
 // Helper to parse stored topics and retrieval metadata
 export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackKind: string) {
@@ -270,6 +272,10 @@ export async function insertMemories(items: any[]): Promise<void> {
       ]
     });
 
+    // Synchronize derived search structures (memories_fts & memory_search_projection)
+    const searchDoc = extractSearchDoc(item);
+    stmts.push(...getSearchSyncStatements(searchDoc));
+
     // Check if memory has a scheduled reminder timestamp (Action's own timing ONLY)
     let remindAt: string | null = null;
     const isAmbiguous = item.interpretation?.temporal_ambiguity?.isAmbiguous ||
@@ -312,6 +318,14 @@ export async function insertMemories(items: any[]): Promise<void> {
 
   await executeBunnySql([...stmts, ...reminderStmts]);
 
+  // Synchronize vectors asynchronously in the background (non-blocking for Tell write)
+  for (const item of items) {
+    const docText = buildMemoryDocumentString(item);
+    syncMemoryVector(item.id, docText).catch(err => {
+      console.warn(`[Vector Sync] Non-fatal error syncing vector for ${item.id}:`, err);
+    });
+  }
+
   if (relationshipsToSave.length > 0) {
     await saveRelationships(relationshipsToSave);
   }
@@ -333,10 +347,16 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
   const newIsDone = Number(row.isDone) ? 0 : 1;
   const newStatus = newIsDone ? 'done' : 'active';
 
-  await executeBunnySql([{
-    sql: 'UPDATE memories SET isDone = ?, status = ? WHERE id = ?;',
-    args: [newIsDone, newStatus, id]
-  }]);
+  await executeBunnySql([
+    {
+      sql: 'UPDATE memories SET isDone = ?, status = ? WHERE id = ?;',
+      args: [newIsDone, newStatus, id]
+    },
+    {
+      sql: 'UPDATE memory_search_projection SET status = ? WHERE memory_id = ?;',
+      args: [newStatus, id]
+    }
+  ]);
 
   const meta = parseStoredTopicsAndMetadata(row.topics, row.kind);
   const timeMeta = parseStoredResurfacing(row.resurfacingTiming, row.resurfacingMode);
@@ -447,7 +467,25 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     {
       sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ?;',
       args: [id]
-    }
+    },
+    // Synchronize derived search structures (memories_fts & memory_search_projection)
+    ...getSearchSyncStatements(extractSearchDoc({
+      id,
+      originalText: updatedOriginalText,
+      createdAt: row.createdAt,
+      isDone: row.isDone,
+      interpretation: {
+        content: updatedInterpretation.content,
+        kind: updatedInterpretation.kind,
+        status: currentStatus,
+        people: updatedInterpretation.people || [],
+        places: updatedInterpretation.places || [],
+        topics: metaTopicsObj.topics,
+        retrieval_cues: metaTopicsObj.retrieval_cues,
+        items: metaTopicsObj.items,
+        subject: metaTopicsObj.subject,
+      }
+    }))
   ];
 
   // Re-schedule reminder if new interpretation has a reminder timestamp (Action's own timing ONLY)
@@ -487,6 +525,19 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   }
 
   await executeBunnySql(stmts);
+
+  // Synchronize vector asynchronously on update
+  const updatedDocText = buildMemoryDocumentString({
+    id,
+    content: updatedInterpretation.content,
+    people: updatedInterpretation.people,
+    places: updatedInterpretation.places,
+    topics: metaTopicsObj.topics,
+    retrieval_cues: metaTopicsObj.retrieval_cues,
+  });
+  syncMemoryVector(id, updatedDocText).catch(err => {
+    console.warn(`[Vector Sync] Non-fatal error updating vector for ${id}:`, err);
+  });
 
   if (itemRelationships.length > 0) {
     await saveRelationships(itemRelationships);
@@ -537,8 +588,12 @@ export async function deleteMemoryFromDb(id: string): Promise<void> {
     {
       sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ?;',
       args: [id]
-    }
+    },
+    ...getSearchDeleteStatements(id)
   ]);
+  deleteMemoryVector(id).catch(err => {
+    console.warn(`[Vector Delete] Non-fatal error deleting vector for ${id}:`, err);
+  });
 }
 
 // One-time cleanup for split sibling records whose originalText contains unrelated composite clauses
