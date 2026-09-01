@@ -991,11 +991,27 @@ export function evaluateMemoryTodayLifecycle(
     };
   }
 
-  const startDate = new Date(localContext.referenceDate);
-  startDate.setHours(startHour, startMin, 0, 0);
+  const offset = localContext.offsetStr || '+00:00';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startIso = `${clientTodayYMD}T${pad(startHour)}:${pad(startMin)}:00${offset}`;
+  const startDate = new Date(startIso);
 
-  const endDate = new Date(localContext.referenceDate);
-  endDate.setHours(endHour, endMin, 0, 0);
+  let endDate: Date;
+  if (endHour < 24) {
+    const endIso = `${clientTodayYMD}T${pad(endHour)}:${pad(endMin)}:00${offset}`;
+    const parsedEnd = new Date(endIso);
+    if (!isNaN(parsedEnd.getTime()) && parsedEnd.getTime() > startDate.getTime()) {
+      endDate = parsedEnd;
+    } else {
+      endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    }
+  } else {
+    // Rolls over midnight
+    const durationHours = endHour - startHour;
+    const durationMin = endMin - startMin;
+    const totalMs = Math.max(30 * 60 * 1000, (durationHours * 60 + durationMin) * 60 * 1000);
+    endDate = new Date(startDate.getTime() + totalMs);
+  }
 
   const startMs = startDate.getTime();
   const endMs = endDate.getTime();
