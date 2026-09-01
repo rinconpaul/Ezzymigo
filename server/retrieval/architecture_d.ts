@@ -11,6 +11,10 @@ export const PROVISIONAL_DISTRACTOR_DROP_SIMILARITY = 0.55;
 export const PROVISIONAL_SIBLING_BAND_SIMILARITY = 0.60;
 export const PROVISIONAL_LEXICAL_WEIGHT = 0.05;
 
+// Stage 1 Qualified Lexical Filtering & Contradictory-Signal Composite Arbitration Flag & Boundary
+export const ENABLE_STAGE_1_QUALIFIED_ARBITRATION = true;
+export const PROVISIONAL_CONTRADICTORY_DELTA_BOUNDARY = 0.0250;
+
 export interface ArchitectureDTelemetry {
   query: string;
   query_language_script: string;
@@ -267,10 +271,18 @@ export async function executeArchitectureDRetrieval(options: {
         const scoredPool = candidateDocList.map(cand => {
           const lexInfo = lexicalResults.get(cand.id);
           const uniqueTokens = lexInfo?.uniqueTokens || [];
+          const qualifiedUniqueTokens = lexInfo?.qualifiedUniqueTokens || [];
+          const rejectedUniqueTokens = lexInfo?.rejectedUniqueTokens || [];
           const matchedTokens = lexInfo?.matchedTokens || [];
-          telemetry.lexical_unique_anchors[cand.id] = uniqueTokens;
+          
+          telemetry.lexical_unique_anchors[cand.id] = ENABLE_STAGE_1_QUALIFIED_ARBITRATION 
+            ? qualifiedUniqueTokens 
+            : uniqueTokens;
 
-          const uCount = uniqueTokens.length;
+          const uCount = ENABLE_STAGE_1_QUALIFIED_ARBITRATION
+            ? qualifiedUniqueTokens.length
+            : uniqueTokens.length;
+
           const composite = cand.cosine_sim + (PROVISIONAL_LEXICAL_WEIGHT * uCount);
           telemetry.composite_scores[cand.id] = composite;
 
@@ -279,6 +291,8 @@ export async function executeArchitectureDRetrieval(options: {
             text: cand.text,
             cosine_sim: cand.cosine_sim,
             unique_anchors: uniqueTokens,
+            qualified_anchors: qualifiedUniqueTokens,
+            rejected_anchors: rejectedUniqueTokens,
             matched_anchors: matchedTokens,
             composite_score: composite,
           };
@@ -296,18 +310,27 @@ export async function executeArchitectureDRetrieval(options: {
         let needsRescue = false;
         let rescueReason = '';
 
+        const top1Anchors = ENABLE_STAGE_1_QUALIFIED_ARBITRATION ? top1.qualified_anchors : top1.unique_anchors;
+        const top2Anchors = ENABLE_STAGE_1_QUALIFIED_ARBITRATION ? top2.qualified_anchors : top2.unique_anchors;
+
         // Case 3: Zero unique lexical anchors in both and weak vector separation
-        if (top1.unique_anchors.length === 0 && top2.unique_anchors.length === 0 && deltaVector < 0.05) {
+        if (top1Anchors.length === 0 && top2Anchors.length === 0 && Math.abs(deltaVector) < 0.05) {
           needsRescue = true;
           rescueReason = 'ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION';
         }
-        // Case 4: Contradictory Signals (Vector winner has lower lexical score vs competitor with strong lexical)
-        else if (top2.cosine_sim > top1.cosine_sim && top1.unique_anchors.length > top2.unique_anchors.length) {
-          needsRescue = true;
-          rescueReason = 'CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS';
+        // Case 4: Contradictory Signals (Vector winner has lower composite score vs competitor with strong lexical)
+        else if (top2.cosine_sim > top1.cosine_sim && top1Anchors.length > top2Anchors.length) {
+          const rawVectorDelta = top2.cosine_sim - top1.cosine_sim;
+          if (ENABLE_STAGE_1_QUALIFIED_ARBITRATION && rawVectorDelta <= PROVISIONAL_CONTRADICTORY_DELTA_BOUNDARY && top1Anchors.length > 0) {
+            // Stage 1 Qualified Lexical Override: Qualified substantive lexical anchor defeats marginal vector delta (<= 0.0250)
+            needsRescue = false;
+          } else {
+            needsRescue = true;
+            rescueReason = 'CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS';
+          }
         }
         // Case 1: Exact tie on both vector and lexical
-        else if (Math.abs(deltaVector) < 0.01 && top1.unique_anchors.length === top2.unique_anchors.length) {
+        else if (Math.abs(deltaVector) < 0.01 && top1Anchors.length === top2Anchors.length) {
           needsRescue = true;
           rescueReason = 'EXACT_VECTOR_AND_LEXICAL_TIE';
         }

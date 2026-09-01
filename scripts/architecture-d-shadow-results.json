@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-31T20:08:35.749Z",
+  "timestamp": "2026-08-31T21:11:27.637Z",
   "summary": {
     "total": 22,
     "passed": 22,
@@ -8,39 +8,39 @@
   },
   "latencyStats": {
     "embedding": {
-      "mean": 430,
-      "min": 387,
-      "max": 480,
+      "mean": 420,
+      "min": 382,
+      "max": 462,
       "count": 22
     },
     "vectorSql": {
-      "mean": 727,
-      "min": 694,
-      "max": 809,
+      "mean": 721,
+      "min": 690,
+      "max": 750,
       "count": 22
     },
     "arbitration": {
-      "mean": 530,
+      "mean": 515,
       "min": 0,
-      "max": 925,
+      "max": 909,
       "count": 22
     },
     "ambiguityRescue": {
-      "mean": 187,
-      "min": 177,
+      "mean": 183,
+      "min": 175,
       "max": 197,
-      "count": 4
+      "count": 3
     },
     "hydration": {
       "mean": 658,
       "min": 0,
-      "max": 785,
+      "max": 762,
       "count": 22
     },
     "total": {
-      "mean": 3340,
-      "min": 2132,
-      "max": 3800,
+      "mean": 3337,
+      "min": 2163,
+      "max": 3848,
       "count": 22
     }
   },
@@ -78,13 +78,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 443,
-        "vector_sql_ms": 736,
-        "exact_and_fts_sql_ms": 2189,
-        "arbitration_ms": 722,
+        "embedding_api_ms": 417,
+        "vector_sql_ms": 749,
+        "exact_and_fts_sql_ms": 2187,
+        "arbitration_ms": 719,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 726,
-        "total_architecture_d_ms": 3652
+        "hydration_ms": 722,
+        "total_architecture_d_ms": 3641
       },
       "retrievedIds": [
         "test_shadow_archd_en_key"
@@ -129,13 +129,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 424,
-        "vector_sql_ms": 718,
-        "exact_and_fts_sql_ms": 2131,
-        "arbitration_ms": 717,
+        "embedding_api_ms": 418,
+        "vector_sql_ms": 741,
+        "exact_and_fts_sql_ms": 2168,
+        "arbitration_ms": 725,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 741,
-        "total_architecture_d_ms": 3589
+        "hydration_ms": 740,
+        "total_architecture_d_ms": 3633
       },
       "retrievedIds": [
         "test_shadow_archd_fr_garage"
@@ -181,13 +181,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 439,
-        "vector_sql_ms": 755,
-        "exact_and_fts_sql_ms": 2185,
-        "arbitration_ms": 718,
+        "embedding_api_ms": 426,
+        "vector_sql_ms": 690,
+        "exact_and_fts_sql_ms": 2237,
+        "arbitration_ms": 719,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 747,
-        "total_architecture_d_ms": 3651
+        "hydration_ms": 697,
+        "total_architecture_d_ms": 3654
       },
       "retrievedIds": [
         "test_shadow_archd_es_passport"
@@ -213,13 +213,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 429,
-        "vector_sql_ms": 715,
-        "exact_and_fts_sql_ms": 2173,
+        "embedding_api_ms": 409,
+        "vector_sql_ms": 717,
+        "exact_and_fts_sql_ms": 2171,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 716,
-        "total_architecture_d_ms": 2889
+        "hydration_ms": 697,
+        "total_architecture_d_ms": 2868
       },
       "retrievedIds": [
         "test_shadow_archd_de_lease"
@@ -245,13 +245,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 408,
-        "vector_sql_ms": 748,
-        "exact_and_fts_sql_ms": 2141,
+        "embedding_api_ms": 436,
+        "vector_sql_ms": 692,
+        "exact_and_fts_sql_ms": 2151,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 689,
-        "total_architecture_d_ms": 2832
+        "hydration_ms": 743,
+        "total_architecture_d_ms": 2895
       },
       "retrievedIds": [
         "test_shadow_archd_ja_hotel"
@@ -292,13 +292,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 451,
-        "vector_sql_ms": 694,
-        "exact_and_fts_sql_ms": 2152,
-        "arbitration_ms": 728,
+        "embedding_api_ms": 417,
+        "vector_sql_ms": 692,
+        "exact_and_fts_sql_ms": 2154,
+        "arbitration_ms": 718,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 747,
-        "total_architecture_d_ms": 3628
+        "hydration_ms": 736,
+        "total_architecture_d_ms": 3608
       },
       "retrievedIds": [
         "test_shadow_archd_ar_safe"
@@ -324,13 +324,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 426,
-        "vector_sql_ms": 719,
-        "exact_and_fts_sql_ms": 2152,
+        "embedding_api_ms": 432,
+        "vector_sql_ms": 722,
+        "exact_and_fts_sql_ms": 2134,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 710,
-        "total_architecture_d_ms": 2863
+        "hydration_ms": 722,
+        "total_architecture_d_ms": 2857
       },
       "retrievedIds": [
         "test_shadow_archd_fr_garage"
@@ -343,36 +343,30 @@
       "query": "Où se trouve le double des clés de la voiture ?",
       "passed": true,
       "failureReasons": [],
-      "route": "ambiguity_rescue",
-      "topCandidateId": "test_ask_mem_spare_key",
+      "route": "vector_lexical_sibling",
+      "topCandidateId": "test_shadow_archd_en_key",
       "topSimilarity": 0.6894083023071289,
       "topDistance": 0.3105916976928711,
-      "siblingBandCount": 3,
+      "siblingBandCount": 2,
       "compositeScores": {
-        "test_ask_mem_spare_key": 0.6894083023071289,
         "test_shadow_archd_en_key": 0.6894083023071289,
         "test_shadow_archd_ar_safe": 0.6132106781005859
       },
       "lexicalAnchors": {
-        "test_ask_mem_spare_key": [],
         "test_shadow_archd_en_key": [],
         "test_shadow_archd_ar_safe": []
       },
-      "ambiguityRescueTriggered": true,
-      "ambiguityRescueReason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
-      "ambiguityRescueOutput": {
-        "winningId": "test_ask_mem_spare_key",
-        "isAmbiguous": true,
-        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
-      },
+      "ambiguityRescueTriggered": false,
+      "ambiguityRescueReason": null,
+      "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 422,
-        "vector_sql_ms": 716,
-        "exact_and_fts_sql_ms": 2150,
-        "arbitration_ms": 920,
-        "ambiguity_rescue_ms": 177,
-        "hydration_ms": 709,
-        "total_architecture_d_ms": 3780
+        "embedding_api_ms": 395,
+        "vector_sql_ms": 750,
+        "exact_and_fts_sql_ms": 2097,
+        "arbitration_ms": 708,
+        "ambiguity_rescue_ms": 0,
+        "hydration_ms": 714,
+        "total_architecture_d_ms": 3520
       },
       "retrievedIds": [
         "test_shadow_archd_en_key"
@@ -398,13 +392,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 387,
-        "vector_sql_ms": 700,
-        "exact_and_fts_sql_ms": 2158,
+        "embedding_api_ms": 382,
+        "vector_sql_ms": 693,
+        "exact_and_fts_sql_ms": 2113,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 712,
-        "total_architecture_d_ms": 2871
+        "hydration_ms": 692,
+        "total_architecture_d_ms": 2805
       },
       "retrievedIds": [
         "test_shadow_archd_ja_hotel"
@@ -418,40 +412,41 @@
       "passed": true,
       "failureReasons": [],
       "route": "ambiguity_rescue",
-      "topCandidateId": "test_ask_mem_spare_key",
+      "topCandidateId": "test_shadow_archd_en_key",
       "topSimilarity": 0.7313748300075531,
       "topDistance": 0.2686251699924469,
       "siblingBandCount": 4,
       "compositeScores": {
-        "test_ask_mem_spare_key": 0.7313748300075531,
         "test_shadow_archd_en_key": 0.7313748300075531,
+        "test_ask_mem_spare_key": 0.7313748300075531,
         "test_shadow_archd_ar_safe": 0.6572933197021484,
         "mem_1787523423129_0_vtusg5e": 0.608254075050354
       },
       "lexicalAnchors": {
-        "test_ask_mem_spare_key": [],
         "test_shadow_archd_en_key": [],
+        "test_ask_mem_spare_key": [],
         "test_shadow_archd_ar_safe": [],
         "mem_1787523423129_0_vtusg5e": []
       },
       "ambiguityRescueTriggered": true,
       "ambiguityRescueReason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
       "ambiguityRescueOutput": {
-        "winningId": "test_ask_mem_spare_key",
+        "winningId": "test_shadow_archd_en_key",
         "isAmbiguous": true,
         "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
       },
       "timings": {
-        "embedding_api_ms": 425,
-        "vector_sql_ms": 746,
-        "exact_and_fts_sql_ms": 2103,
-        "arbitration_ms": 925,
-        "ambiguity_rescue_ms": 184,
-        "hydration_ms": 726,
-        "total_architecture_d_ms": 3755
+        "embedding_api_ms": 413,
+        "vector_sql_ms": 729,
+        "exact_and_fts_sql_ms": 2113,
+        "arbitration_ms": 891,
+        "ambiguity_rescue_ms": 175,
+        "hydration_ms": 715,
+        "total_architecture_d_ms": 3720
       },
       "retrievedIds": [
-        "test_shadow_archd_en_key"
+        "test_shadow_archd_en_key",
+        "test_ask_mem_spare_key"
       ],
       "shadowIsolationPassed": true
     },
@@ -484,13 +479,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 440,
-        "vector_sql_ms": 718,
-        "exact_and_fts_sql_ms": 2164,
-        "arbitration_ms": 717,
+        "embedding_api_ms": 422,
+        "vector_sql_ms": 697,
+        "exact_and_fts_sql_ms": 2142,
+        "arbitration_ms": 699,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 726,
-        "total_architecture_d_ms": 3607
+        "hydration_ms": 718,
+        "total_architecture_d_ms": 3560
       },
       "retrievedIds": [
         "test_shadow_archd_sibling_lucy_hr"
@@ -532,13 +527,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 435,
-        "vector_sql_ms": 723,
-        "exact_and_fts_sql_ms": 2125,
-        "arbitration_ms": 711,
+        "embedding_api_ms": 429,
+        "vector_sql_ms": 718,
+        "exact_and_fts_sql_ms": 2141,
+        "arbitration_ms": 698,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 730,
-        "total_architecture_d_ms": 3566
+        "hydration_ms": 735,
+        "total_architecture_d_ms": 3575
       },
       "retrievedIds": [
         "test_shadow_archd_sibling_lucy_ins"
@@ -592,13 +587,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 480,
-        "vector_sql_ms": 732,
-        "exact_and_fts_sql_ms": 2191,
-        "arbitration_ms": 712,
+        "embedding_api_ms": 408,
+        "vector_sql_ms": 705,
+        "exact_and_fts_sql_ms": 2183,
+        "arbitration_ms": 723,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 785,
-        "total_architecture_d_ms": 3688
+        "hydration_ms": 715,
+        "total_architecture_d_ms": 3621
       },
       "retrievedIds": [
         "test_shadow_archd_sibling_tanaka_sales"
@@ -634,12 +629,12 @@
       "ambiguityRescueOutput": null,
       "timings": {
         "embedding_api_ms": 445,
-        "vector_sql_ms": 735,
-        "exact_and_fts_sql_ms": 2142,
-        "arbitration_ms": 731,
+        "vector_sql_ms": 737,
+        "exact_and_fts_sql_ms": 2155,
+        "arbitration_ms": 819,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 707,
-        "total_architecture_d_ms": 3580
+        "hydration_ms": 700,
+        "total_architecture_d_ms": 3674
       },
       "retrievedIds": [
         "test_shadow_archd_sibling_tanaka_tech"
@@ -663,13 +658,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 440,
-        "vector_sql_ms": 708,
-        "exact_and_fts_sql_ms": 2127,
+        "embedding_api_ms": 439,
+        "vector_sql_ms": 721,
+        "exact_and_fts_sql_ms": 2166,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 732,
-        "total_architecture_d_ms": 2859
+        "hydration_ms": 725,
+        "total_architecture_d_ms": 2891
       },
       "retrievedIds": [
         "test_shadow_archd_subj_mum_sofa",
@@ -687,34 +682,34 @@
       "passed": true,
       "failureReasons": [],
       "route": "vector_lexical_sibling",
-      "topCandidateId": "test_ask_mem_spare_key",
+      "topCandidateId": "test_shadow_archd_en_key",
       "topSimilarity": 0.7267419695854187,
       "topDistance": 0.2732580304145813,
       "siblingBandCount": 3,
       "compositeScores": {
-        "test_ask_mem_spare_key": 0.7267419695854187,
         "test_shadow_archd_en_key": 0.8267419695854187,
+        "test_ask_mem_spare_key": 0.7267419695854187,
         "mem_1787523423129_0_vtusg5e": 0.6288267970085144
       },
       "lexicalAnchors": {
-        "test_ask_mem_spare_key": [],
         "test_shadow_archd_en_key": [
           "where",
           "key"
         ],
+        "test_ask_mem_spare_key": [],
         "mem_1787523423129_0_vtusg5e": []
       },
       "ambiguityRescueTriggered": false,
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 407,
-        "vector_sql_ms": 722,
-        "exact_and_fts_sql_ms": 2160,
-        "arbitration_ms": 738,
+        "embedding_api_ms": 418,
+        "vector_sql_ms": 739,
+        "exact_and_fts_sql_ms": 2162,
+        "arbitration_ms": 714,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 723,
-        "total_architecture_d_ms": 3621
+        "hydration_ms": 722,
+        "total_architecture_d_ms": 3599
       },
       "retrievedIds": [
         "test_shadow_archd_en_key"
@@ -754,13 +749,13 @@
         "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
       },
       "timings": {
-        "embedding_api_ms": 428,
-        "vector_sql_ms": 809,
-        "exact_and_fts_sql_ms": 2132,
-        "arbitration_ms": 894,
-        "ambiguity_rescue_ms": 197,
-        "hydration_ms": 722,
-        "total_architecture_d_ms": 3748
+        "embedding_api_ms": 405,
+        "vector_sql_ms": 715,
+        "exact_and_fts_sql_ms": 2234,
+        "arbitration_ms": 864,
+        "ambiguity_rescue_ms": 176,
+        "hydration_ms": 737,
+        "total_architecture_d_ms": 3835
       },
       "retrievedIds": [
         "test_shadow_archd_en_plumber"
@@ -800,13 +795,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 438,
-        "vector_sql_ms": 735,
-        "exact_and_fts_sql_ms": 2112,
-        "arbitration_ms": 748,
+        "embedding_api_ms": 398,
+        "vector_sql_ms": 726,
+        "exact_and_fts_sql_ms": 2158,
+        "arbitration_ms": 727,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 714,
-        "total_architecture_d_ms": 3575
+        "hydration_ms": 727,
+        "total_architecture_d_ms": 3612
       },
       "retrievedIds": [
         "test_shadow_archd_en_plumber"
@@ -845,13 +840,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 434,
-        "vector_sql_ms": 722,
-        "exact_and_fts_sql_ms": 2142,
-        "arbitration_ms": 765,
+        "embedding_api_ms": 420,
+        "vector_sql_ms": 745,
+        "exact_and_fts_sql_ms": 2208,
+        "arbitration_ms": 700,
         "ambiguity_rescue_ms": 0,
-        "hydration_ms": 702,
-        "total_architecture_d_ms": 3610
+        "hydration_ms": 746,
+        "total_architecture_d_ms": 3654
       },
       "retrievedIds": [],
       "shadowIsolationPassed": true
@@ -873,13 +868,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 424,
-        "vector_sql_ms": 708,
-        "exact_and_fts_sql_ms": 2131,
+        "embedding_api_ms": 408,
+        "vector_sql_ms": 718,
+        "exact_and_fts_sql_ms": 2185,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
         "hydration_ms": 0,
-        "total_architecture_d_ms": 2132
+        "total_architecture_d_ms": 2185
       },
       "retrievedIds": [],
       "shadowIsolationPassed": true
@@ -901,13 +896,13 @@
       "ambiguityRescueReason": null,
       "ambiguityRescueOutput": null,
       "timings": {
-        "embedding_api_ms": 428,
-        "vector_sql_ms": 716,
-        "exact_and_fts_sql_ms": 2174,
+        "embedding_api_ms": 435,
+        "vector_sql_ms": 743,
+        "exact_and_fts_sql_ms": 2162,
         "arbitration_ms": 0,
         "ambiguity_rescue_ms": 0,
         "hydration_ms": 0,
-        "total_architecture_d_ms": 2175
+        "total_architecture_d_ms": 2163
       },
       "retrievedIds": [],
       "shadowIsolationPassed": true
@@ -946,13 +941,13 @@
         "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
       },
       "timings": {
-        "embedding_api_ms": 406,
-        "vector_sql_ms": 715,
+        "embedding_api_ms": 462,
+        "vector_sql_ms": 721,
         "exact_and_fts_sql_ms": 2177,
-        "arbitration_ms": 905,
-        "ambiguity_rescue_ms": 190,
-        "hydration_ms": 717,
-        "total_architecture_d_ms": 3800
+        "arbitration_ms": 909,
+        "ambiguity_rescue_ms": 197,
+        "hydration_ms": 762,
+        "total_architecture_d_ms": 3848
       },
       "retrievedIds": [
         "mem_1787799864116_0_bf9dpob",

@@ -1,0 +1,1004 @@
+{
+  "corpus_meta": {
+    "name": "Ezzymigo Multilingual Torture Corpus — Phase 1 (Frozen Exam Paper)",
+    "version": "1.0",
+    "frozen": true,
+    "constructed_by": "Claude (independent, without inspecting Architecture D output)",
+    "purpose": "Ground-truth fixture corpus for later Gemini-executed Architecture D shadow torture harness. Ground truth was authored independently and must not be adjusted to match observed retrieval behavior.",
+    "languages_covered": ["en", "fr", "es", "de", "it", "ja", "zh", "ar"],
+    "total_same_language_fixtures": 54,
+    "total_cross_language_fixtures": 8,
+    "total_code_switch_fixtures": 4,
+    "total_fixtures": 66,
+    "negative_control_mutations": 5,
+    "expected_outcome_types": ["exact_single", "exact_set", "ambiguity", "zero_result"],
+    "notes": "All memory content, people, and events are synthetic. None derived from real user data. Memory IDs are prefixed syn_ or xl_ or cs_ to guarantee they cannot collide with genuine production records."
+  },
+  "fixtures": [
+    {
+      "test_id": "TC-EN-01",
+      "categories": ["same_language", "sibling_disambiguation"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_sarah_office", "text": "Sarah's office extension is 4471, use it for anything work related."},
+        {"memory_id": "syn_en_sarah_home", "text": "Sarah's home number is 0412 998 213, only call that after 6pm."}
+      ],
+      "query": "What's Sarah's number if I need to reach her about a work thing during the day?",
+      "required_memory_ids": ["syn_en_sarah_office"],
+      "forbidden_memory_ids": ["syn_en_sarah_home"],
+      "expected_outcome": "exact_single",
+      "rationale": "Query specifies work-related contact during business hours, matching the office context, not the after-hours home number."
+    },
+    {
+      "test_id": "TC-EN-02",
+      "categories": ["same_language", "role_mediated"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_electrician_role", "text": "James is our electrician."},
+        {"memory_id": "syn_en_electrician_note", "text": "He rewired the downstairs power board and said the old fuse box was a fire risk."}
+      ],
+      "query": "What did the electrician say about the fuse box?",
+      "required_memory_ids": ["syn_en_electrician_role", "syn_en_electrician_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('the electrician') must resolve to James via the relationship fact, then retrieve the substantive note about the fuse box."
+    },
+    {
+      "test_id": "TC-EN-03",
+      "categories": ["same_language", "messy_phrasing"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_bins", "text": "Put the recycling out Thursday night, rubbish truck comes stupid early Friday."}
+      ],
+      "query": "uh when do I need to like, put the bins out again",
+      "required_memory_ids": ["syn_en_bins"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Filler words and casual phrasing must not block retrieval of a clearly matching household reminder."
+    },
+    {
+      "test_id": "TC-EN-04",
+      "categories": ["same_language", "near_miss_zero_result"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_compost", "text": "Bought two bags of compost and a rake at Bunnings on Saturday."}
+      ],
+      "query": "Did I buy a hose at Bunnings?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_en_compost"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares entity (Bunnings) and action (buy) but the specific item (hose) was never stored; must not surface the compost/rake memory as if it answers a hose question."
+    },
+    {
+      "test_id": "TC-EN-05",
+      "categories": ["same_language", "true_zero_result"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [],
+      "query": "What's the boiling point of mercury?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "zero_result",
+      "rationale": "General knowledge trivia unrelated to any personal memory; must not hallucinate grounding."
+    },
+    {
+      "test_id": "TC-EN-06",
+      "categories": ["same_language", "genuine_ambiguity"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_tom_dentist", "text": "Tom said he can't make golf Sunday, he's got a dentist appointment."},
+        {"memory_id": "syn_en_tom_car", "text": "Tom mentioned his car's been making a weird noise, might need new brakes."}
+      ],
+      "query": "What did Tom say?",
+      "required_memory_ids": ["syn_en_tom_dentist", "syn_en_tom_car"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "ambiguity",
+      "rationale": "Query is fully unspecific about which conversation with Tom is meant; two unrelated valid memories exist and the system must not arbitrarily pick one."
+    },
+    {
+      "test_id": "TC-EN-07",
+      "categories": ["same_language", "currency_locale"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_quote", "text": "The roofer quoted $3,450.00 to replace the guttering, plus $180 call-out fee."}
+      ],
+      "query": "How much was the total roofing quote including the call-out?",
+      "required_memory_ids": ["syn_en_quote"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Tests retrieval plus correct number parsing across a thousands separator and decimal point."
+    },
+    {
+      "test_id": "TC-EN-08",
+      "categories": ["same_language", "dates_times"],
+      "memory_language": "en",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "syn_en_dentist_apt", "text": "Dentist checkup moved to next Wednesday at 9:15am."}
+      ],
+      "query": "When's my dentist thing now?",
+      "required_memory_ids": ["syn_en_dentist_apt"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Colloquial reference ('dentist thing') plus relative date resolution after a rescheduling event."
+    },
+    {
+      "test_id": "TC-FR-01",
+      "categories": ["same_language", "sibling_disambiguation"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_pierre_garage", "text": "Pierre du garage a dit que les plaquettes de frein sont à changer avant l'hiver."},
+        {"memory_id": "syn_fr_pierre_voisin", "text": "Pierre, notre voisin, a proposé de garder le chat pendant les vacances."}
+      ],
+      "query": "Qu'est-ce que Pierre a dit à propos de la voiture ?",
+      "required_memory_ids": ["syn_fr_pierre_garage"],
+      "forbidden_memory_ids": ["syn_fr_pierre_voisin"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two different Pierres share a first name; the query context (voiture/frein) disambiguates to the garage mechanic, not the neighbour."
+    },
+    {
+      "test_id": "TC-FR-02",
+      "categories": ["same_language", "role_mediated"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_dentiste_role", "text": "Le Dr Lefèvre est notre dentiste."},
+        {"memory_id": "syn_fr_dentiste_note", "text": "Il a dit qu'il fallait surveiller une dent de sagesse."}
+      ],
+      "query": "Qu'est-ce que le dentiste a dit ?",
+      "required_memory_ids": ["syn_fr_dentiste_role", "syn_fr_dentiste_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('le dentiste') must resolve to Dr Lefèvre before the substantive note is retrievable."
+    },
+    {
+      "test_id": "TC-FR-03",
+      "categories": ["same_language", "messy_phrasing"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_poubelle", "text": "Sortir les poubelles jaunes mercredi soir, ramassage jeudi matin très tôt."}
+      ],
+      "query": "euh c'est quand déjà qu'il faut sortir les poubelles",
+      "required_memory_ids": ["syn_fr_poubelle"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Hesitation and casual spoken French must not block retrieval."
+    },
+    {
+      "test_id": "TC-FR-04",
+      "categories": ["same_language", "near_miss_zero_result"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_compost", "text": "Acheté deux sacs de terreau et un râteau au magasin de bricolage samedi."}
+      ],
+      "query": "Est-ce que j'ai acheté un tuyau d'arrosage au magasin de bricolage ?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_fr_compost"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares the store entity but the specific item (garden hose) was never purchased/stored."
+    },
+    {
+      "test_id": "TC-FR-05",
+      "categories": ["same_language", "currency_locale"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_devis", "text": "Le plombier a donné un devis de 1 000,50 € pour refaire la salle de bain."}
+      ],
+      "query": "C'était combien le devis du plombier pour la salle de bain ?",
+      "required_memory_ids": ["syn_fr_devis"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "French locale number format (space thousands separator, comma decimal) must resolve to 1000.50 EUR, not be fragmented."
+    },
+    {
+      "test_id": "TC-FR-06",
+      "categories": ["same_language", "genuine_ambiguity"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_marie_conges", "text": "Marie a dit qu'elle prend ses congés en juillet cette année."},
+        {"memory_id": "syn_fr_marie_demenagement", "text": "Marie a mentionné qu'elle pense déménager l'année prochaine."}
+      ],
+      "query": "Qu'est-ce que Marie a dit ?",
+      "required_memory_ids": ["syn_fr_marie_conges", "syn_fr_marie_demenagement"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "ambiguity",
+      "rationale": "Fully unspecific query with two unrelated valid Marie memories; must not arbitrarily select one."
+    },
+    {
+      "test_id": "TC-FR-07",
+      "categories": ["same_language", "dates_times"],
+      "memory_language": "fr",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "syn_fr_rdv", "text": "Rendez-vous chez le médecin décalé à jeudi prochain 14h30."}
+      ],
+      "query": "C'est quand mon rendez-vous chez le médecin maintenant ?",
+      "required_memory_ids": ["syn_fr_rdv"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event."
+    },
+    {
+      "test_id": "TC-ES-01",
+      "categories": ["same_language", "sibling_disambiguation"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_carlos_primo", "text": "Mi primo Carlos dijo que puede ayudarme a mudar el sofá el sábado."},
+        {"memory_id": "syn_es_carlos_electricista", "text": "Carlos, el electricista, revisó el cuadro eléctrico y dijo que estaba todo bien."}
+      ],
+      "query": "¿Qué dijo Carlos sobre la instalación eléctrica?",
+      "required_memory_ids": ["syn_es_carlos_electricista"],
+      "forbidden_memory_ids": ["syn_es_carlos_primo"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two different Carlos memories exist; the electrical context disambiguates to the electrician, not the cousin."
+    },
+    {
+      "test_id": "TC-ES-02",
+      "categories": ["same_language", "role_mediated"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_fontanero_role", "text": "Miguel es nuestro fontanero de confianza."},
+        {"memory_id": "syn_es_fontanero_note", "text": "Dijo que había una fuga pequeña bajo el fregadero y que la arreglaría el martes."}
+      ],
+      "query": "¿Qué dijo el fontanero sobre la fuga?",
+      "required_memory_ids": ["syn_es_fontanero_role", "syn_es_fontanero_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('el fontanero') must resolve to Miguel before the leak note is retrievable."
+    },
+    {
+      "test_id": "TC-ES-03",
+      "categories": ["same_language", "messy_phrasing"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_basura", "text": "Sacar la basura orgánica los martes y jueves por la noche."}
+      ],
+      "query": "oye eh cuándo era que había que sacar la basura otra vez",
+      "required_memory_ids": ["syn_es_basura"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Casual, hesitant spoken Spanish must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-ES-04",
+      "categories": ["same_language", "near_miss_zero_result"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_pasaje", "text": "Compré los pasajes de tren a Sevilla para el puente de mayo."}
+      ],
+      "query": "¿Compré pasajes de avión a Sevilla?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_es_pasaje"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares destination and purchase action but the transport mode differs (avión vs the stored tren); must not conflate them."
+    },
+    {
+      "test_id": "TC-ES-05",
+      "categories": ["same_language", "currency_locale"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_presupuesto", "text": "El presupuesto de la reforma de la cocina quedó en 12.500,75 €."}
+      ],
+      "query": "¿Cuánto costó al final la reforma de la cocina?",
+      "required_memory_ids": ["syn_es_presupuesto"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Spanish locale number format (period thousands, comma decimal) must resolve to 12500.75 EUR."
+    },
+    {
+      "test_id": "TC-ES-06",
+      "categories": ["same_language", "genuine_ambiguity"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_ana_trabajo", "text": "Ana comentó que está pensando en cambiar de trabajo este año."},
+        {"memory_id": "syn_es_ana_viaje", "text": "Ana dijo que quiere viajar a Japón en primavera."}
+      ],
+      "query": "¿Qué comentó Ana?",
+      "required_memory_ids": ["syn_es_ana_trabajo", "syn_es_ana_viaje"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "ambiguity",
+      "rationale": "Fully unspecific query with two unrelated valid Ana memories; must not arbitrarily select one."
+    },
+    {
+      "test_id": "TC-ES-07",
+      "categories": ["same_language", "dates_times"],
+      "memory_language": "es",
+      "query_language": "es",
+      "memories": [
+        {"memory_id": "syn_es_cita", "text": "La cita con el dentista se cambió al jueves que viene a las 10 de la mañana."}
+      ],
+      "query": "¿Cuándo es ahora mi cita con el dentista?",
+      "required_memory_ids": ["syn_es_cita"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event."
+    },
+    {
+      "test_id": "TC-DE-01",
+      "categories": ["same_language", "sibling_disambiguation"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_weber_zahnarzt", "text": "Dr. Weber, unser Zahnarzt, sagte, der Weisheitszahn müsse beobachtet werden."},
+        {"memory_id": "syn_de_weber_nachbar", "text": "Herr Weber von nebenan hat angeboten, die Pflanzen während des Urlaubs zu gießen."}
+      ],
+      "query": "Was hat der Zahnarzt zum Weisheitszahn gesagt?",
+      "required_memory_ids": ["syn_de_weber_zahnarzt"],
+      "forbidden_memory_ids": ["syn_de_weber_nachbar"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two unrelated people share the surname Weber; the dentist context disambiguates to Dr. Weber, not the neighbour."
+    },
+    {
+      "test_id": "TC-DE-02",
+      "categories": ["same_language", "role_mediated"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_elektriker_role", "text": "Herr Fischer ist unser Elektriker."},
+        {"memory_id": "syn_de_elektriker_note", "text": "Er sagte, die alte Sicherung im Keller müsse dringend ersetzt werden."}
+      ],
+      "query": "Was hat der Elektriker über die Sicherung gesagt?",
+      "required_memory_ids": ["syn_de_elektriker_role", "syn_de_elektriker_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('der Elektriker') must resolve to Herr Fischer before the fuse note is retrievable."
+    },
+    {
+      "test_id": "TC-DE-03",
+      "categories": ["same_language", "messy_phrasing"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_muell", "text": "Gelber Sack kommt Mittwochabend raus, Abholung Donnerstag ganz früh."}
+      ],
+      "query": "ähm wann muss nochmal der gelbe Sack raus",
+      "required_memory_ids": ["syn_de_muell"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Hesitation filler must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-DE-04",
+      "categories": ["same_language", "near_miss_zero_result"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_kompost", "text": "Zwei Säcke Blumenerde und einen Rechen im Baumarkt gekauft."}
+      ],
+      "query": "Habe ich einen Gartenschlauch im Baumarkt gekauft?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_de_kompost"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares the store entity but the specific item (garden hose) was never purchased/stored."
+    },
+    {
+      "test_id": "TC-DE-05",
+      "categories": ["same_language", "currency_locale"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_angebot", "text": "Der Klempner hat ein Angebot über 1.250,00 € für die Badsanierung gemacht."}
+      ],
+      "query": "Wie viel hat der Klempner für die Badsanierung angeboten?",
+      "required_memory_ids": ["syn_de_angebot"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "German locale number format (period thousands, comma decimal) must resolve to 1250.00 EUR."
+    },
+    {
+      "test_id": "TC-DE-06",
+      "categories": ["same_language", "genuine_ambiguity"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_lena_urlaub", "text": "Lena hat erzählt, dass sie im August Urlaub in Italien macht."},
+        {"memory_id": "syn_de_lena_job", "text": "Lena hat erwähnt, dass sie über einen Jobwechsel nachdenkt."}
+      ],
+      "query": "Was hat Lena erzählt?",
+      "required_memory_ids": ["syn_de_lena_urlaub", "syn_de_lena_job"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "ambiguity",
+      "rationale": "Fully unspecific query with two unrelated valid Lena memories; must not arbitrarily select one."
+    },
+    {
+      "test_id": "TC-DE-07",
+      "categories": ["same_language", "dates_times"],
+      "memory_language": "de",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "syn_de_termin", "text": "Arzttermin wurde auf nächsten Donnerstag, 14:30 Uhr verschoben."}
+      ],
+      "query": "Wann ist jetzt mein Arzttermin?",
+      "required_memory_ids": ["syn_de_termin"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event."
+    },
+    {
+      "test_id": "TC-IT-01",
+      "categories": ["same_language", "sibling_disambiguation"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_marco_meccanico", "text": "Marco, il meccanico, ha detto che le pastiglie dei freni vanno cambiate."},
+        {"memory_id": "syn_it_marco_collega", "text": "Marco, il mio collega, ha detto che si prende due settimane di ferie ad agosto."}
+      ],
+      "query": "Cosa ha detto Marco a proposito dei freni?",
+      "required_memory_ids": ["syn_it_marco_meccanico"],
+      "forbidden_memory_ids": ["syn_it_marco_collega"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two unrelated people share the first name Marco; the brakes context disambiguates to the mechanic, not the colleague."
+    },
+    {
+      "test_id": "TC-IT-02",
+      "categories": ["same_language", "role_mediated"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_idraulico_role", "text": "Il signor Bruno è il nostro idraulico."},
+        {"memory_id": "syn_it_idraulico_note", "text": "Ha detto che c'è una piccola perdita sotto il lavandino da sistemare."}
+      ],
+      "query": "Cosa ha detto l'idraulico della perdita?",
+      "required_memory_ids": ["syn_it_idraulico_role", "syn_it_idraulico_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('l'idraulico') must resolve to Signor Bruno before the leak note is retrievable."
+    },
+    {
+      "test_id": "TC-IT-03",
+      "categories": ["same_language", "messy_phrasing"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_spazzatura", "text": "Portare fuori l'umido il martedì e il venerdì sera."}
+      ],
+      "query": "ah senti quando devo buttare fuori l'umido di nuovo",
+      "required_memory_ids": ["syn_it_spazzatura"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Casual conversational phrasing must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-IT-04",
+      "categories": ["same_language", "near_miss_zero_result"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_biglietti", "text": "Comprati i biglietti del treno per Firenze per il ponte di aprile."}
+      ],
+      "query": "Ho comprato i biglietti dell'aereo per Firenze?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_it_biglietti"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares destination and purchase action but the transport mode differs (aereo vs the stored treno)."
+    },
+    {
+      "test_id": "TC-IT-05",
+      "categories": ["same_language", "currency_locale"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_preventivo", "text": "Il preventivo per rifare il bagno è arrivato a 9.800,00 €."}
+      ],
+      "query": "A quanto è arrivato il preventivo per il bagno?",
+      "required_memory_ids": ["syn_it_preventivo"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Italian locale number format (period thousands, comma decimal) must resolve to 9800.00 EUR."
+    },
+    {
+      "test_id": "TC-IT-06",
+      "categories": ["same_language", "dates_times"],
+      "memory_language": "it",
+      "query_language": "it",
+      "memories": [
+        {"memory_id": "syn_it_appuntamento", "text": "Appuntamento dal dentista spostato a giovedì prossimo alle 9:15."}
+      ],
+      "query": "Quando ce l'ho ora l'appuntamento dal dentista?",
+      "required_memory_ids": ["syn_it_appuntamento"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event."
+    },
+    {
+      "test_id": "TC-JA-01",
+      "categories": ["same_language", "sibling_disambiguation", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_sato_shigoto", "text": "営業部の佐藤さんから、来月の契約更新について電話があった。"},
+        {"memory_id": "syn_ja_sato_kinjo", "text": "近所の佐藤さんが、旅行中に植木の水やりを手伝ってくれると言っていた。"}
+      ],
+      "query": "契約更新の件で佐藤さんは何と言っていましたか？",
+      "required_memory_ids": ["syn_ja_sato_shigoto"],
+      "forbidden_memory_ids": ["syn_ja_sato_kinjo"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two unrelated people share the surname Sato; the contract-renewal context disambiguates to the sales-department Sato, not the neighbour."
+    },
+    {
+      "test_id": "TC-JA-02",
+      "categories": ["same_language", "role_mediated", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_denki_role", "text": "山田さんはうちの電気工事の担当者だ。"},
+        {"memory_id": "syn_ja_denki_note", "text": "古いブレーカーは危ないので早めに交換した方がいいと言っていた。"}
+      ],
+      "query": "電気工事の人はブレーカーについて何と言っていましたか？",
+      "required_memory_ids": ["syn_ja_denki_role", "syn_ja_denki_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('電気工事の人') must resolve to Yamada-san before the breaker note is retrievable."
+    },
+    {
+      "test_id": "TC-JA-03",
+      "categories": ["same_language", "messy_phrasing", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_gomi", "text": "燃えるゴミは火曜と金曜の朝、資源ゴミは水曜の朝に出す。"}
+      ],
+      "query": "えっと、燃えるゴミっていつ出すんだっけ",
+      "required_memory_ids": ["syn_ja_gomi"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Casual filler-laden Japanese must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-JA-04",
+      "categories": ["same_language", "near_miss_zero_result", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_kaimono", "text": "ホームセンターで培養土と熊手を買った。"}
+      ],
+      "query": "ホームセンターでホースを買いましたか？",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_ja_kaimono"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares the store entity but the specific item (hose) was never purchased/stored."
+    },
+    {
+      "test_id": "TC-JA-05",
+      "categories": ["same_language", "currency_locale", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_mitsumori", "text": "水道修理の見積もりは45,000円だった。"}
+      ],
+      "query": "水道修理の見積もりはいくらでしたか？",
+      "required_memory_ids": ["syn_ja_mitsumori"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Tests Japanese yen figure retrieval with comma thousands separator and no decimal component."
+    },
+    {
+      "test_id": "TC-JA-06",
+      "categories": ["same_language", "genuine_ambiguity", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_yuki_ryoko", "text": "由紀さんが春に北海道へ旅行に行くと言っていた。"},
+        {"memory_id": "syn_ja_yuki_tenshoku", "text": "由紀さんが転職を考えていると言っていた。"}
+      ],
+      "query": "由紀さんは何と言っていましたか？",
+      "required_memory_ids": ["syn_ja_yuki_ryoko", "syn_ja_yuki_tenshoku"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "ambiguity",
+      "rationale": "Fully unspecific query with two unrelated valid Yuki memories; must not arbitrarily select one."
+    },
+    {
+      "test_id": "TC-JA-07",
+      "categories": ["same_language", "dates_times", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "syn_ja_yoyaku", "text": "歯医者の予約が来週木曜日の午前9時15分に変更になった。"}
+      ],
+      "query": "歯医者の予約は今いつになっていますか？",
+      "required_memory_ids": ["syn_ja_yoyaku"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event, in unspaced CJK script."
+    },
+    {
+      "test_id": "TC-ZH-01",
+      "categories": ["same_language", "sibling_disambiguation", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_li_jingli", "text": "销售部的李经理打电话说下个月的合同要续签。"},
+        {"memory_id": "syn_zh_li_linju", "text": "邻居老李说我们出门旅行的时候他可以帮忙浇花。"}
+      ],
+      "query": "关于合同续签，李经理说了什么？",
+      "required_memory_ids": ["syn_zh_li_jingli"],
+      "forbidden_memory_ids": ["syn_zh_li_linju"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two unrelated people share the surname Li; the contract-renewal context disambiguates to Manager Li, not the neighbour."
+    },
+    {
+      "test_id": "TC-ZH-02",
+      "categories": ["same_language", "role_mediated", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_shuidian_role", "text": "王师傅是我们家常用的水电工。"},
+        {"memory_id": "syn_zh_shuidian_note", "text": "他说厨房水槽下面有个小漏水，周二会来修。"}
+      ],
+      "query": "水电工说厨房漏水的事怎么样了？",
+      "required_memory_ids": ["syn_zh_shuidian_role", "syn_zh_shuidian_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('水电工') must resolve to Master Wang before the leak note is retrievable."
+    },
+    {
+      "test_id": "TC-ZH-03",
+      "categories": ["same_language", "messy_phrasing", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_laji", "text": "厨余垃圾周二和周五晚上拿出去扔。"}
+      ],
+      "query": "呃那个厨余垃圾是啥时候拿出去来着",
+      "required_memory_ids": ["syn_zh_laji"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Casual filler-laden Mandarin must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-ZH-04",
+      "categories": ["same_language", "near_miss_zero_result", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_goumai", "text": "在建材超市买了两袋营养土和一把耙子。"}
+      ],
+      "query": "我在建材超市买水管了吗？",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_zh_goumai"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares the store entity but the specific item (hose/pipe) was never purchased/stored."
+    },
+    {
+      "test_id": "TC-ZH-05",
+      "categories": ["same_language", "currency_locale", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_baojia", "text": "水管维修的报价是450元。"}
+      ],
+      "query": "水管维修报价多少钱？",
+      "required_memory_ids": ["syn_zh_baojia"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Simple RMB figure retrieval, no thousands separator required at this magnitude."
+    },
+    {
+      "test_id": "TC-ZH-06",
+      "categories": ["same_language", "dates_times", "non_latin_script"],
+      "memory_language": "zh",
+      "query_language": "zh",
+      "memories": [
+        {"memory_id": "syn_zh_yuyue", "text": "牙医预约改到了下周四早上九点十五分。"}
+      ],
+      "query": "牙医预约现在是什么时候？",
+      "required_memory_ids": ["syn_zh_yuyue"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event, in unspaced CJK script."
+    },
+    {
+      "test_id": "TC-AR-01",
+      "categories": ["same_language", "sibling_disambiguation", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_ahmed_kahraba", "text": "أحمد الكهربائي قال إن لوحة الكهرباء القديمة تحتاج إلى استبدال."},
+        {"memory_id": "syn_ar_ahmed_jar", "text": "أحمد الجار عرض مساعدتنا في سقي النباتات أثناء السفر."}
+      ],
+      "query": "ماذا قال أحمد عن لوحة الكهرباء؟",
+      "required_memory_ids": ["syn_ar_ahmed_kahraba"],
+      "forbidden_memory_ids": ["syn_ar_ahmed_jar"],
+      "expected_outcome": "exact_single",
+      "rationale": "Two unrelated people share the first name Ahmed; the electrical-panel context disambiguates to the electrician, not the neighbour."
+    },
+    {
+      "test_id": "TC-AR-02",
+      "categories": ["same_language", "role_mediated", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_sabbak_role", "text": "السيد خالد هو السباك الذي نتعامل معه."},
+        {"memory_id": "syn_ar_sabbak_note", "text": "قال إن هناك تسرب صغير تحت المغسلة وسيصلحه يوم الثلاثاء."}
+      ],
+      "query": "ماذا قال السباك عن التسرب؟",
+      "required_memory_ids": ["syn_ar_sabbak_role", "syn_ar_sabbak_note"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_set",
+      "rationale": "Role indirection ('السباك') must resolve to Mr Khaled before the leak note is retrievable."
+    },
+    {
+      "test_id": "TC-AR-03",
+      "categories": ["same_language", "messy_phrasing", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_qumama", "text": "القمامة العضوية تخرج يومي الثلاثاء والجمعة مساءً."}
+      ],
+      "query": "طيب متى بالضبط لازم أطلع القمامة العضوية",
+      "required_memory_ids": ["syn_ar_qumama"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Casual colloquial Arabic phrasing must not block retrieval of a clear household reminder."
+    },
+    {
+      "test_id": "TC-AR-04",
+      "categories": ["same_language", "near_miss_zero_result", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_shira", "text": "اشتريت كيسين من التربة ومجرفة من متجر الأدوات المنزلية."}
+      ],
+      "query": "هل اشتريت خرطوم مياه من متجر الأدوات المنزلية؟",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["syn_ar_shira"],
+      "expected_outcome": "zero_result",
+      "rationale": "Shares the store entity but the specific item (water hose) was never purchased/stored."
+    },
+    {
+      "test_id": "TC-AR-05",
+      "categories": ["same_language", "currency_locale", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_ijar", "text": "عرض السباك كان بقيمة ٤٥٠ ريال لإصلاح الحمام."}
+      ],
+      "query": "كم كان عرض السباك لإصلاح الحمام؟",
+      "required_memory_ids": ["syn_ar_ijar"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Uses Arabic-Indic numerals (٤٥٠) rather than Western digits; retrieval and figure extraction must handle both numeral systems."
+    },
+    {
+      "test_id": "TC-AR-06",
+      "categories": ["same_language", "dates_times", "non_latin_script", "rtl"],
+      "memory_language": "ar",
+      "query_language": "ar",
+      "memories": [
+        {"memory_id": "syn_ar_maweid", "text": "تم تأجيل موعد طبيب الأسنان إلى يوم الخميس القادم الساعة ٩:١٥ صباحاً."}
+      ],
+      "query": "متى موعد طبيب الأسنان الآن؟",
+      "required_memory_ids": ["syn_ar_maweid"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Relative-date resolution after a rescheduling event, RTL script with Arabic-Indic time numerals."
+    },
+    {
+      "test_id": "TC-XL-01",
+      "categories": ["cross_language"],
+      "memory_language": "fr",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "xl_fr_chaudiere", "text": "Le chauffagiste a dit que la chaudière doit être entretenue avant l'hiver, sinon la garantie saute."}
+      ],
+      "query": "What did the heating guy say about the boiler?",
+      "required_memory_ids": ["xl_fr_chaudiere"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Cross-language semantic match required: 'chauffagiste'/'heating guy' and 'chaudière'/'boiler' must map to the same concept without translation of the stored memory."
+    },
+    {
+      "test_id": "TC-XL-02",
+      "categories": ["cross_language", "non_latin_script"],
+      "memory_language": "en",
+      "query_language": "ja",
+      "memories": [
+        {"memory_id": "xl_en_locksmith", "text": "The locksmith said the back door lock needs replacing, it's been sticking for months."}
+      ],
+      "query": "裏口の鍵について鍵屋さんは何と言っていましたか？",
+      "required_memory_ids": ["xl_en_locksmith"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "An English memory must be retrievable by a natural Japanese question with no lexical overlap."
+    },
+    {
+      "test_id": "TC-XL-03",
+      "categories": ["cross_language"],
+      "memory_language": "es",
+      "query_language": "de",
+      "memories": [
+        {"memory_id": "xl_es_gato", "text": "El veterinario dijo que el gato necesita una vacuna de refuerzo el mes que viene."}
+      ],
+      "query": "Was hat der Tierarzt über die Katze gesagt?",
+      "required_memory_ids": ["xl_es_gato"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Spanish memory retrieved via a German query; tests cross-language retrieval between two non-English languages, not only via English."
+    },
+    {
+      "test_id": "TC-XL-04",
+      "categories": ["cross_language", "non_latin_script", "currency_locale"],
+      "memory_language": "ja",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "xl_ja_kuruma", "text": "車検の見積もりは38,000円で、来週火曜日に整備工場へ持っていく予定。"}
+      ],
+      "query": "How much was the car inspection quote?",
+      "required_memory_ids": ["xl_ja_kuruma"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Cross-language retrieval of a numeric figure (38,000 yen) out of a non-Latin-script memory via an English query."
+    },
+    {
+      "test_id": "TC-XL-05",
+      "categories": ["cross_language", "non_latin_script", "rtl", "dates_times"],
+      "memory_language": "ar",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "xl_ar_madrasa", "text": "قالت المعلمة إن اجتماع أولياء الأمور سيكون يوم الأربعاء القادم الساعة الرابعة عصراً."}
+      ],
+      "query": "When is the parent-teacher meeting now?",
+      "required_memory_ids": ["xl_ar_madrasa"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Cross-language, cross-script retrieval of a rescheduled-event date/time."
+    },
+    {
+      "test_id": "TC-XL-06",
+      "categories": ["cross_language", "non_latin_script", "currency_locale"],
+      "memory_language": "zh",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "xl_zh_baoxian", "text": "保险公司说车险续保的报价是每年3200元。"}
+      ],
+      "query": "How much is the car insurance renewal quote?",
+      "required_memory_ids": ["xl_zh_baoxian"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Cross-language retrieval of a Chinese-stored insurance quote via an English question."
+    },
+    {
+      "test_id": "TC-XL-07",
+      "categories": ["cross_language", "dates_times"],
+      "memory_language": "de",
+      "query_language": "fr",
+      "memories": [
+        {"memory_id": "xl_de_umzug", "text": "Der Umzugsfirma-Mitarbeiter sagte, der Umzugswagen kommt am Samstag um acht Uhr morgens."}
+      ],
+      "query": "À quelle heure arrive le camion de déménagement samedi ?",
+      "required_memory_ids": ["xl_de_umzug"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "German memory retrieved via a French query; tests cross-language retrieval between two non-English European languages."
+    },
+    {
+      "test_id": "TC-XL-08",
+      "categories": ["cross_language", "near_miss_zero_result"],
+      "memory_language": "it",
+      "query_language": "en",
+      "memories": [
+        {"memory_id": "xl_it_traslochi", "text": "L'azienda di traslochi ha detto che il camion arriva sabato alle otto di mattina."}
+      ],
+      "query": "What time does the moving truck arrive on Sunday?",
+      "required_memory_ids": [],
+      "forbidden_memory_ids": ["xl_it_traslochi"],
+      "expected_outcome": "zero_result",
+      "rationale": "Cross-language near-miss: shares topic (moving truck) and company but the stored memory says Saturday, not Sunday; the memory must not be presented as confidently answering a Sunday-arrival question. If a real system chooses to surface it as related-but-non-matching context, that is a separate design decision from being graded as a confident answer to this specific question — for strict grading purposes this fixture requires zero_result."
+    },
+    {
+      "test_id": "TC-CS-01",
+      "categories": ["code_switch"],
+      "memory_language": "es",
+      "query_language": "es-en-mixed",
+      "memories": [
+        {"memory_id": "cs_llave", "text": "Dejé la llave del coche en el cajón de la cocina, la de repuesto."}
+      ],
+      "query": "Where did I put la llave del coche?",
+      "required_memory_ids": ["cs_llave"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Query mixes English structure with an embedded Spanish noun phrase; retrieval must not fail simply because the query is not monolingual."
+    },
+    {
+      "test_id": "TC-CS-02",
+      "categories": ["code_switch", "non_latin_script"],
+      "memory_language": "ja",
+      "query_language": "ja-en-mixed",
+      "memories": [
+        {"memory_id": "cs_tanaka_contact", "text": "田中さんの新しい連絡先はkeitanaka@example.comとのこと。"}
+      ],
+      "query": "What's 田中さん's new contact info?",
+      "required_memory_ids": ["cs_tanaka_contact"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Query mixes English sentence structure with an embedded Japanese honorific name; retrieval must correctly anchor on the mixed-script entity."
+    },
+    {
+      "test_id": "TC-CS-03",
+      "categories": ["code_switch"],
+      "memory_language": "fr-en-mixed",
+      "query_language": "fr-en-mixed",
+      "memories": [
+        {"memory_id": "cs_rdv", "text": "Le rendez-vous avec l'avocat is confirmed pour lundi à 15h."}
+      ],
+      "query": "C'est quand mon lawyer rendez-vous déjà?",
+      "required_memory_ids": ["cs_rdv"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Both the stored memory and the query are internally code-switched between French and English; tests robustness when neither side is monolingual."
+    },
+    {
+      "test_id": "TC-CS-04",
+      "categories": ["code_switch", "non_latin_script", "rtl"],
+      "memory_language": "ar-en-mixed",
+      "query_language": "ar-en-mixed",
+      "memories": [
+        {"memory_id": "cs_ijtimaa", "text": "اجتماع الفريق تم تأجيله to next Monday at 10 صباحاً."}
+      ],
+      "query": "When is the team اجتماع now?",
+      "required_memory_ids": ["cs_ijtimaa"],
+      "forbidden_memory_ids": [],
+      "expected_outcome": "exact_single",
+      "rationale": "Both the stored memory and the query switch between Arabic and English mid-sentence, including RTL/LTR script mixing; tests tokenization robustness under direction-mixed text."
+    }
+  ],
+  "negative_control_mutations": [
+    {
+      "control_id": "NC-01",
+      "based_on": "TC-EN-01",
+      "mutation_type": "wrong_sibling_swap",
+      "mutation": "Change required_memory_ids from ['syn_en_sarah_office'] to ['syn_en_sarah_home'] while leaving the query and memories unchanged.",
+      "expected_harness_result": "FAIL",
+      "why": "The query explicitly asks about a work-hours contact; a correctly functioning Architecture D should retrieve the office number, not the home number. A harness that reports PASS against this mutated ground truth cannot be trusted."
+    },
+    {
+      "control_id": "NC-02",
+      "based_on": "TC-EN-05",
+      "mutation_type": "false_positive_injection",
+      "mutation": "Change required_memory_ids from [] to ['syn_en_bins'] (an unrelated household-reminder memory) while leaving the true-zero-result query about mercury's boiling point unchanged.",
+      "expected_harness_result": "FAIL",
+      "why": "No stored memory answers a mercury boiling-point trivia question. A harness that reports PASS here would indicate it cannot detect false grounding."
+    },
+    {
+      "control_id": "NC-03",
+      "based_on": "TC-FR-01",
+      "mutation_type": "required_forbidden_swap",
+      "mutation": "Swap required_memory_ids and forbidden_memory_ids, so the neighbour Pierre (syn_fr_pierre_voisin) becomes required and the garage Pierre (syn_fr_pierre_garage) becomes forbidden.",
+      "expected_harness_result": "FAIL",
+      "why": "The query is specifically about the car/brakes, which only the garage Pierre memory addresses. A harness that reports PASS against the swapped ground truth is not actually checking sibling disambiguation correctness."
+    },
+    {
+      "control_id": "NC-04",
+      "based_on": "TC-JA-06",
+      "mutation_type": "ambiguity_outcome_mismatch",
+      "mutation": "Change expected_outcome from 'ambiguity' to 'exact_single' and required_memory_ids from both Yuki memories to only ['syn_ja_yuki_ryoko'], despite the query giving no basis to prefer one over the other.",
+      "expected_harness_result": "FAIL",
+      "why": "A correctly functioning system facing a genuinely unspecific query about Yuki should not confidently commit to a single memory. If the harness reports PASS on this mutated fixture, it means the harness is not actually checking whether ambiguous cases are handled safely — it is simply accepting whatever came back."
+    },
+    {
+      "control_id": "NC-05",
+      "based_on": "TC-XL-04",
+      "mutation_type": "unrelated_id_substitution",
+      "mutation": "Change required_memory_ids from ['xl_ja_kuruma'] (the car inspection quote) to ['syn_ja_mitsumori'] (an unrelated water-repair quote from a different fixture), while leaving the car-inspection query unchanged.",
+      "expected_harness_result": "FAIL",
+      "why": "The two memories are topically unrelated (car inspection vs. plumbing repair) and belong to different fixtures. A harness that reports PASS here would indicate it is not genuinely comparing retrieved IDs against the specified ground truth."
+    }
+  ]
+}

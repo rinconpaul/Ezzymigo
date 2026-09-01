@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-09-01T00:06:03.306Z",
+  "summary": {
+    "total_attempted": 5,
+    "conclusive": 5,
+    "inconclusive": 0,
+    "detected": 5,
+    "missed": 0,
+    "results": [
+      {
+        "control_id": "NC-01",
+        "status": "DETECTED",
+        "defect": "MISSING_REQUIRED_ID"
+      },
+      {
+        "control_id": "NC-02",
+        "status": "DETECTED",
+        "defect": "MISSING_REQUIRED_ID"
+      },
+      {
+        "control_id": "NC-03",
+        "status": "DETECTED",
+        "defect": "FORBIDDEN_ID_LEAKAGE"
+      },
+      {
+        "control_id": "NC-04",
+        "status": "DETECTED",
+        "defect": "CARDINALITY_MISMATCH_SINGLE"
+      },
+      {
+        "control_id": "NC-05",
+        "status": "DETECTED",
+        "defect": "MISSING_REQUIRED_ID"
+      }
+    ]
+  }
+}
