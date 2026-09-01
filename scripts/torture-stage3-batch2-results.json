@@ -22,12 +22,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4238,
-      "embed_ms": 423,
-      "vec_sql_ms": 693,
-      "arb_ms": 1401,
+      "total_ms": 4371,
+      "embed_ms": 473,
+      "vec_sql_ms": 692,
+      "arb_ms": 1454,
       "rescue_ms": 0,
-      "hydrate_ms": 692
+      "hydrate_ms": 717
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_compost",
@@ -71,12 +71,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4322,
-      "embed_ms": 422,
-      "vec_sql_ms": 736,
-      "arb_ms": 1451,
+      "total_ms": 4313,
+      "embed_ms": 429,
+      "vec_sql_ms": 744,
+      "arb_ms": 1432,
       "rescue_ms": 0,
-      "hydrate_ms": 686
+      "hydrate_ms": 719
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_devis",
@@ -129,12 +129,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4516,
-      "embed_ms": 423,
-      "vec_sql_ms": 722,
-      "arb_ms": 1649,
-      "rescue_ms": 188,
-      "hydrate_ms": 712
+      "total_ms": 4451,
+      "embed_ms": 450,
+      "vec_sql_ms": 691,
+      "arb_ms": 1605,
+      "rescue_ms": 177,
+      "hydrate_ms": 731
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_marie_conges",
@@ -169,23 +169,23 @@
       "syn_fr_rdv"
     ],
     "forbidden_ids": [],
-    "retrieved_ids": [],
-    "route": "zero_result",
-    "passed": false,
+    "retrieved_ids": [
+      "syn_fr_rdv"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
     "is_inconclusive": false,
-    "failure_reason": "Required memory ID 'syn_fr_rdv' was NOT returned in retrieved IDs []",
-    "defect_classification": "MISSING_REQUIRED_ID",
     "embedding_call_attempted": true,
     "embedding_call_succeeded": true,
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3538,
-      "embed_ms": 445,
-      "vec_sql_ms": 702,
-      "arb_ms": 1445,
+      "total_ms": 4389,
+      "embed_ms": 421,
+      "vec_sql_ms": 715,
+      "arb_ms": 1472,
       "rescue_ms": 0,
-      "hydrate_ms": 0
+      "hydrate_ms": 743
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_rdv",
@@ -207,9 +207,6 @@
         "mem_1787556414573_1_olajw9g": [],
         "mem_1787556414573_2_0ga9xlv": [],
         "mem_1787556414573_0_1aw37nd": []
-      },
-      "slot_audit_contradictions": {
-        "syn_fr_rdv": "DAY_OF_WEEK_MISMATCH: Query specified monday, candidate contains conflicting thursday"
       },
       "ambiguity_rescue_triggered": false,
       "ambiguity_rescue_reason": null,
@@ -239,12 +236,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4326,
-      "embed_ms": 421,
-      "vec_sql_ms": 749,
-      "arb_ms": 1380,
+      "total_ms": 4313,
+      "embed_ms": 398,
+      "vec_sql_ms": 721,
+      "arb_ms": 1455,
       "rescue_ms": 0,
-      "hydrate_ms": 717
+      "hydrate_ms": 734
     },
     "telemetry": {
       "top_candidate_id": "syn_es_carlos_electricista",
@@ -286,12 +283,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4293,
-      "embed_ms": 421,
-      "vec_sql_ms": 715,
-      "arb_ms": 1416,
+      "total_ms": 4318,
+      "embed_ms": 440,
+      "vec_sql_ms": 721,
+      "arb_ms": 1448,
       "rescue_ms": 0,
-      "hydrate_ms": 717
+      "hydrate_ms": 723
     },
     "telemetry": {
       "top_candidate_id": "syn_es_fontanero_note",
@@ -337,12 +334,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4301,
-      "embed_ms": 428,
-      "vec_sql_ms": 718,
-      "arb_ms": 1500,
+      "total_ms": 4336,
+      "embed_ms": 420,
+      "vec_sql_ms": 720,
+      "arb_ms": 1430,
       "rescue_ms": 0,
-      "hydrate_ms": 709
+      "hydrate_ms": 748
     },
     "telemetry": {
       "top_candidate_id": "syn_es_basura",
@@ -383,9 +380,9 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 2911,
-      "embed_ms": 423,
-      "vec_sql_ms": 742,
+      "total_ms": 2890,
+      "embed_ms": 442,
+      "vec_sql_ms": 740,
       "arb_ms": 717,
       "rescue_ms": 0,
       "hydrate_ms": 0
@@ -427,12 +424,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3587,
-      "embed_ms": 430,
-      "vec_sql_ms": 736,
-      "arb_ms": 697,
+      "total_ms": 3621,
+      "embed_ms": 459,
+      "vec_sql_ms": 698,
+      "arb_ms": 741,
       "rescue_ms": 0,
-      "hydrate_ms": 740
+      "hydrate_ms": 691
     },
     "telemetry": {
       "top_candidate_id": "syn_es_presupuesto",
@@ -471,12 +468,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4407,
-      "embed_ms": 427,
-      "vec_sql_ms": 718,
-      "arb_ms": 1465,
+      "total_ms": 4207,
+      "embed_ms": 428,
+      "vec_sql_ms": 748,
+      "arb_ms": 1415,
       "rescue_ms": 0,
-      "hydrate_ms": 721
+      "hydrate_ms": 686
     },
     "telemetry": {
       "top_candidate_id": "syn_es_ana_trabajo",
@@ -516,12 +513,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3628,
-      "embed_ms": 424,
-      "vec_sql_ms": 739,
-      "arb_ms": 734,
+      "total_ms": 3587,
+      "embed_ms": 456,
+      "vec_sql_ms": 717,
+      "arb_ms": 719,
       "rescue_ms": 0,
-      "hydrate_ms": 716
+      "hydrate_ms": 698
     },
     "telemetry": {
       "top_candidate_id": "syn_es_cita",

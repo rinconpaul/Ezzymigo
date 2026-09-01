@@ -20,12 +20,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4342,
-      "embed_ms": 443,
-      "vec_sql_ms": 700,
-      "arb_ms": 1405,
+      "total_ms": 4316,
+      "embed_ms": 419,
+      "vec_sql_ms": 742,
+      "arb_ms": 1421,
       "rescue_ms": 0,
-      "hydrate_ms": 722
+      "hydrate_ms": 694
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_laji",
@@ -73,12 +73,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4278,
-      "embed_ms": 446,
-      "vec_sql_ms": 758,
-      "arb_ms": 1426,
+      "total_ms": 4315,
+      "embed_ms": 423,
+      "vec_sql_ms": 691,
+      "arb_ms": 1434,
       "rescue_ms": 0,
-      "hydrate_ms": 718
+      "hydrate_ms": 721
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_goumai",
@@ -122,12 +122,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4337,
-      "embed_ms": 437,
-      "vec_sql_ms": 716,
-      "arb_ms": 1456,
+      "total_ms": 4291,
+      "embed_ms": 441,
+      "vec_sql_ms": 685,
+      "arb_ms": 1411,
       "rescue_ms": 0,
-      "hydrate_ms": 710
+      "hydrate_ms": 714
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_baojia",
@@ -171,12 +171,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3628,
-      "embed_ms": 420,
-      "vec_sql_ms": 692,
-      "arb_ms": 712,
+      "total_ms": 3544,
+      "embed_ms": 428,
+      "vec_sql_ms": 707,
+      "arb_ms": 742,
       "rescue_ms": 0,
-      "hydrate_ms": 718
+      "hydrate_ms": 691
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_yuyue",
@@ -214,12 +214,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4335,
-      "embed_ms": 426,
-      "vec_sql_ms": 685,
-      "arb_ms": 1473,
+      "total_ms": 4315,
+      "embed_ms": 422,
+      "vec_sql_ms": 744,
+      "arb_ms": 1458,
       "rescue_ms": 0,
-      "hydrate_ms": 718
+      "hydrate_ms": 696
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_ahmed_kahraba",
@@ -265,12 +265,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4293,
-      "embed_ms": 413,
-      "vec_sql_ms": 739,
-      "arb_ms": 1436,
+      "total_ms": 4305,
+      "embed_ms": 424,
+      "vec_sql_ms": 716,
+      "arb_ms": 1442,
       "rescue_ms": 0,
-      "hydrate_ms": 691
+      "hydrate_ms": 707
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_sabbak_note",
@@ -314,12 +314,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4336,
-      "embed_ms": 444,
-      "vec_sql_ms": 715,
-      "arb_ms": 1440,
+      "total_ms": 4373,
+      "embed_ms": 456,
+      "vec_sql_ms": 716,
+      "arb_ms": 1448,
       "rescue_ms": 0,
-      "hydrate_ms": 728
+      "hydrate_ms": 724
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_qumama",
@@ -364,12 +364,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4325,
-      "embed_ms": 452,
-      "vec_sql_ms": 742,
-      "arb_ms": 1436,
+      "total_ms": 4194,
+      "embed_ms": 443,
+      "vec_sql_ms": 713,
+      "arb_ms": 1385,
       "rescue_ms": 0,
-      "hydrate_ms": 722
+      "hydrate_ms": 717
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_shira",
@@ -414,12 +414,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4338,
-      "embed_ms": 393,
-      "vec_sql_ms": 722,
-      "arb_ms": 1462,
+      "total_ms": 4270,
+      "embed_ms": 464,
+      "vec_sql_ms": 785,
+      "arb_ms": 1416,
       "rescue_ms": 0,
-      "hydrate_ms": 705
+      "hydrate_ms": 718
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_ijar",
@@ -464,12 +464,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3606,
-      "embed_ms": 443,
-      "vec_sql_ms": 742,
-      "arb_ms": 699,
+      "total_ms": 3556,
+      "embed_ms": 427,
+      "vec_sql_ms": 696,
+      "arb_ms": 719,
       "rescue_ms": 0,
-      "hydrate_ms": 749
+      "hydrate_ms": 690
     },
     "telemetry": {
       "top_candidate_id": "syn_ar_maweid",
@@ -505,12 +505,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3651,
-      "embed_ms": 447,
-      "vec_sql_ms": 725,
-      "arb_ms": 716,
+      "total_ms": 3604,
+      "embed_ms": 413,
+      "vec_sql_ms": 696,
+      "arb_ms": 697,
       "rescue_ms": 0,
-      "hydrate_ms": 733
+      "hydrate_ms": 732
     },
     "telemetry": {
       "top_candidate_id": "xl_fr_chaudiere",

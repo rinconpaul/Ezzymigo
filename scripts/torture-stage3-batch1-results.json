@@ -22,12 +22,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4299,
-      "embed_ms": 457,
-      "vec_sql_ms": 873,
-      "arb_ms": 1459,
+      "total_ms": 4421,
+      "embed_ms": 443,
+      "vec_sql_ms": 715,
+      "arb_ms": 1472,
       "rescue_ms": 0,
-      "hydrate_ms": 721
+      "hydrate_ms": 713
     },
     "telemetry": {
       "top_candidate_id": "syn_en_sarah_home",
@@ -75,12 +75,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4338,
-      "embed_ms": 442,
-      "vec_sql_ms": 698,
-      "arb_ms": 1409,
+      "total_ms": 4357,
+      "embed_ms": 448,
+      "vec_sql_ms": 694,
+      "arb_ms": 1456,
       "rescue_ms": 0,
-      "hydrate_ms": 740
+      "hydrate_ms": 741
     },
     "telemetry": {
       "top_candidate_id": "syn_en_electrician_note",
@@ -125,12 +125,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4381,
-      "embed_ms": 421,
-      "vec_sql_ms": 767,
-      "arb_ms": 1441,
+      "total_ms": 4287,
+      "embed_ms": 427,
+      "vec_sql_ms": 693,
+      "arb_ms": 1413,
       "rescue_ms": 0,
-      "hydrate_ms": 745
+      "hydrate_ms": 744
     },
     "telemetry": {
       "top_candidate_id": "test_ask_mem_bins_tomorrow",
@@ -173,10 +173,10 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3658,
-      "embed_ms": 436,
-      "vec_sql_ms": 716,
-      "arb_ms": 1435,
+      "total_ms": 3564,
+      "embed_ms": 437,
+      "vec_sql_ms": 741,
+      "arb_ms": 1421,
       "rescue_ms": 0,
       "hydrate_ms": 0
     },
@@ -221,9 +221,9 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 2197,
-      "embed_ms": 483,
-      "vec_sql_ms": 699,
+      "total_ms": 2140,
+      "embed_ms": 440,
+      "vec_sql_ms": 820,
       "arb_ms": 0,
       "rescue_ms": 0,
       "hydrate_ms": 0
@@ -262,12 +262,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4527,
-      "embed_ms": 451,
-      "vec_sql_ms": 733,
-      "arb_ms": 1681,
-      "rescue_ms": 208,
-      "hydrate_ms": 689
+      "total_ms": 4446,
+      "embed_ms": 462,
+      "vec_sql_ms": 715,
+      "arb_ms": 1600,
+      "rescue_ms": 210,
+      "hydrate_ms": 721
     },
     "telemetry": {
       "top_candidate_id": "syn_en_tom_car",
@@ -319,12 +319,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4324,
-      "embed_ms": 462,
-      "vec_sql_ms": 711,
-      "arb_ms": 1430,
+      "total_ms": 4386,
+      "embed_ms": 435,
+      "vec_sql_ms": 719,
+      "arb_ms": 1459,
       "rescue_ms": 0,
-      "hydrate_ms": 716
+      "hydrate_ms": 750
     },
     "telemetry": {
       "top_candidate_id": "syn_en_quote",
@@ -367,12 +367,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4350,
-      "embed_ms": 456,
-      "vec_sql_ms": 732,
-      "arb_ms": 1423,
+      "total_ms": 4326,
+      "embed_ms": 434,
+      "vec_sql_ms": 686,
+      "arb_ms": 1443,
       "rescue_ms": 0,
-      "hydrate_ms": 708
+      "hydrate_ms": 712
     },
     "telemetry": {
       "top_candidate_id": "syn_en_dentist_apt",
@@ -421,12 +421,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4519,
-      "embed_ms": 452,
-      "vec_sql_ms": 685,
-      "arb_ms": 1676,
-      "rescue_ms": 207,
-      "hydrate_ms": 702
+      "total_ms": 4538,
+      "embed_ms": 449,
+      "vec_sql_ms": 717,
+      "arb_ms": 1669,
+      "rescue_ms": 208,
+      "hydrate_ms": 712
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_pierre_garage",
@@ -472,12 +472,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4596,
-      "embed_ms": 466,
-      "vec_sql_ms": 719,
-      "arb_ms": 1685,
-      "rescue_ms": 208,
-      "hydrate_ms": 741
+      "total_ms": 4527,
+      "embed_ms": 486,
+      "vec_sql_ms": 728,
+      "arb_ms": 1617,
+      "rescue_ms": 192,
+      "hydrate_ms": 716
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_dentiste_note",
@@ -525,12 +525,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4274,
-      "embed_ms": 418,
-      "vec_sql_ms": 726,
-      "arb_ms": 1414,
+      "total_ms": 4356,
+      "embed_ms": 439,
+      "vec_sql_ms": 734,
+      "arb_ms": 1497,
       "rescue_ms": 0,
-      "hydrate_ms": 697
+      "hydrate_ms": 695
     },
     "telemetry": {
       "top_candidate_id": "syn_fr_poubelle",

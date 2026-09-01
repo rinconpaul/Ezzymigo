@@ -20,12 +20,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4190,
+      "total_ms": 4317,
       "embed_ms": 450,
-      "vec_sql_ms": 719,
-      "arb_ms": 1399,
+      "vec_sql_ms": 718,
+      "arb_ms": 1412,
       "rescue_ms": 0,
-      "hydrate_ms": 685
+      "hydrate_ms": 723
     },
     "telemetry": {
       "top_candidate_id": "syn_it_preventivo",
@@ -69,10 +69,10 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4338,
-      "embed_ms": 439,
-      "vec_sql_ms": 718,
-      "arb_ms": 1461,
+      "total_ms": 4307,
+      "embed_ms": 428,
+      "vec_sql_ms": 698,
+      "arb_ms": 1457,
       "rescue_ms": 0,
       "hydrate_ms": 717
     },
@@ -115,25 +115,22 @@
       "syn_ja_sato_kinjo"
     ],
     "retrieved_ids": [
-      "syn_ja_sato_shigoto",
-      "syn_ja_sato_kinjo"
+      "syn_ja_sato_shigoto"
     ],
     "route": "vector_lexical_sibling",
-    "passed": false,
+    "passed": true,
     "is_inconclusive": false,
-    "failure_reason": "Forbidden memory ID 'syn_ja_sato_kinjo' was returned in retrieved IDs [syn_ja_sato_shigoto, syn_ja_sato_kinjo]",
-    "defect_classification": "FORBIDDEN_ID_LEAKAGE",
     "embedding_call_attempted": true,
     "embedding_call_succeeded": true,
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4306,
-      "embed_ms": 441,
-      "vec_sql_ms": 690,
-      "arb_ms": 1460,
+      "total_ms": 4368,
+      "embed_ms": 435,
+      "vec_sql_ms": 743,
+      "arb_ms": 1484,
       "rescue_ms": 0,
-      "hydrate_ms": 691
+      "hydrate_ms": 710
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_sato_shigoto",
@@ -181,12 +178,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4276,
-      "embed_ms": 435,
-      "vec_sql_ms": 700,
-      "arb_ms": 1436,
+      "total_ms": 4224,
+      "embed_ms": 408,
+      "vec_sql_ms": 697,
+      "arb_ms": 1381,
       "rescue_ms": 0,
-      "hydrate_ms": 695
+      "hydrate_ms": 694
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_denki_note",
@@ -234,12 +231,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4303,
-      "embed_ms": 426,
-      "vec_sql_ms": 695,
-      "arb_ms": 1470,
+      "total_ms": 4403,
+      "embed_ms": 410,
+      "vec_sql_ms": 728,
+      "arb_ms": 1482,
       "rescue_ms": 0,
-      "hydrate_ms": 702
+      "hydrate_ms": 742
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_gomi",
@@ -285,10 +282,10 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 3542,
-      "embed_ms": 438,
-      "vec_sql_ms": 693,
-      "arb_ms": 1427,
+      "total_ms": 3525,
+      "embed_ms": 447,
+      "vec_sql_ms": 725,
+      "arb_ms": 1403,
       "rescue_ms": 0,
       "hydrate_ms": 0
     },
@@ -335,12 +332,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4299,
-      "embed_ms": 400,
-      "vec_sql_ms": 723,
-      "arb_ms": 1385,
+      "total_ms": 4228,
+      "embed_ms": 418,
+      "vec_sql_ms": 701,
+      "arb_ms": 1459,
       "rescue_ms": 0,
-      "hydrate_ms": 716
+      "hydrate_ms": 691
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_mitsumori",
@@ -388,12 +385,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4463,
-      "embed_ms": 461,
-      "vec_sql_ms": 781,
-      "arb_ms": 1642,
-      "rescue_ms": 198,
-      "hydrate_ms": 714
+      "total_ms": 4532,
+      "embed_ms": 440,
+      "vec_sql_ms": 740,
+      "arb_ms": 1658,
+      "rescue_ms": 224,
+      "hydrate_ms": 726
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_yuki_tenshoku",
@@ -437,12 +434,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4250,
-      "embed_ms": 420,
-      "vec_sql_ms": 700,
-      "arb_ms": 1410,
+      "total_ms": 4294,
+      "embed_ms": 419,
+      "vec_sql_ms": 734,
+      "arb_ms": 1444,
       "rescue_ms": 0,
-      "hydrate_ms": 700
+      "hydrate_ms": 738
     },
     "telemetry": {
       "top_candidate_id": "syn_ja_yoyaku",
@@ -495,12 +492,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4309,
-      "embed_ms": 445,
-      "vec_sql_ms": 715,
-      "arb_ms": 1434,
+      "total_ms": 4420,
+      "embed_ms": 420,
+      "vec_sql_ms": 690,
+      "arb_ms": 1485,
       "rescue_ms": 0,
-      "hydrate_ms": 709
+      "hydrate_ms": 716
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_li_jingli",
@@ -547,12 +544,12 @@
     "embedding_error_code": null,
     "vector_sql_executed": true,
     "timings": {
-      "total_ms": 4250,
-      "embed_ms": 426,
-      "vec_sql_ms": 695,
-      "arb_ms": 1410,
+      "total_ms": 4316,
+      "embed_ms": 440,
+      "vec_sql_ms": 716,
+      "arb_ms": 1492,
       "rescue_ms": 0,
-      "hydrate_ms": 718
+      "hydrate_ms": 740
     },
     "telemetry": {
       "top_candidate_id": "syn_zh_shuidian_note",
