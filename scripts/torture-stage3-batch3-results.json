@@ -1,0 +1,533 @@
+[
+  {
+    "test_id": "TC-DE-01",
+    "language": "de",
+    "category": "same_language, sibling_disambiguation",
+    "query": "Was hat der Zahnarzt zum Weisheitszahn gesagt?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_de_weber_zahnarzt"
+    ],
+    "forbidden_ids": [
+      "syn_de_weber_nachbar"
+    ],
+    "retrieved_ids": [
+      "syn_de_weber_zahnarzt"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3593,
+      "embed_ms": 441,
+      "vec_sql_ms": 710,
+      "arb_ms": 702,
+      "rescue_ms": 0,
+      "hydrate_ms": 743
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_weber_zahnarzt",
+      "top_cosine_sim": 0.7800225019454956,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_de_weber_zahnarzt": 0.7800225019454956
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-DE-02",
+    "language": "de",
+    "category": "same_language, role_mediated",
+    "query": "Was hat der Elektriker über die Sicherung gesagt?",
+    "expected_outcome": "exact_set",
+    "required_ids": [
+      "syn_de_elektriker_role",
+      "syn_de_elektriker_note"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_de_elektriker_note",
+      "syn_de_elektriker_role"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4350,
+      "embed_ms": 457,
+      "vec_sql_ms": 717,
+      "arb_ms": 1446,
+      "rescue_ms": 0,
+      "hydrate_ms": 720
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_elektriker_note",
+      "top_cosine_sim": 0.6956125795841217,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_de_elektriker_note": 0.7456125795841217,
+        "syn_de_elektriker_role": 0.6951302468776703
+      },
+      "lexical_unique_anchors": {
+        "syn_de_elektriker_note": [
+          "sicherung"
+        ],
+        "syn_de_elektriker_role": [
+          "elektriker"
+        ]
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-DE-03",
+    "language": "de",
+    "category": "same_language, messy_phrasing",
+    "query": "ähm wann muss nochmal der gelbe Sack raus",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_de_muell"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_de_muell"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4326,
+      "embed_ms": 431,
+      "vec_sql_ms": 715,
+      "arb_ms": 1415,
+      "rescue_ms": 0,
+      "hydrate_ms": 725
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_muell",
+      "top_cosine_sim": 0.8163501024246216,
+      "sibling_candidates_in_band": 4,
+      "composite_scores": {
+        "syn_de_muell": 0.9163501024246216,
+        "test_ask_mem_bins_tomorrow": 0.6457564830780029,
+        "mem_1787556414573_2_0ga9xlv": 0.6084655225276947,
+        "mem_1787556414573_0_1aw37nd": 0.6078111231327057
+      },
+      "lexical_unique_anchors": {
+        "syn_de_muell": [
+          "sack",
+          "raus"
+        ],
+        "test_ask_mem_bins_tomorrow": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_0_1aw37nd": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-DE-04",
+    "language": "de",
+    "category": "same_language, near_miss_zero_result",
+    "query": "Habe ich einen Gartenschlauch im Baumarkt gekauft?",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "syn_de_kompost"
+    ],
+    "retrieved_ids": [
+      "syn_de_kompost"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Forbidden memory ID 'syn_de_kompost' was returned in retrieved IDs [syn_de_kompost]",
+    "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4256,
+      "embed_ms": 438,
+      "vec_sql_ms": 723,
+      "arb_ms": 1408,
+      "rescue_ms": 0,
+      "hydrate_ms": 740
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_kompost",
+      "top_cosine_sim": 0.6802975833415985,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_de_kompost": 0.8302975833415985,
+        "test_ask_mem_bunnings_yesterday": 0.6538064181804657
+      },
+      "lexical_unique_anchors": {
+        "syn_de_kompost": [
+          "im",
+          "baumarkt",
+          "gekauft"
+        ],
+        "test_ask_mem_bunnings_yesterday": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-DE-05",
+    "language": "de",
+    "category": "same_language, currency_locale",
+    "query": "Wie viel hat der Klempner für die Badsanierung angeboten?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_de_angebot"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_de_angebot"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4379,
+      "embed_ms": 435,
+      "vec_sql_ms": 724,
+      "arb_ms": 1541,
+      "rescue_ms": 0,
+      "hydrate_ms": 691
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_angebot",
+      "top_cosine_sim": 0.8192268759012222,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_de_angebot": 0.9192268759012222,
+        "test_ask_mem_plumber_quote": 0.6579616069793701
+      },
+      "lexical_unique_anchors": {
+        "syn_de_angebot": [
+          "klempner",
+          "badsanierung"
+        ],
+        "test_ask_mem_plumber_quote": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-DE-06",
+    "language": "de",
+    "category": "same_language, genuine_ambiguity",
+    "query": "Was hat Lena erzählt?",
+    "expected_outcome": "ambiguity",
+    "required_ids": [
+      "syn_de_lena_urlaub",
+      "syn_de_lena_job"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_de_lena_urlaub",
+      "syn_de_lena_job"
+    ],
+    "route": "ambiguity_rescue",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4491,
+      "embed_ms": 440,
+      "vec_sql_ms": 715,
+      "arb_ms": 1662,
+      "rescue_ms": 200,
+      "hydrate_ms": 703
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_lena_urlaub",
+      "top_cosine_sim": 0.7641143053770065,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_de_lena_urlaub": 0.7641143053770065,
+        "syn_de_lena_job": 0.752550020813942
+      },
+      "lexical_unique_anchors": {
+        "syn_de_lena_urlaub": [],
+        "syn_de_lena_job": []
+      },
+      "ambiguity_rescue_triggered": true,
+      "ambiguity_rescue_reason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+      "ambiguity_rescue_output": {
+        "winningId": "syn_de_lena_urlaub",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      }
+    }
+  },
+  {
+    "test_id": "TC-DE-07",
+    "language": "de",
+    "category": "same_language, dates_times",
+    "query": "Wann ist jetzt mein Arzttermin?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_de_termin"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_de_termin"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4315,
+      "embed_ms": 436,
+      "vec_sql_ms": 717,
+      "arb_ms": 1408,
+      "rescue_ms": 0,
+      "hydrate_ms": 716
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_de_termin",
+      "top_cosine_sim": 0.7263143658638,
+      "sibling_candidates_in_band": 5,
+      "composite_scores": {
+        "syn_de_termin": 0.7763143658638001,
+        "mem_1787632041513_0_dryrcqz": 0.6461714208126068,
+        "mem_1787556414573_1_olajw9g": 0.6441768705844879,
+        "mem_1787556414573_2_0ga9xlv": 0.6122039556503296,
+        "mem_1787556414573_0_1aw37nd": 0.6098231077194214
+      },
+      "lexical_unique_anchors": {
+        "syn_de_termin": [
+          "arzttermin"
+        ],
+        "mem_1787632041513_0_dryrcqz": [],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_0_1aw37nd": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-IT-01",
+    "language": "it",
+    "category": "same_language, sibling_disambiguation",
+    "query": "Cosa ha detto Marco a proposito dei freni?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_it_marco_meccanico"
+    ],
+    "forbidden_ids": [
+      "syn_it_marco_collega"
+    ],
+    "retrieved_ids": [
+      "syn_it_marco_meccanico"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4350,
+      "embed_ms": 423,
+      "vec_sql_ms": 783,
+      "arb_ms": 1404,
+      "rescue_ms": 0,
+      "hydrate_ms": 745
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_marco_meccanico",
+      "top_cosine_sim": 0.7684110105037689,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_it_marco_meccanico": 0.818411010503769,
+        "syn_it_marco_collega": 0.6387423872947693
+      },
+      "lexical_unique_anchors": {
+        "syn_it_marco_meccanico": [
+          "freni"
+        ],
+        "syn_it_marco_collega": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-IT-02",
+    "language": "it",
+    "category": "same_language, role_mediated",
+    "query": "Cosa ha detto l'idraulico della perdita?",
+    "expected_outcome": "exact_set",
+    "required_ids": [
+      "syn_it_idraulico_role",
+      "syn_it_idraulico_note"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_it_idraulico_note"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Required memory ID 'syn_it_idraulico_role' was NOT returned in retrieved IDs [syn_it_idraulico_note]",
+    "defect_classification": "MISSING_REQUIRED_ID",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4344,
+      "embed_ms": 426,
+      "vec_sql_ms": 724,
+      "arb_ms": 1444,
+      "rescue_ms": 0,
+      "hydrate_ms": 735
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_idraulico_note",
+      "top_cosine_sim": 0.7654409855604172,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_it_idraulico_note": 0.8154409855604172,
+        "syn_it_idraulico_role": 0.6604109704494476
+      },
+      "lexical_unique_anchors": {
+        "syn_it_idraulico_note": [
+          "perdita"
+        ],
+        "syn_it_idraulico_role": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-IT-03",
+    "language": "it",
+    "category": "same_language, messy_phrasing",
+    "query": "ah senti quando devo buttare fuori l'umido di nuovo",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_it_spazzatura"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_it_spazzatura"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3631,
+      "embed_ms": 407,
+      "vec_sql_ms": 740,
+      "arb_ms": 749,
+      "rescue_ms": 0,
+      "hydrate_ms": 716
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_spazzatura",
+      "top_cosine_sim": 0.8023420870304108,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_it_spazzatura": 0.8023420870304108
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-IT-04",
+    "language": "it",
+    "category": "same_language, near_miss_zero_result",
+    "query": "Ho comprato i biglietti dell'aereo per Firenze?",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "syn_it_biglietti"
+    ],
+    "retrieved_ids": [],
+    "route": "zero_result",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 2945,
+      "embed_ms": 435,
+      "vec_sql_ms": 689,
+      "arb_ms": 748,
+      "rescue_ms": 0,
+      "hydrate_ms": 0
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_biglietti",
+      "top_cosine_sim": 0.7391026318073273,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_it_biglietti": 0.7391026318073273
+      },
+      "lexical_unique_anchors": {},
+      "slot_audit_contradictions": {
+        "syn_it_biglietti": "TRANSPORT_MODE_MISMATCH: Query specified flight_air, candidate contains conflicting train_rail"
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  }
+]

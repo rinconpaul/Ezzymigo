@@ -1,0 +1,582 @@
+[
+  {
+    "test_id": "TC-IT-05",
+    "language": "it",
+    "category": "same_language, currency_locale",
+    "query": "A quanto è arrivato il preventivo per il bagno?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_it_preventivo"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_it_preventivo"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4190,
+      "embed_ms": 450,
+      "vec_sql_ms": 719,
+      "arb_ms": 1399,
+      "rescue_ms": 0,
+      "hydrate_ms": 685
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_preventivo",
+      "top_cosine_sim": 0.8227793723344803,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_it_preventivo": 0.9727793723344803,
+        "test_ask_mem_plumber_quote": 0.6048888862133026
+      },
+      "lexical_unique_anchors": {
+        "syn_it_preventivo": [
+          "arrivato",
+          "preventivo",
+          "bagno"
+        ],
+        "test_ask_mem_plumber_quote": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-IT-06",
+    "language": "it",
+    "category": "same_language, dates_times",
+    "query": "Quando ce l'ho ora l'appuntamento dal dentista?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_it_appuntamento"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_it_appuntamento"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4338,
+      "embed_ms": 439,
+      "vec_sql_ms": 718,
+      "arb_ms": 1461,
+      "rescue_ms": 0,
+      "hydrate_ms": 717
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_it_appuntamento",
+      "top_cosine_sim": 0.7569149732589722,
+      "sibling_candidates_in_band": 5,
+      "composite_scores": {
+        "syn_it_appuntamento": 0.8569149732589721,
+        "mem_1787556414573_1_olajw9g": 0.6240643858909607,
+        "mem_1787556414573_2_0ga9xlv": 0.6104587018489838,
+        "mem_1787632041513_0_dryrcqz": 0.6062592267990112,
+        "mem_1787556414573_0_1aw37nd": 0.604496031999588
+      },
+      "lexical_unique_anchors": {
+        "syn_it_appuntamento": [
+          "dal",
+          "dentista"
+        ],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787632041513_0_dryrcqz": [],
+        "mem_1787556414573_0_1aw37nd": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-01",
+    "language": "ja",
+    "category": "same_language, sibling_disambiguation, non_latin_script",
+    "query": "契約更新の件で佐藤さんは何と言っていましたか？",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_ja_sato_shigoto"
+    ],
+    "forbidden_ids": [
+      "syn_ja_sato_kinjo"
+    ],
+    "retrieved_ids": [
+      "syn_ja_sato_shigoto",
+      "syn_ja_sato_kinjo"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Forbidden memory ID 'syn_ja_sato_kinjo' was returned in retrieved IDs [syn_ja_sato_shigoto, syn_ja_sato_kinjo]",
+    "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4306,
+      "embed_ms": 441,
+      "vec_sql_ms": 690,
+      "arb_ms": 1460,
+      "rescue_ms": 0,
+      "hydrate_ms": 691
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_sato_shigoto",
+      "top_cosine_sim": 0.7690459489822388,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_ja_sato_shigoto": 0.8690459489822387,
+        "syn_ja_sato_kinjo": 0.7613911390304565
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_sato_shigoto": [
+          "契約",
+          "更新"
+        ],
+        "syn_ja_sato_kinjo": [
+          "言",
+          "って"
+        ]
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-02",
+    "language": "ja",
+    "category": "same_language, role_mediated, non_latin_script",
+    "query": "電気工事の人はブレーカーについて何と言っていましたか？",
+    "expected_outcome": "exact_set",
+    "required_ids": [
+      "syn_ja_denki_role",
+      "syn_ja_denki_note"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_ja_denki_note",
+      "syn_ja_denki_role"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4276,
+      "embed_ms": 435,
+      "vec_sql_ms": 700,
+      "arb_ms": 1436,
+      "rescue_ms": 0,
+      "hydrate_ms": 695
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_denki_note",
+      "top_cosine_sim": 0.7513727843761444,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_ja_denki_note": 0.9513727843761444,
+        "syn_ja_denki_role": 0.7110808849334717
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_denki_note": [
+          "ブレーカー",
+          "言",
+          "って",
+          "した"
+        ],
+        "syn_ja_denki_role": [
+          "電気",
+          "工事"
+        ]
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-03",
+    "language": "ja",
+    "category": "same_language, messy_phrasing, non_latin_script",
+    "query": "えっと、燃えるゴミっていつ出すんだっけ",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_ja_gomi"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_ja_gomi"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4303,
+      "embed_ms": 426,
+      "vec_sql_ms": 695,
+      "arb_ms": 1470,
+      "rescue_ms": 0,
+      "hydrate_ms": 702
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_gomi",
+      "top_cosine_sim": 0.7630419582128525,
+      "sibling_candidates_in_band": 4,
+      "composite_scores": {
+        "syn_ja_gomi": 0.9130419582128525,
+        "test_ask_mem_bins_tomorrow": 0.6331047117710114,
+        "mem_1787556414573_2_0ga9xlv": 0.6062808036804199,
+        "mem_1787556414573_1_olajw9g": 0.6061446368694305
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_gomi": [
+          "燃える",
+          "ゴミ",
+          "出す"
+        ],
+        "test_ask_mem_bins_tomorrow": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_1_olajw9g": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-04",
+    "language": "ja",
+    "category": "same_language, near_miss_zero_result, non_latin_script",
+    "query": "ホームセンターでホースを買いましたか？",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "syn_ja_kaimono"
+    ],
+    "retrieved_ids": [],
+    "route": "zero_result",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3542,
+      "embed_ms": 438,
+      "vec_sql_ms": 693,
+      "arb_ms": 1427,
+      "rescue_ms": 0,
+      "hydrate_ms": 0
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_kaimono",
+      "top_cosine_sim": 0.6835150718688965,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_ja_kaimono": 0.7335150718688965,
+        "test_ask_mem_bunnings_yesterday": 0.613587498664856
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_kaimono": [
+          "ホームセンター"
+        ],
+        "test_ask_mem_bunnings_yesterday": []
+      },
+      "slot_audit_contradictions": {
+        "syn_ja_kaimono": "ITEM_SLOT_CONTRADICTION: Query asked for item slots [ホース, 買い, ま, した] at shared context entity, but candidate contains alternative items [培養, 土, 熊手, 買, っ, た]"
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-05",
+    "language": "ja",
+    "category": "same_language, currency_locale, non_latin_script",
+    "query": "水道修理の見積もりはいくらでしたか？",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_ja_mitsumori"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_ja_mitsumori"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4299,
+      "embed_ms": 400,
+      "vec_sql_ms": 723,
+      "arb_ms": 1385,
+      "rescue_ms": 0,
+      "hydrate_ms": 716
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_mitsumori",
+      "top_cosine_sim": 0.8431335985660553,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "syn_ja_mitsumori": 0.9931335985660553,
+        "test_ask_mem_plumber_quote": 0.6754232943058014,
+        "mem_1788036102764_0_9nq1la3": 0.6034432947635651
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_mitsumori": [
+          "水道",
+          "修理",
+          "見積もり"
+        ],
+        "test_ask_mem_plumber_quote": [],
+        "mem_1788036102764_0_9nq1la3": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-JA-06",
+    "language": "ja",
+    "category": "same_language, genuine_ambiguity, non_latin_script",
+    "query": "由紀さんは何と言っていましたか？",
+    "expected_outcome": "ambiguity",
+    "required_ids": [
+      "syn_ja_yuki_ryoko",
+      "syn_ja_yuki_tenshoku"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_ja_yuki_tenshoku",
+      "syn_ja_yuki_ryoko"
+    ],
+    "route": "ambiguity_rescue",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4463,
+      "embed_ms": 461,
+      "vec_sql_ms": 781,
+      "arb_ms": 1642,
+      "rescue_ms": 198,
+      "hydrate_ms": 714
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_yuki_tenshoku",
+      "top_cosine_sim": 0.8033533245325089,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_ja_yuki_tenshoku": 0.8033533245325089,
+        "syn_ja_yuki_ryoko": 0.7843198478221893
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_yuki_tenshoku": [],
+        "syn_ja_yuki_ryoko": []
+      },
+      "ambiguity_rescue_triggered": true,
+      "ambiguity_rescue_reason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+      "ambiguity_rescue_output": {
+        "winningId": "syn_ja_yuki_tenshoku",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      }
+    }
+  },
+  {
+    "test_id": "TC-JA-07",
+    "language": "ja",
+    "category": "same_language, dates_times, non_latin_script",
+    "query": "歯医者の予約は今いつになっていますか？",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_ja_yoyaku"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_ja_yoyaku"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4250,
+      "embed_ms": 420,
+      "vec_sql_ms": 700,
+      "arb_ms": 1410,
+      "rescue_ms": 0,
+      "hydrate_ms": 700
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_ja_yoyaku",
+      "top_cosine_sim": 0.7624287307262421,
+      "sibling_candidates_in_band": 6,
+      "composite_scores": {
+        "syn_ja_yoyaku": 0.862428730726242,
+        "mem_1787556414573_1_olajw9g": 0.6454229056835175,
+        "mem_1787556414573_2_0ga9xlv": 0.6276582479476929,
+        "mem_1787632041513_0_dryrcqz": 0.6270564496517181,
+        "mem_1787556414573_0_1aw37nd": 0.6131582260131836,
+        "mem_1787799864116_0_bf9dpob": 0.6045468747615814
+      },
+      "lexical_unique_anchors": {
+        "syn_ja_yoyaku": [
+          "歯医者",
+          "予約"
+        ],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787632041513_0_dryrcqz": [],
+        "mem_1787556414573_0_1aw37nd": [],
+        "mem_1787799864116_0_bf9dpob": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ZH-01",
+    "language": "zh",
+    "category": "same_language, sibling_disambiguation, non_latin_script",
+    "query": "关于合同续签，李经理说了什么？",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_zh_li_jingli"
+    ],
+    "forbidden_ids": [
+      "syn_zh_li_linju"
+    ],
+    "retrieved_ids": [
+      "syn_zh_li_jingli"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4309,
+      "embed_ms": 445,
+      "vec_sql_ms": 715,
+      "arb_ms": 1434,
+      "rescue_ms": 0,
+      "hydrate_ms": 709
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_zh_li_jingli",
+      "top_cosine_sim": 0.8329473286867142,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_zh_li_jingli": 1.0329473286867141,
+        "syn_zh_li_linju": 0.6240099668502808
+      },
+      "lexical_unique_anchors": {
+        "syn_zh_li_jingli": [
+          "合同",
+          "续",
+          "签",
+          "经理"
+        ],
+        "syn_zh_li_linju": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ZH-02",
+    "language": "zh",
+    "category": "same_language, role_mediated, non_latin_script",
+    "query": "水电工说厨房漏水的事怎么样了？",
+    "expected_outcome": "exact_set",
+    "required_ids": [
+      "syn_zh_shuidian_role",
+      "syn_zh_shuidian_note"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_zh_shuidian_note",
+      "syn_zh_shuidian_role"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4250,
+      "embed_ms": 426,
+      "vec_sql_ms": 695,
+      "arb_ms": 1410,
+      "rescue_ms": 0,
+      "hydrate_ms": 718
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_zh_shuidian_note",
+      "top_cosine_sim": 0.8009198009967804,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "syn_zh_shuidian_note": 0.9009198009967804,
+        "syn_zh_shuidian_role": 0.7291889548301697,
+        "mem_1787799864116_0_bf9dpob": 0.6083454191684723
+      },
+      "lexical_unique_anchors": {
+        "syn_zh_shuidian_note": [
+          "厨房",
+          "漏水"
+        ],
+        "syn_zh_shuidian_role": [
+          "水",
+          "电工"
+        ],
+        "mem_1787799864116_0_bf9dpob": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  }
+]

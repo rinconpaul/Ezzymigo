@@ -1,0 +1,539 @@
+[
+  {
+    "test_id": "TC-FR-04",
+    "language": "fr",
+    "category": "same_language, near_miss_zero_result",
+    "query": "Est-ce que j'ai acheté un tuyau d'arrosage au magasin de bricolage ?",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "syn_fr_compost"
+    ],
+    "retrieved_ids": [
+      "syn_fr_compost"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Forbidden memory ID 'syn_fr_compost' was returned in retrieved IDs [syn_fr_compost]",
+    "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4238,
+      "embed_ms": 423,
+      "vec_sql_ms": 693,
+      "arb_ms": 1401,
+      "rescue_ms": 0,
+      "hydrate_ms": 692
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_fr_compost",
+      "top_cosine_sim": 0.6981117129325867,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_fr_compost": 0.8481117129325867,
+        "test_ask_mem_bunnings_yesterday": 0.6508810520172119
+      },
+      "lexical_unique_anchors": {
+        "syn_fr_compost": [
+          "acheté",
+          "magasin",
+          "bricolage"
+        ],
+        "test_ask_mem_bunnings_yesterday": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-FR-05",
+    "language": "fr",
+    "category": "same_language, currency_locale",
+    "query": "C'était combien le devis du plombier pour la salle de bain ?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_fr_devis"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_fr_devis"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4322,
+      "embed_ms": 422,
+      "vec_sql_ms": 736,
+      "arb_ms": 1451,
+      "rescue_ms": 0,
+      "hydrate_ms": 686
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_fr_devis",
+      "top_cosine_sim": 0.8028019070625305,
+      "sibling_candidates_in_band": 5,
+      "composite_scores": {
+        "syn_fr_devis": 1.0028019070625305,
+        "test_ask_mem_plumber_quote": 0.6441002190113068,
+        "mem_1788036011287_0_6ah9w15": 0.6214708983898163,
+        "mem_1788036102764_0_9nq1la3": 0.6100064218044281,
+        "test_ask_mem_sold_ruler": 0.603517472743988
+      },
+      "lexical_unique_anchors": {
+        "syn_fr_devis": [
+          "devis",
+          "plombier",
+          "salle",
+          "bain"
+        ],
+        "test_ask_mem_plumber_quote": [],
+        "mem_1788036011287_0_6ah9w15": [],
+        "mem_1788036102764_0_9nq1la3": [],
+        "test_ask_mem_sold_ruler": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-FR-06",
+    "language": "fr",
+    "category": "same_language, genuine_ambiguity",
+    "query": "Qu'est-ce que Marie a dit ?",
+    "expected_outcome": "ambiguity",
+    "required_ids": [
+      "syn_fr_marie_conges",
+      "syn_fr_marie_demenagement"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_fr_marie_conges",
+      "syn_fr_marie_demenagement"
+    ],
+    "route": "ambiguity_rescue",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4516,
+      "embed_ms": 423,
+      "vec_sql_ms": 722,
+      "arb_ms": 1649,
+      "rescue_ms": 188,
+      "hydrate_ms": 712
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_fr_marie_conges",
+      "top_cosine_sim": 0.7488546073436737,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "syn_fr_marie_conges": 0.7488546073436737,
+        "syn_fr_marie_demenagement": 0.7183141112327576,
+        "mem_1787799864116_0_bf9dpob": 0.6025831401348114
+      },
+      "lexical_unique_anchors": {
+        "syn_fr_marie_conges": [],
+        "syn_fr_marie_demenagement": [],
+        "mem_1787799864116_0_bf9dpob": []
+      },
+      "ambiguity_rescue_triggered": true,
+      "ambiguity_rescue_reason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+      "ambiguity_rescue_output": {
+        "winningId": "syn_fr_marie_conges",
+        "isAmbiguous": true,
+        "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+      }
+    }
+  },
+  {
+    "test_id": "TC-FR-07",
+    "language": "fr",
+    "category": "same_language, dates_times",
+    "query": "C'est quand mon rendez-vous chez le médecin maintenant ?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_fr_rdv"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [],
+    "route": "zero_result",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Required memory ID 'syn_fr_rdv' was NOT returned in retrieved IDs []",
+    "defect_classification": "MISSING_REQUIRED_ID",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3538,
+      "embed_ms": 445,
+      "vec_sql_ms": 702,
+      "arb_ms": 1445,
+      "rescue_ms": 0,
+      "hydrate_ms": 0
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_fr_rdv",
+      "top_cosine_sim": 0.7441259920597076,
+      "sibling_candidates_in_band": 5,
+      "composite_scores": {
+        "syn_fr_rdv": 0.8441259920597076,
+        "mem_1787632041513_0_dryrcqz": 0.6426036059856415,
+        "mem_1787556414573_1_olajw9g": 0.6397843360900879,
+        "mem_1787556414573_2_0ga9xlv": 0.6139940619468689,
+        "mem_1787556414573_0_1aw37nd": 0.6119507551193237
+      },
+      "lexical_unique_anchors": {
+        "syn_fr_rdv": [
+          "rendez",
+          "médecin"
+        ],
+        "mem_1787632041513_0_dryrcqz": [],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_0_1aw37nd": []
+      },
+      "slot_audit_contradictions": {
+        "syn_fr_rdv": "DAY_OF_WEEK_MISMATCH: Query specified monday, candidate contains conflicting thursday"
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-01",
+    "language": "es",
+    "category": "same_language, sibling_disambiguation",
+    "query": "¿Qué dijo Carlos sobre la instalación eléctrica?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_es_carlos_electricista"
+    ],
+    "forbidden_ids": [
+      "syn_es_carlos_primo"
+    ],
+    "retrieved_ids": [
+      "syn_es_carlos_electricista"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4326,
+      "embed_ms": 421,
+      "vec_sql_ms": 749,
+      "arb_ms": 1380,
+      "rescue_ms": 0,
+      "hydrate_ms": 717
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_carlos_electricista",
+      "top_cosine_sim": 0.7576225399971008,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_es_carlos_electricista": 0.7576225399971008,
+        "syn_es_carlos_primo": 0.6155709624290466
+      },
+      "lexical_unique_anchors": {
+        "syn_es_carlos_electricista": [],
+        "syn_es_carlos_primo": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-02",
+    "language": "es",
+    "category": "same_language, role_mediated",
+    "query": "¿Qué dijo el fontanero sobre la fuga?",
+    "expected_outcome": "exact_set",
+    "required_ids": [
+      "syn_es_fontanero_role",
+      "syn_es_fontanero_note"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_es_fontanero_note",
+      "syn_es_fontanero_role"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4293,
+      "embed_ms": 421,
+      "vec_sql_ms": 715,
+      "arb_ms": 1416,
+      "rescue_ms": 0,
+      "hydrate_ms": 717
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_fontanero_note",
+      "top_cosine_sim": 0.7581144124269485,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "syn_es_fontanero_note": 0.8081144124269486,
+        "syn_es_fontanero_role": 0.7195513427257538,
+        "test_ask_mem_plumber_quote": 0.6222071647644043
+      },
+      "lexical_unique_anchors": {
+        "syn_es_fontanero_note": [
+          "fuga"
+        ],
+        "syn_es_fontanero_role": [
+          "fontanero"
+        ],
+        "test_ask_mem_plumber_quote": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-03",
+    "language": "es",
+    "category": "same_language, messy_phrasing",
+    "query": "oye eh cuándo era que había que sacar la basura otra vez",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_es_basura"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_es_basura"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4301,
+      "embed_ms": 428,
+      "vec_sql_ms": 718,
+      "arb_ms": 1500,
+      "rescue_ms": 0,
+      "hydrate_ms": 709
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_basura",
+      "top_cosine_sim": 0.6931065022945404,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_es_basura": 0.7931065022945404,
+        "test_ask_mem_bins_tomorrow": 0.6512877345085144
+      },
+      "lexical_unique_anchors": {
+        "syn_es_basura": [
+          "sacar",
+          "basura"
+        ],
+        "test_ask_mem_bins_tomorrow": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-04",
+    "language": "es",
+    "category": "same_language, near_miss_zero_result",
+    "query": "¿Compré pasajes de avión a Sevilla?",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "syn_es_pasaje"
+    ],
+    "retrieved_ids": [],
+    "route": "zero_result",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 2911,
+      "embed_ms": 423,
+      "vec_sql_ms": 742,
+      "arb_ms": 717,
+      "rescue_ms": 0,
+      "hydrate_ms": 0
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_pasaje",
+      "top_cosine_sim": 0.7601956129074097,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_es_pasaje": 0.7601956129074097
+      },
+      "lexical_unique_anchors": {},
+      "slot_audit_contradictions": {
+        "syn_es_pasaje": "TRANSPORT_MODE_MISMATCH: Query specified flight_air, candidate contains conflicting train_rail"
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-05",
+    "language": "es",
+    "category": "same_language, currency_locale",
+    "query": "¿Cuánto costó al final la reforma de la cocina?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_es_presupuesto"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_es_presupuesto"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3587,
+      "embed_ms": 430,
+      "vec_sql_ms": 736,
+      "arb_ms": 697,
+      "rescue_ms": 0,
+      "hydrate_ms": 740
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_presupuesto",
+      "top_cosine_sim": 0.7996737957000732,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_es_presupuesto": 0.7996737957000732
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-06",
+    "language": "es",
+    "category": "same_language, genuine_ambiguity",
+    "query": "¿Qué comentó Ana?",
+    "expected_outcome": "ambiguity",
+    "required_ids": [
+      "syn_es_ana_trabajo",
+      "syn_es_ana_viaje"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_es_ana_trabajo"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Required memory ID 'syn_es_ana_viaje' was NOT returned in retrieved IDs [syn_es_ana_trabajo]",
+    "defect_classification": "MISSING_REQUIRED_ID",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 4407,
+      "embed_ms": 427,
+      "vec_sql_ms": 718,
+      "arb_ms": 1465,
+      "rescue_ms": 0,
+      "hydrate_ms": 721
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_ana_trabajo",
+      "top_cosine_sim": 0.7744740098714828,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "syn_es_ana_trabajo": 0.7744740098714828,
+        "syn_es_ana_viaje": 0.7221106886863708
+      },
+      "lexical_unique_anchors": {
+        "syn_es_ana_trabajo": [],
+        "syn_es_ana_viaje": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-ES-07",
+    "language": "es",
+    "category": "same_language, dates_times",
+    "query": "¿Cuándo es ahora mi cita con el dentista?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "syn_es_cita"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "syn_es_cita"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3628,
+      "embed_ms": 424,
+      "vec_sql_ms": 739,
+      "arb_ms": 734,
+      "rescue_ms": 0,
+      "hydrate_ms": 716
+    },
+    "telemetry": {
+      "top_candidate_id": "syn_es_cita",
+      "top_cosine_sim": 0.7718709260225296,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "syn_es_cita": 0.7718709260225296
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  }
+]

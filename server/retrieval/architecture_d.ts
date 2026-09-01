@@ -4,6 +4,7 @@ import { normalizeSubject } from '../db/search_sync';
 import { generateEmbedding, searchMemoryVectors, buildMemoryDocumentString } from './vector_service';
 import { segmentUnicodeWords, extractUniqueDiscriminativeTokens, detectScript } from './unicode_segmenter';
 import { retrieveStageAExactSubject } from './native_search';
+import { auditCandidateSlots } from './slot_audit';
 
 // Provisional shadow parameters (subject to shadow validation)
 export const PROVISIONAL_ADMITTANCE_SIMILARITY = 0.65;
@@ -14,6 +15,12 @@ export const PROVISIONAL_LEXICAL_WEIGHT = 0.05;
 // Stage 1 Qualified Lexical Filtering & Contradictory-Signal Composite Arbitration Flag & Boundary
 export const ENABLE_STAGE_1_QUALIFIED_ARBITRATION = true;
 export const PROVISIONAL_CONTRADICTORY_DELTA_BOUNDARY = 0.0250;
+
+// Stage 2 Exact-Set Context Completion Flag
+export const ENABLE_STAGE_2_CONTEXT_COMPLETION = true;
+
+// Stage 3 Contradiction / Slot-Audit Gate Flag
+export const ENABLE_STAGE_3_SLOT_AUDIT_GATE = true;
 
 export interface ArchitectureDTelemetry {
   query: string;
@@ -26,6 +33,7 @@ export interface ArchitectureDTelemetry {
   sibling_candidates_in_band: number;
   lexical_unique_anchors: Record<string, string[]>;
   composite_scores: Record<string, number>;
+  slot_audit_contradictions?: Record<string, string>;
   ambiguity_rescue_triggered: boolean;
   ambiguity_rescue_reason: string | null;
   ambiguity_rescue_output: any | null;
@@ -358,7 +366,22 @@ export async function executeArchitectureDRetrieval(options: {
           // Unambiguous winner via vector + lexical composite score
           telemetry.route_taken = 'vector_lexical_sibling';
           if (top1.composite_score >= PROVISIONAL_ADMITTANCE_SIMILARITY) {
-            selectedCandidateIds = [top1.id];
+            // Stage 2: Exact-Set Context Completion
+            // When multiple candidates in the sibling pool contain distinct substantive lexical anchors
+            // from the query, and both have high composite similarity (e.g. role memory + factual note),
+            // retain the exact set rather than dropping the essential context memory.
+            if (ENABLE_STAGE_2_CONTEXT_COMPLETION && top2 && top2.composite_score >= PROVISIONAL_ADMITTANCE_SIMILARITY) {
+              const top1Anchors = telemetry.lexical_unique_anchors[top1.id] || [];
+              const top2Anchors = telemetry.lexical_unique_anchors[top2.id] || [];
+
+              if (top1Anchors.length > 0 && top2Anchors.length > 0) {
+                selectedCandidateIds = [top1.id, top2.id];
+              } else {
+                selectedCandidateIds = [top1.id];
+              }
+            } else {
+              selectedCandidateIds = [top1.id];
+            }
           } else {
             selectedCandidateIds = [];
             telemetry.route_taken = 'zero_result';
@@ -367,6 +390,42 @@ export async function executeArchitectureDRetrieval(options: {
       } else {
         telemetry.route_taken = 'zero_result';
         selectedCandidateIds = [];
+      }
+    }
+
+    // -------------------------------------------------------------
+    // STAGE 3: CONTRADICTION / SLOT-AUDIT GATE
+    // -------------------------------------------------------------
+    // Operates after Stage 1 & Stage 2. Rejects candidates that share
+    // surrounding context but contradict a substantive slot constraint (e.g. wrong item, day, transport).
+    if (ENABLE_STAGE_3_SLOT_AUDIT_GATE && selectedCandidateIds.length > 0) {
+      const placeholders = selectedCandidateIds.map(() => '?').join(',');
+      const memRowsRes = await executeBunnySql([
+        {
+          sql: `SELECT * FROM memories WHERE id IN (${placeholders});`,
+          args: selectedCandidateIds,
+        },
+      ]);
+      const memRows = memRowsRes[0]?.rows || [];
+      const memDocMap = new Map<string, string>();
+      for (const r of memRows) {
+        memDocMap.set(r.id, buildMemoryDocumentString(r));
+      }
+
+      const auditedIds: string[] = [];
+      for (const cid of selectedCandidateIds) {
+        const text = memDocMap.get(cid) || '';
+        const audit = auditCandidateSlots(question, text);
+        if (audit.isContradicted) {
+          telemetry.slot_audit_contradictions = telemetry.slot_audit_contradictions || {};
+          telemetry.slot_audit_contradictions[cid] = audit.contradictionReason || 'SLOT_CONTRADICTION';
+        } else {
+          auditedIds.push(cid);
+        }
+      }
+      selectedCandidateIds = auditedIds;
+      if (selectedCandidateIds.length === 0) {
+        telemetry.route_taken = 'zero_result';
       }
     }
 

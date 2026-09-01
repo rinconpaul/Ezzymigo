@@ -1,0 +1,526 @@
+[
+  {
+    "test_id": "TC-XL-02",
+    "language": "ja",
+    "category": "cross_language, non_latin_script",
+    "query": "裏口の鍵について鍵屋さんは何と言っていましたか？",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_en_locksmith"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_en_locksmith"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3603,
+      "embed_ms": 420,
+      "vec_sql_ms": 727,
+      "arb_ms": 700,
+      "rescue_ms": 0,
+      "hydrate_ms": 739
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_en_locksmith",
+      "top_cosine_sim": 0.691654771566391,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "xl_en_locksmith": 0.691654771566391,
+        "mem_1787523423129_0_vtusg5e": 0.622275322675705,
+        "test_ask_mem_spare_key": 0.609075665473938
+      },
+      "lexical_unique_anchors": {
+        "xl_en_locksmith": [],
+        "mem_1787523423129_0_vtusg5e": [],
+        "test_ask_mem_spare_key": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-03",
+    "language": "de",
+    "category": "cross_language",
+    "query": "Was hat der Tierarzt über die Katze gesagt?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_es_gato"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_es_gato"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 2837,
+      "embed_ms": 437,
+      "vec_sql_ms": 714,
+      "arb_ms": 0,
+      "rescue_ms": 0,
+      "hydrate_ms": 698
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_es_gato",
+      "top_cosine_sim": 0.6973423361778259,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "xl_es_gato": 0.6973423361778259
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-04",
+    "language": "en",
+    "category": "cross_language, non_latin_script, currency_locale",
+    "query": "How much was the car inspection quote?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_ja_kuruma"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_ja_kuruma"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3613,
+      "embed_ms": 388,
+      "vec_sql_ms": 708,
+      "arb_ms": 745,
+      "rescue_ms": 0,
+      "hydrate_ms": 704
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_ja_kuruma",
+      "top_cosine_sim": 0.6739787757396698,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "xl_ja_kuruma": 0.6739787757396698,
+        "test_ask_mem_plumber_quote": 0.6052935123443604,
+        "mem_1788036102764_0_9nq1la3": 0.6017599701881409
+      },
+      "lexical_unique_anchors": {
+        "xl_ja_kuruma": [],
+        "test_ask_mem_plumber_quote": [],
+        "mem_1788036102764_0_9nq1la3": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-05",
+    "language": "en",
+    "category": "cross_language, non_latin_script, rtl, dates_times",
+    "query": "When is the parent-teacher meeting now?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_ar_madrasa"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_ar_madrasa"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3616,
+      "embed_ms": 426,
+      "vec_sql_ms": 736,
+      "arb_ms": 729,
+      "rescue_ms": 0,
+      "hydrate_ms": 686
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_ar_madrasa",
+      "top_cosine_sim": 0.6943251490592957,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "xl_ar_madrasa": 0.6943251490592957,
+        "mem_1787556414573_1_olajw9g": 0.6250741481781006,
+        "mem_1787556414573_2_0ga9xlv": 0.6073989570140839
+      },
+      "lexical_unique_anchors": {
+        "xl_ar_madrasa": [],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-06",
+    "language": "en",
+    "category": "cross_language, non_latin_script, currency_locale",
+    "query": "How much is the car insurance renewal quote?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_zh_baoxian"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_zh_baoxian"
+    ],
+    "route": "vector_unambiguous",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 2829,
+      "embed_ms": 403,
+      "vec_sql_ms": 718,
+      "arb_ms": 0,
+      "rescue_ms": 0,
+      "hydrate_ms": 710
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_zh_baoxian",
+      "top_cosine_sim": 0.6825971007347107,
+      "sibling_candidates_in_band": 1,
+      "composite_scores": {
+        "xl_zh_baoxian": 0.6825971007347107
+      },
+      "lexical_unique_anchors": {},
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-07",
+    "language": "fr",
+    "category": "cross_language, dates_times",
+    "query": "À quelle heure arrive le camion de déménagement samedi ?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "xl_de_umzug"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "xl_de_umzug"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3575,
+      "embed_ms": 426,
+      "vec_sql_ms": 701,
+      "arb_ms": 692,
+      "rescue_ms": 0,
+      "hydrate_ms": 721
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_de_umzug",
+      "top_cosine_sim": 0.7602547705173492,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "xl_de_umzug": 0.7602547705173492,
+        "mem_1787556414573_2_0ga9xlv": 0.6176730394363403
+      },
+      "lexical_unique_anchors": {
+        "xl_de_umzug": [],
+        "mem_1787556414573_2_0ga9xlv": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-XL-08",
+    "language": "en",
+    "category": "cross_language, near_miss_zero_result",
+    "query": "What time does the moving truck arrive on Sunday?",
+    "expected_outcome": "zero_result",
+    "required_ids": [],
+    "forbidden_ids": [
+      "xl_it_traslochi"
+    ],
+    "retrieved_ids": [
+      "xl_it_traslochi"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": false,
+    "is_inconclusive": false,
+    "failure_reason": "Forbidden memory ID 'xl_it_traslochi' was returned in retrieved IDs [xl_it_traslochi]",
+    "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3580,
+      "embed_ms": 387,
+      "vec_sql_ms": 728,
+      "arb_ms": 690,
+      "rescue_ms": 0,
+      "hydrate_ms": 723
+    },
+    "telemetry": {
+      "top_candidate_id": "xl_it_traslochi",
+      "top_cosine_sim": 0.7549661248922348,
+      "sibling_candidates_in_band": 4,
+      "composite_scores": {
+        "xl_it_traslochi": 0.7549661248922348,
+        "mem_1787556414573_2_0ga9xlv": 0.6533844172954559,
+        "mem_1787556414573_1_olajw9g": 0.6481282711029053,
+        "mem_1787556414573_0_1aw37nd": 0.6449496448040009
+      },
+      "lexical_unique_anchors": {
+        "xl_it_traslochi": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_0_1aw37nd": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-CS-01",
+    "language": "es-en-mixed",
+    "category": "code_switch",
+    "query": "Where did I put la llave del coche?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "cs_llave"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "cs_llave"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3553,
+      "embed_ms": 404,
+      "vec_sql_ms": 700,
+      "arb_ms": 717,
+      "rescue_ms": 0,
+      "hydrate_ms": 723
+    },
+    "telemetry": {
+      "top_candidate_id": "cs_llave",
+      "top_cosine_sim": 0.7784004807472229,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "cs_llave": 0.8784004807472229,
+        "test_ask_mem_spare_key": 0.7130983471870422,
+        "mem_1787523423129_0_vtusg5e": 0.6155687570571899
+      },
+      "lexical_unique_anchors": {
+        "cs_llave": [
+          "llave",
+          "coche"
+        ],
+        "test_ask_mem_spare_key": [],
+        "mem_1787523423129_0_vtusg5e": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-CS-02",
+    "language": "ja-en-mixed",
+    "category": "code_switch, non_latin_script",
+    "query": "What's 田中さん's new contact info?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "cs_tanaka_contact"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "cs_tanaka_contact"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3598,
+      "embed_ms": 414,
+      "vec_sql_ms": 716,
+      "arb_ms": 743,
+      "rescue_ms": 0,
+      "hydrate_ms": 699
+    },
+    "telemetry": {
+      "top_candidate_id": "cs_tanaka_contact",
+      "top_cosine_sim": 0.8120562136173248,
+      "sibling_candidates_in_band": 2,
+      "composite_scores": {
+        "cs_tanaka_contact": 0.8620562136173249,
+        "mem_1787891227708_0_d2153ab": 0.6003863215446472
+      },
+      "lexical_unique_anchors": {
+        "cs_tanaka_contact": [
+          "田中"
+        ],
+        "mem_1787891227708_0_d2153ab": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-CS-03",
+    "language": "fr-en-mixed",
+    "category": "code_switch",
+    "query": "C'est quand mon lawyer rendez-vous déjà?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "cs_rdv"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "cs_rdv"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3714,
+      "embed_ms": 427,
+      "vec_sql_ms": 690,
+      "arb_ms": 741,
+      "rescue_ms": 0,
+      "hydrate_ms": 748
+    },
+    "telemetry": {
+      "top_candidate_id": "cs_rdv",
+      "top_cosine_sim": 0.7866535186767578,
+      "sibling_candidates_in_band": 8,
+      "composite_scores": {
+        "cs_rdv": 0.8366535186767579,
+        "mem_1787556414573_1_olajw9g": 0.6435219049453735,
+        "mem_1787556414573_2_0ga9xlv": 0.6297390758991241,
+        "mem_1787556414573_0_1aw37nd": 0.6192456483840942,
+        "mem_1788170285590_0_s8loued": 0.6148965358734131,
+        "mem_1787632041513_0_dryrcqz": 0.6097998321056366,
+        "test_ask_mem_lawn_next_week": 0.6044132709503174,
+        "mem_1787799864116_0_bf9dpob": 0.6042675077915192
+      },
+      "lexical_unique_anchors": {
+        "cs_rdv": [
+          "rendez"
+        ],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787556414573_2_0ga9xlv": [],
+        "mem_1787556414573_0_1aw37nd": [],
+        "mem_1788170285590_0_s8loued": [],
+        "mem_1787632041513_0_dryrcqz": [],
+        "test_ask_mem_lawn_next_week": [],
+        "mem_1787799864116_0_bf9dpob": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  },
+  {
+    "test_id": "TC-CS-04",
+    "language": "ar-en-mixed",
+    "category": "code_switch, non_latin_script, rtl",
+    "query": "When is the team اجتماع now?",
+    "expected_outcome": "exact_single",
+    "required_ids": [
+      "cs_ijtimaa"
+    ],
+    "forbidden_ids": [],
+    "retrieved_ids": [
+      "cs_ijtimaa"
+    ],
+    "route": "vector_lexical_sibling",
+    "passed": true,
+    "is_inconclusive": false,
+    "embedding_call_attempted": true,
+    "embedding_call_succeeded": true,
+    "embedding_error_code": null,
+    "vector_sql_executed": true,
+    "timings": {
+      "total_ms": 3599,
+      "embed_ms": 419,
+      "vec_sql_ms": 710,
+      "arb_ms": 736,
+      "rescue_ms": 0,
+      "hydrate_ms": 720
+    },
+    "telemetry": {
+      "top_candidate_id": "cs_ijtimaa",
+      "top_cosine_sim": 0.7336100935935974,
+      "sibling_candidates_in_band": 3,
+      "composite_scores": {
+        "cs_ijtimaa": 0.7836100935935975,
+        "mem_1787556414573_1_olajw9g": 0.6075704395771027,
+        "mem_1787799864116_0_bf9dpob": 0.6018690168857574
+      },
+      "lexical_unique_anchors": {
+        "cs_ijtimaa": [
+          "اجتماع"
+        ],
+        "mem_1787556414573_1_olajw9g": [],
+        "mem_1787799864116_0_bf9dpob": []
+      },
+      "ambiguity_rescue_triggered": false,
+      "ambiguity_rescue_reason": null,
+      "ambiguity_rescue_output": null
+    }
+  }
+]
