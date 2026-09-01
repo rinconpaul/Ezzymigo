@@ -1095,36 +1095,51 @@ export async function computeTodayRelevance(
   for (const m of activeMemories) {
     const reminderIso = m.interpretation?.reminder_datetime;
     if (reminderIso) {
+      const isDateOnly = !reminderIso.includes('T');
       const remDate = new Date(reminderIso);
       if (!isNaN(remDate.getTime())) {
-        const remYMD = getYMDInTz(remDate, localContext.timeZone);
+        const remYMD = isDateOnly ? reminderIso.trim().slice(0, 10) : getYMDInTz(remDate, localContext.timeZone);
         if (remYMD === clientTodayYMD) {
           seenSourceIds.add(m.id);
-          const timeStr = getTimeStrInTz(remDate, localContext.timeZone);
-          const cleanTime = timeStr ? timeStr.replace(/\s+/g, '').toLowerCase() : '';
           const baseAction = cleanActionText(m.interpretation?.content || m.originalText);
-          
-          const remMs = remDate.getTime();
-          const isBeforeReminder = nowMs < remMs;
 
-          // Before reminder time: communicate action + useful future time (e.g. "Ring Bill at 10:00am", "Put the bins out at 3:30pm")
-          // At / after reminder time: remove obsolete future-time wording and continue showing unfinished action (e.g. "Ring Bill", "Put the bins out")
-          const displayText = isBeforeReminder && cleanTime
-            ? `${baseAction} at ${cleanTime}`
-            : baseAction;
+          if (isDateOnly) {
+            const displayText = baseAction;
+            const relevanceReason = 'Reminder scheduled for today';
 
-          const relevanceReason = isBeforeReminder
-            ? (cleanTime ? `Reminder set for ${cleanTime}` : 'Reminder scheduled for today')
-            : (cleanTime ? `Reminder was for ${cleanTime}` : 'Action item for today');
+            candidateList.push({
+              source_type: 'memory',
+              source_id: m.id,
+              relevance_reason: relevanceReason,
+              display_text: displayText,
+              priority: 1,
+              ticker_headlines: [displayText],
+            });
+          } else {
+            const timeStr = getTimeStrInTz(remDate, localContext.timeZone);
+            const cleanTime = timeStr ? timeStr.replace(/\s+/g, '').toLowerCase() : '';
+            const remMs = remDate.getTime();
+            const isBeforeReminder = nowMs < remMs;
 
-          candidateList.push({
-            source_type: 'memory',
-            source_id: m.id,
-            relevance_reason: relevanceReason,
-            display_text: displayText,
-            priority: 1,
-            ticker_headlines: [displayText],
-          });
+            // Before reminder time: communicate action + useful future time (e.g. "Ring Bill at 10:00am", "Put the bins out at 3:30pm")
+            // At / after reminder time: remove obsolete future-time wording and continue showing unfinished action (e.g. "Ring Bill", "Put the bins out")
+            const displayText = isBeforeReminder && cleanTime
+              ? `${baseAction} at ${cleanTime}`
+              : baseAction;
+
+            const relevanceReason = isBeforeReminder
+              ? (cleanTime ? `Reminder set for ${cleanTime}` : 'Reminder scheduled for today')
+              : (cleanTime ? `Reminder was for ${cleanTime}` : 'Action item for today');
+
+            candidateList.push({
+              source_type: 'memory',
+              source_id: m.id,
+              relevance_reason: relevanceReason,
+              display_text: displayText,
+              priority: 1,
+              ticker_headlines: [displayText],
+            });
+          }
         }
       }
     }
