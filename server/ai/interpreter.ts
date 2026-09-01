@@ -182,7 +182,8 @@ Your purpose: Classify each newly captured intention according to the circumstan
 5. TEMPORAL RESOLUTION & AMBIGUITY RULES:
 - Explicit Temporal Isolation: "original_time_expression" MUST ONLY contain explicit temporal wording from THIS specific unit. If no temporal wording was supplied, all date/time fields MUST be null.
 - Permanent Absolute Anchoring: Resolve relative expressions ("tomorrow", "next Tuesday", "in September") once at capture into permanent absolute ISO-8601 timestamps using Reference Context (${localContext.localDateTimeStr}, ${localContext.timeZone}, ${localContext.offsetStr}). Never create floating recurrences unless explicitly stated ("every Monday").
-- Standard Period Hours: Month-only / Morning = 09:00:00, Afternoon = 14:00:00 (or 16:00 if late), Evening = 18:00:00, Night = 21:00:00.
+- Date-Only vs Date-Time: If the user's input contains a date reference (today/tomorrow/a weekday/an explicit date like "3/9/2026") but NO time-of-day language whatsoever (no morning/afternoon/evening/night, no explicit clock time, no relative time phrase like "in an hour"), "resolved_datetime" and "reminder_datetime" MUST be stored as date-only (YYYY-MM-DD, e.g. "2026-09-02") with NO time component attached. In this no-time case, "reminder_time_expression" MUST be null.
+- Standard Period Hours (Daypart Language ONLY): If and ONLY IF actual daypart language is genuinely present in the user's input (e.g. "morning", "afternoon", "evening", "tonight", "night", "month-only"), default to: Morning = 09:00:00, Afternoon = 14:00:00 (or 16:00 if late afternoon), Evening = 18:00:00, Night = 21:00:00. DO NOT apply standard period hours when no daypart or time-of-day language was provided.
 - Unambiguous Dayparts & 24h: 24h notation ("16:00", "16h") and dayparts in any language ("4 in the afternoon", "4 de l'après-midi", "4 de la tarde", "nachmittags", "8 tonight") uniquely identify time of day and MUST resolve directly without clarification.
 - Bare Clock Ambiguity: Bare 1-12 clock times without AM/PM, 24h notation, or daypart qualifiers ("at 4", "4 o'clock", "tomorrow at 7") are AMBIGUOUS. Set resolved_datetime and reminder_datetime to null.
 
@@ -342,7 +343,24 @@ Your purpose: Classify each newly captured intention according to the circumstan
     }
   }
 
-  // Deterministic fallback for relative duration offsets (e.g. "in 10 minutes", "in 2 hours")
+function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
+  const combined = `${text} ${timeExpr || ''}`.toLowerCase();
+  // Clock time formats: 3pm, 11am, 5:51, 16:00, 4 o'clock, 4h, at 4, @ 4, etc.
+  if (/(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b|\b\d{1,2}h(?:\d{2})?\b|\b\d{1,2}\s*o'?clock\b|(?:\bat|@)\s*\d{1,2}\b)/i.test(combined)) {
+    return true;
+  }
+  // Daypart words across supported languages:
+  if (/\b(morning|afternoon|evening|night|tonight|midday|noon|midnight|matin|après-midi|apres-midi|soir|nuit|nachmittag|morgen|abend|nacht|madrugada|mañana|tarde|noche)\b/i.test(combined)) {
+    return true;
+  }
+  // Relative duration offsets:
+  if (/\bin\s+(?:\w+|\d+)\s*(?:minutes?|mins?|min|m|hours?|hrs?|hr|h|seconds?|secs?|s)\b/i.test(combined)) {
+    return true;
+  }
+  return false;
+}
+
+// Deterministic fallback for relative duration offsets (e.g. "in 10 minutes", "in 2 hours")
   if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || (!reminderDatetime && !eventDatetime))) {
     const triggerIso = parseReminderTriggerTime(unitText, item.resurfacing?.timing || '', localContext.referenceDate);
     if (triggerIso) {
@@ -357,6 +375,22 @@ Your purpose: Classify each newly captured intention according to the circumstan
       } else {
         if (!eventDatetime) eventDatetime = triggerIso;
       }
+    }
+  }
+
+  // Date-Only Normalization Rule:
+  // If the user's input contains a date reference (today/tomorrow/a weekday/an explicit date) but NO time-of-day language whatsoever,
+  // resolved_datetime, reminder_datetime, and event_datetime MUST be stored as date-only (YYYY-MM-DD),
+  // and reminder_time_expression / event_time_expression must remain null.
+  if (cleanOriginalTime && !hasTimeOfDayLanguage(unitText, cleanOriginalTime)) {
+    if (resolvedDatetime && resolvedDatetime.includes('T')) {
+      resolvedDatetime = resolvedDatetime.split('T')[0];
+    }
+    if (reminderDatetime && reminderDatetime.includes('T')) {
+      reminderDatetime = reminderDatetime.split('T')[0];
+    }
+    if (eventDatetime && eventDatetime.includes('T')) {
+      eventDatetime = eventDatetime.split('T')[0];
     }
   }
 
@@ -458,9 +492,9 @@ Your purpose: Classify each newly captured intention according to the circumstan
     prerequisite: prerequisiteObj,
     original_time_expression: cleanOriginalTime,
     resolved_datetime: resolvedDatetime,
-    event_time_expression: cleanOriginalTime ? (item.event_time_expression || null) : null,
+    event_time_expression: (cleanOriginalTime && hasTimeOfDayLanguage(unitText, cleanOriginalTime)) ? (item.event_time_expression || null) : null,
     event_datetime: eventDatetime,
-    reminder_time_expression: cleanOriginalTime ? (item.reminder_time_expression || null) : null,
+    reminder_time_expression: (cleanOriginalTime && hasTimeOfDayLanguage(unitText, cleanOriginalTime)) ? (item.reminder_time_expression || null) : null,
     reminder_datetime: reminderDatetime,
     resurfacing: {
       mode: item.resurfacing?.mode || (resolvedDatetime ? 'date_based' : 'contextual'),

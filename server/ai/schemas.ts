@@ -65,7 +65,7 @@ export const memoryItemSchema = {
     resolved_datetime: {
       type: Type.STRING,
       nullable: true,
-      description: 'Absolute ISO-8601 date-time string computed at capture time from relative time expressions using current local date/time reference. MUST BE NULL if no temporal expression was supplied by the user.',
+      description: 'Absolute ISO-8601 date string (YYYY-MM-DD) if only a date was specified, or timestamp (YYYY-MM-DDTHH:mm:ss+ZZ:ZZ) if a time/daypart was also specified. MUST BE NULL if no temporal expression was supplied by the user.',
     },
     event_time_expression: {
       type: Type.STRING,
@@ -75,17 +75,17 @@ export const memoryItemSchema = {
     event_datetime: {
       type: Type.STRING,
       nullable: true,
-      description: 'Absolute ISO-8601 date-time of the event if specified by the user, or null if not mentioned.',
+      description: 'Absolute ISO-8601 date (YYYY-MM-DD) or timestamp of the event if specified by the user, or null if not mentioned.',
     },
     reminder_time_expression: {
       type: Type.STRING,
       nullable: true,
-      description: 'When the user wants to be reminded if distinct from the event (e.g. "Monday evening"), or null if no reminder time was mentioned by the user.',
+      description: 'When the user wants to be reminded if distinct from the event (e.g. "Monday evening"), or null if no time-of-day or only a date was mentioned by the user.',
     },
     reminder_datetime: {
       type: Type.STRING,
       nullable: true,
-      description: 'Absolute ISO-8601 date-time of the reminder if specified by the user, or null if not mentioned.',
+      description: 'Absolute ISO-8601 date (YYYY-MM-DD) or timestamp of the reminder if specified by the user, or null if not mentioned.',
     },
     resurfacing: {
       type: Type.OBJECT,
