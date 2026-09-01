@@ -1304,7 +1304,55 @@ export async function computeTodayRelevance(
     }
   }
 
-  // 3. Stored Memories with Recurring Patterns or Resolved Dates (Priority 3)
+  // 3. Lists Scheduled for Today via Subject Temporal Resolution (Priority 3)
+  // For active memories where subject_resolved_date matches clientTodayYMD, group by subject
+  // and emit exactly ONE pointer candidate per distinct subject.
+  const todayListGroups = new Map<string, typeof activeMemories>();
+  for (const m of activeMemories) {
+    const subjDate = m.interpretation?.subject_resolved_date;
+    const subject = m.interpretation?.subject?.trim();
+    if (subjDate && subject) {
+      const isDateOnly = !subjDate.includes('T');
+      const sDate = new Date(subjDate);
+      if (!isNaN(sDate.getTime()) || isDateOnly) {
+        const subjYMD = isDateOnly ? subjDate.trim().slice(0, 10) : getYMDInTz(sDate, localContext.timeZone);
+        if (subjYMD === clientTodayYMD) {
+          if (!todayListGroups.has(subject)) {
+            todayListGroups.set(subject, []);
+          }
+          todayListGroups.get(subject)!.push(m);
+        }
+      }
+    }
+  }
+
+  for (const [subject, groupMems] of todayListGroups.entries()) {
+    // Check if any memories in this group are not yet consumed by prior tiers
+    const unconsumedMems = groupMems.filter(m => !seenSourceIds.has(m.id));
+    if (unconsumedMems.length === 0) {
+      continue;
+    }
+
+    // Mark all memories in this subject group as seen so they are not double-counted in subsequent memory tiers
+    for (const m of groupMems) {
+      seenSourceIds.add(m.id);
+    }
+
+    const primaryMem = unconsumedMems[0] || groupMems[0];
+    const displayText = `You have a list for today: ${subject}`;
+    const relevanceReason = 'List scheduled for today';
+
+    candidateList.push({
+      source_type: 'memory',
+      source_id: primaryMem.id,
+      relevance_reason: relevanceReason,
+      display_text: displayText,
+      priority: 3,
+      ticker_headlines: [displayText],
+    });
+  }
+
+  // 4. Stored Memories with Recurring Patterns or Resolved Dates (Priority 4)
   for (const m of activeMemories) {
     if (seenSourceIds.has(m.id)) continue;
 
@@ -1320,7 +1368,7 @@ export async function computeTodayRelevance(
           source_id: m.id,
           relevance_reason: lifecycle.startTimeFormatted ? `Scheduled for today at ${lifecycle.startTimeFormatted}` : 'Scheduled for today',
           display_text: displayText,
-          priority: 3,
+          priority: 4,
           ticker_headlines: [displayText],
         });
       } else if (lifecycle.lifecycleStage === 'current') {
@@ -1330,7 +1378,7 @@ export async function computeTodayRelevance(
           source_id: m.id,
           relevance_reason: `Happening now (${lifecycle.startTimeFormatted} – ${lifecycle.endTimeFormatted})`,
           display_text: currentDisplayText,
-          priority: 3,
+          priority: 4,
           ticker_headlines: [currentDisplayText],
         });
       } else if (lifecycle.lifecycleStage === 'post_event') {
@@ -1362,7 +1410,7 @@ export async function computeTodayRelevance(
               source_id: m.id,
               relevance_reason: 'Post-event reflection',
               display_text: prompt,
-              priority: 3,
+              priority: 4,
               is_anticipatory: isAnticipatory,
               anticipatory_stage: 'reflect',
               event_title: lifecycle.cleanTitle,
@@ -1379,14 +1427,14 @@ export async function computeTodayRelevance(
           source_id: m.id,
           relevance_reason: 'Scheduled for today',
           display_text: displayText,
-          priority: 3,
+          priority: 4,
           ticker_headlines: [displayText],
         });
       }
     }
   }
 
-  // 4. Contextual intentions ONLY where explicitly pinned for today via showOnTodayTicker (Priority 4)
+  // 5. Contextual intentions ONLY where explicitly pinned for today via showOnTodayTicker (Priority 5)
   for (const m of activeMemories) {
     if (seenSourceIds.has(m.id)) continue;
 
@@ -1398,7 +1446,7 @@ export async function computeTodayRelevance(
         source_id: m.id,
         relevance_reason: 'Pinned for today',
         display_text: displayText,
-        priority: 4,
+        priority: 5,
         ticker_headlines: [displayText],
       });
     }

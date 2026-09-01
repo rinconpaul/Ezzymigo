@@ -18,6 +18,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
   let linked_event_id: string | null = null;
   let prerequisite: any = null;
   let subject: string | null = null;
+  let subject_resolved_date: string | null = null;
 
   if (rawTopics) {
     try {
@@ -35,6 +36,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
         intent = typeof parsed.intent === 'string' && parsed.intent.trim() ? parsed.intent : (fallbackKind || 'remember');
         linked_event_id = parsed.linked_event_id || null;
         subject = typeof parsed.subject === 'string' && parsed.subject.trim() ? parsed.subject.trim() : null;
+        subject_resolved_date = typeof parsed.subject_resolved_date === 'string' && parsed.subject_resolved_date.trim() ? parsed.subject_resolved_date.trim() : null;
         if (parsed.prerequisite && typeof parsed.prerequisite === 'object' && parsed.prerequisite.condition) {
           prerequisite = {
             condition: String(parsed.prerequisite.condition).trim(),
@@ -56,7 +58,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
     }
   }
 
-  return { topics, contexts, retrieval_cues, relationships, intent, suggested_action, linked_event_id, items, prerequisite, subject };
+  return { topics, contexts, retrieval_cues, relationships, intent, suggested_action, linked_event_id, items, prerequisite, subject, subject_resolved_date };
 }
 
 // Helper to parse stored resurfacing timing and absolute dates
@@ -154,6 +156,7 @@ export async function readMemories(): Promise<any[]> {
           resurfacing: timeMeta.resurfacing,
           suggested_action: meta.suggested_action || null,
           subject: meta.subject || null,
+          subject_resolved_date: meta.subject_resolved_date || null,
         },
       };
     });
@@ -208,6 +211,7 @@ export async function readMemoryById(id: string): Promise<any | null> {
         suggested_action: meta.suggested_action || null,
         linked_event_id: meta.linked_event_id || null,
         subject: meta.subject || null,
+        subject_resolved_date: meta.subject_resolved_date || null,
       },
     };
   } catch (err) {
@@ -240,6 +244,7 @@ export async function insertMemories(items: any[]): Promise<void> {
       suggested_action: item.interpretation.suggested_action || null,
       linked_event_id: item.interpretation.linked_event_id || null,
       subject: item.interpretation.subject || null,
+      subject_resolved_date: item.interpretation.subject_resolved_date || null,
     };
 
     const metaTimingObj = {
@@ -399,6 +404,7 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
       suggested_action: meta.suggested_action || null,
       linked_event_id: meta.linked_event_id || null,
       subject: meta.subject || null,
+      subject_resolved_date: meta.subject_resolved_date || null,
     },
   };
 }
@@ -432,6 +438,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     suggested_action: updatedInterpretation.suggested_action || null,
     linked_event_id: updatedInterpretation.linked_event_id || null,
     subject: updatedInterpretation.subject || null,
+    subject_resolved_date: updatedInterpretation.subject_resolved_date || null,
   };
 
   const metaTimingObj = {
