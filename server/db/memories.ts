@@ -278,22 +278,32 @@ export async function insertMemories(items: any[]): Promise<void> {
 
     // Check if memory has a scheduled reminder timestamp (Action's own timing ONLY)
     let remindAt: string | null = null;
+    const isReminderKind = item.interpretation?.kind === 'reminder';
     const isAmbiguous = item.interpretation?.temporal_ambiguity?.isAmbiguous ||
       detectClockTimeAmbiguity(item.originalText, item.interpretation?.resurfacing?.timing || item.interpretation?.original_time_expression).isAmbiguous;
 
-    if (!isAmbiguous) {
+    if (isReminderKind && !isAmbiguous) {
       const candidateTimestamp = item.interpretation.reminder_datetime || item.interpretation.resolved_datetime;
 
-      if (candidateTimestamp && !isNaN(Date.parse(candidateTimestamp))) {
-        remindAt = new Date(candidateTimestamp).toISOString();
+      if (candidateTimestamp) {
+        // Only schedule exact-instant push notifications if a genuine time component exists (contains 'T')
+        if (candidateTimestamp.includes('T') && !isNaN(Date.parse(candidateTimestamp))) {
+          remindAt = new Date(candidateTimestamp).toISOString();
+        }
+        // If candidateTimestamp is date-only (no 'T'), do NOT schedule a push notification
       } else if (item.interpretation.resurfacing?.mode === 'date_based' && !item.interpretation.prerequisite) {
-        // Legacy fallback only for explicit date_based resurfacing without prerequisite
-        remindAt = parseReminderTriggerTime(
-          item.originalText,
-          item.interpretation.resurfacing?.timing || '',
-          new Date(item.createdAt)
-        );
+        // Legacy fallback only for explicit date_based resurfacing without prerequisite when no candidate timestamp is present
+        const timing = item.interpretation.resurfacing?.timing || '';
+        if (!timing || timing.includes('T') || !/^\d{4}-\d{2}-\d{2}$/.test(timing.trim())) {
+          remindAt = parseReminderTriggerTime(
+            item.originalText,
+            timing,
+            new Date(item.createdAt)
+          );
+        }
       }
+    } else if (!isReminderKind) {
+      // Non-reminder kind (e.g. fact, note) - never schedule push notifications
     } else {
       console.log(`[Scheduler] Postponing reminder scheduling for "${item.interpretation.content}" due to ambiguous clock time (awaiting AM/PM clarification).`);
     }
@@ -490,20 +500,29 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
 
   // Re-schedule reminder if new interpretation has a reminder timestamp (Action's own timing ONLY)
   let remindAt: string | null = null;
+  const isReminderKind = updatedInterpretation?.kind === 'reminder';
   const isAmbiguous = updatedInterpretation?.temporal_ambiguity?.isAmbiguous ||
     detectClockTimeAmbiguity(row.originalText, updatedInterpretation?.resurfacing?.timing || updatedInterpretation?.original_time_expression).isAmbiguous;
 
-  if (!isAmbiguous) {
+  if (isReminderKind && !isAmbiguous) {
     const candidateTimestamp = updatedInterpretation.reminder_datetime || updatedInterpretation.resolved_datetime;
 
-    if (candidateTimestamp && !isNaN(Date.parse(candidateTimestamp))) {
-      remindAt = new Date(candidateTimestamp).toISOString();
+    if (candidateTimestamp) {
+      // Only schedule exact-instant push notifications if a genuine time component exists (contains 'T')
+      if (candidateTimestamp.includes('T') && !isNaN(Date.parse(candidateTimestamp))) {
+        remindAt = new Date(candidateTimestamp).toISOString();
+      }
+      // If candidateTimestamp is date-only (no 'T'), do NOT schedule a push notification
     } else if (updatedInterpretation.resurfacing?.mode === 'date_based' && !updatedInterpretation.prerequisite) {
-      remindAt = parseReminderTriggerTime(
-        updatedInterpretation.content,
-        updatedInterpretation.resurfacing?.timing || '',
-        new Date()
-      );
+      // Legacy fallback only for explicit date_based resurfacing without prerequisite when no candidate timestamp is present
+      const timing = updatedInterpretation.resurfacing?.timing || '';
+      if (!timing || timing.includes('T') || !/^\d{4}-\d{2}-\d{2}$/.test(timing.trim())) {
+        remindAt = parseReminderTriggerTime(
+          updatedInterpretation.content,
+          timing,
+          new Date()
+        );
+      }
     }
   }
 
