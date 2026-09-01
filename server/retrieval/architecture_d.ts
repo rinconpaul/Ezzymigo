@@ -6,6 +6,47 @@ import { segmentUnicodeWords, extractUniqueDiscriminativeTokens, detectScript } 
 import { retrieveStageAExactSubject } from './native_search';
 import { auditCandidateSlots } from './slot_audit';
 
+/**
+ * Checks if a candidate text represents a role, identity, or relationship defining statement.
+ * e.g., "James is our electrician", "Miguel es nuestro fontanero", "山田さんはうちの電気工事の担当者だ", etc.
+ */
+function isRoleOrIdentityDefinition(text: string): boolean {
+  if (!text) return false;
+  const t = text.trim();
+
+  // English: "James is our electrician", "X is my doctor", "X, our electrician"
+  if (/\b(?:is|was|are|were)\s+(?:our|the|my|a|an)\s+[a-z]+/i.test(t)) return true;
+  if (/\b(?:our|my)\s+(?:electrician|plumber|dentist|doctor|mechanic|lawyer|vet|locksmith|roofer|builder|handyman|accountant|technician)\b/i.test(t)) return true;
+
+  // French: "Le Dr Lefèvre est notre dentiste", "Pierre est notre voisin"
+  if (/\b(?:est|sont|était)\s+(?:notre|le|la|un|une)\s+[a-zÀ-ÿ]+/i.test(t)) return true;
+  if (/\bnotre\s+(?:dentiste|plombier|électricien|electricien|mécanicien|mecanicien|médecin|medecin|avocat|serrurier|voisin)\b/i.test(t)) return true;
+
+  // Spanish: "Miguel es nuestro fontanero", "Manuel es nuestro fontanero de confianza"
+  if (/\b(?:es|era|son)\s+(?:nuestro|nuestra|el|la|un|una)\s+[a-záéíóúñ]+/i.test(t)) return true;
+  if (/\bnuestro\s+(?:fontanero|electricista|dentista|mecánico|mecanico|médico|medico|abogado|cerrajero|vecino)\b/i.test(t)) return true;
+
+  // German: "Herr Fischer ist unser Elektriker", "Herr Schneider ist unser Elektriker"
+  if (/\b(?:ist|sind|war)\s+(?:unser|unsere|unserer|der|die|ein|eine)\s+[A-Za-zäöüß]+/i.test(t)) return true;
+  if (/\bunser\s+(?:Elektriker|Klempner|Zahnarzt|Mechaniker|Arzt|Tierarzt|Anwalt|Schlüsseldienst|Nachbar)\b/i.test(t)) return true;
+
+  // Italian: "Il signor Bruno è il nostro idraulico"
+  if (/\b(?:è|e|era|sono)\s+(?:il\s+nostro|la\s+nostra|il|la|un|una)\s+[a-zàèéìíîòóùú]+/i.test(t)) return true;
+  if (/\b(?:il\s+nostro|la\s+nostra)\s+(?:idraulico|elettricista|dentista|meccanico|medico|veterinario|avvocato|fabbro|vicino)\b/i.test(t)) return true;
+
+  // Japanese: "山田さんはうちの電気工事の担当者だ。", "担当者", "という方です"
+  if (/(?:担当者|担当|電気工事の人|水道修理の人|修理の人|鍵屋さん|歯医者さん|獣医さん|整備士さん|弁護士さん)/.test(t) && /(?:だ|です|である|という方)/.test(t)) return true;
+  if (/(?:うちの|私の|私たちの).*(?:担当者|係|業者|専門|人)/.test(t)) return true;
+
+  // Chinese: "王师傅是我们家常用的水电工。", "张师傅是小区的..."
+  if (/(?:是我们家|是常用|是小区|是.+的|为我们).*(?:水电工|电工|水管工|维修工|医生|牙医|律师|修车工|师傅|经理)/.test(t)) return true;
+
+  // Arabic: "السيد خالد هو السباك الذي نتعامل معه."
+  if (/(?:هو|هي).*(?:السباك|الكهربائي|الطبيب|المحامي|الميكانيكي|الذي نتعامل معه|المسؤول)/.test(t)) return true;
+
+  return false;
+}
+
 // Provisional shadow parameters (subject to shadow validation)
 export const PROVISIONAL_ADMITTANCE_SIMILARITY = 0.65;
 export const PROVISIONAL_DISTRACTOR_DROP_SIMILARITY = 0.55;
@@ -374,7 +415,11 @@ export async function executeArchitectureDRetrieval(options: {
               const top1Anchors = telemetry.lexical_unique_anchors[top1.id] || [];
               const top2Anchors = telemetry.lexical_unique_anchors[top2.id] || [];
 
-              if (top1Anchors.length > 0 && top2Anchors.length > 0) {
+              const cand1Text = candidateDocList.find(c => c.id === top1.id)?.text || '';
+              const cand2Text = candidateDocList.find(c => c.id === top2.id)?.text || '';
+              const isRolePair = isRoleOrIdentityDefinition(cand1Text) || isRoleOrIdentityDefinition(cand2Text);
+
+              if (isRolePair && top1Anchors.length > 0 && top2Anchors.length > 0) {
                 selectedCandidateIds = [top1.id, top2.id];
               } else {
                 selectedCandidateIds = [top1.id];

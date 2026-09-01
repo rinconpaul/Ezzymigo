@@ -8,15 +8,15 @@ export interface SlotAuditResult {
   candidateSlotValue?: string;
 }
 
-// 1. Day of Week Slots (multilingual)
+// 1. Day of Week Slots (multilingual) - Only unambiguous, explicit day terms (no short 3-letter abbreviations that collide with common words like French 'mon')
 const DAY_OF_WEEK_GROUPS: Array<{ name: string; tokens: Set<string> }> = [
-  { name: 'monday', tokens: new Set(['monday', 'mon', 'lundi', 'lunes', 'montag', 'lunedì', 'lunedi', '月曜', '月曜日', '周一', '星期一', 'الاثنين', 'الإثنين']) },
-  { name: 'tuesday', tokens: new Set(['tuesday', 'tue', 'mardi', 'martes', 'dienstag', 'martedì', 'martedi', '火曜', '火曜日', '周二', '星期二', 'الثلاثاء']) },
-  { name: 'wednesday', tokens: new Set(['wednesday', 'wed', 'mercredi', 'miércoles', 'miercoles', 'mittwoch', 'mercoledì', 'mercoledi', '水曜', '水曜日', '周三', '星期三', 'الأربعاء', 'الاربعاء']) },
-  { name: 'thursday', tokens: new Set(['thursday', 'thu', 'jeudi', 'jueves', 'donnerstag', 'giovedì', 'giovedi', '木曜', '木曜日', '周四', '星期四', 'الخميس']) },
-  { name: 'friday', tokens: new Set(['friday', 'fri', 'vendredi', 'viernes', 'freitag', 'venerdì', 'venerdi', '金曜', '金曜日', '周五', '星期五', 'الجمعة']) },
-  { name: 'saturday', tokens: new Set(['saturday', 'sat', 'samedi', 'sábado', 'sabado', 'samstag', 'sabato', '土曜', '土曜日', '周六', '星期六', 'السبت']) },
-  { name: 'sunday', tokens: new Set(['sunday', 'sun', 'dimanche', 'domingo', 'sonntag', 'domenica', '日曜', '日曜日', '周日', '星期日', '星期天', 'الأحد', 'الاحد']) },
+  { name: 'monday', tokens: new Set(['monday', 'lundi', 'lunes', 'montag', 'lunedì', 'lunedi', '月曜', '月曜日', '周一', '星期一', 'الاثنين', 'الإثنين']) },
+  { name: 'tuesday', tokens: new Set(['tuesday', 'mardi', 'martes', 'dienstag', 'martedì', 'martedi', '火曜', '火曜日', '周二', '星期二', 'الثلاثاء']) },
+  { name: 'wednesday', tokens: new Set(['wednesday', 'mercredi', 'miércoles', 'miercoles', 'mittwoch', 'mercoledì', 'mercoledi', '水曜', '水曜日', '周三', '星期三', 'الأربعاء', 'الاربعاء']) },
+  { name: 'thursday', tokens: new Set(['thursday', 'jeudi', 'jueves', 'donnerstag', 'giovedì', 'giovedi', '木曜', '木曜日', '周四', '星期四', 'الخميس']) },
+  { name: 'friday', tokens: new Set(['friday', 'vendredi', 'viernes', 'freitag', 'venerdì', 'venerdi', '金曜', '金曜日', '周五', '星期五', 'الجمعة']) },
+  { name: 'saturday', tokens: new Set(['saturday', 'samedi', 'sábado', 'sabado', 'samstag', 'sabato', '土曜', '土曜日', '周六', '星期六', 'السبت']) },
+  { name: 'sunday', tokens: new Set(['sunday', 'dimanche', 'domingo', 'sonntag', 'domenica', '日曜', '日曜日', '周日', '星期日', '星期天', 'الأحد', 'الاحد']) },
 ];
 
 // 2. Transport Mode Slots (multilingual)
@@ -57,7 +57,7 @@ export function auditCandidateSlots(
   let queryDay: string | null = null;
   for (const group of DAY_OF_WEEK_GROUPS) {
     for (const tok of group.tokens) {
-      if (queryTokenSet.has(tok) || query.toLowerCase().includes(tok)) {
+      if (queryTokenSet.has(tok) || (tok.length >= 2 && queryTokens.some(t => t === tok || (t.length > 2 && t.includes(tok))))) {
         queryDay = group.name;
         break;
       }
@@ -69,7 +69,7 @@ export function auditCandidateSlots(
     let candDay: string | null = null;
     for (const group of DAY_OF_WEEK_GROUPS) {
       for (const tok of group.tokens) {
-        if (candTokenSet.has(tok) || candidateText.toLowerCase().includes(tok)) {
+        if (candTokenSet.has(tok) || (tok.length >= 2 && candTokens.some(t => t === tok || (t.length > 2 && t.includes(tok))))) {
           candDay = group.name;
           break;
         }

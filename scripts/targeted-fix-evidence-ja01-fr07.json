@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-09-01T03:12:00.000Z",
+  "typecheck": "PASS",
+  "cases": [
+    {
+      "test_id": "TC-JA-01",
+      "status": "PASS",
+      "query": "契約更新の件で佐藤さんは何と言っていましたか？",
+      "expected_ids": [
+        "syn_ja_sato_shigoto"
+      ],
+      "retrieved_ids": [
+        "syn_ja_sato_shigoto"
+      ],
+      "forbidden_ids": [
+        "syn_ja_sato_kinjo"
+      ],
+      "forbidden_leakage_prevented": true,
+      "stage2_context_completion_decision": "Pruned sibling 'syn_ja_sato_kinjo': candidate pair does not contain a role/identity definition dependency (isRolePair=false). Selected exact single ground-truth.",
+      "route_taken": "vector_lexical_sibling"
+    },
+    {
+      "test_id": "TC-FR-07",
+      "status": "PASS",
+      "query": "C'est quand mon rendez-vous chez le médecin maintenant ?",
+      "expected_ids": [
+        "syn_fr_rdv"
+      ],
+      "retrieved_ids": [
+        "syn_fr_rdv"
+      ],
+      "stage3_slot_audit_contradictions": {},
+      "stage3_slot_audit_decision": "No false weekday contradiction triggered (query token 'mon' correctly disambiguated as possessive pronoun, not Monday). Candidate 'syn_fr_rdv' successfully passed Stage 3 gate.",
+      "route_taken": "vector_lexical_sibling"
+    }
+  ]
+}
