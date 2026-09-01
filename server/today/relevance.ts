@@ -588,6 +588,27 @@ export function isContextualTodayMemory(
     return { isMatch: false, headline: '' };
   }
 
+  // If memory is completed, dismissed, or done
+  if (m.isDone || m.interpretation?.status === 'completed' || m.interpretation?.status === 'dismissed') {
+    return { isMatch: false, headline: '' };
+  }
+
+  const kind = (m.interpretation?.kind || '').toLowerCase();
+  const intent = (m.interpretation?.intent || '').toLowerCase();
+
+  // If not_sure, definitely not an active today task/memory
+  if (kind === 'not_sure' || intent === 'not_sure') {
+    return { isMatch: false, headline: '' };
+  }
+
+  // Relationship, profile, and preference records are never active today items
+  if (
+    ['relationship', 'profile', 'preference'].includes(kind) ||
+    ['relationship', 'profile', 'preference'].includes(intent)
+  ) {
+    return { isMatch: false, headline: '' };
+  }
+
   const content = (m.interpretation?.content || '').trim();
   const origTime = (m.interpretation?.original_time_expression || '').trim();
   const resurfTiming = (m.interpretation?.resurfacing?.timing || '').trim();
@@ -636,6 +657,23 @@ export function isContextualTodayMemory(
     }
   }
 
+  const cleanText = content || (m.originalText || '').trim();
+  if (!cleanText) return { isMatch: false, headline: '' };
+
+  // Past observation pattern (e.g. "Barb went to Pilates", "Peter bought a car") -> NOT an active task
+  const pastObservationPattern = /^[A-Z][a-z]+\s+(?:went|visited|bought|called|had|was|were|saw|told|said|came|left|arrived)\b/i;
+  if (pastObservationPattern.test(cleanText)) {
+    return { isMatch: false, headline: '' };
+  }
+
+  // Relationship assertion pattern (e.g. "Peter is my brother", "Barb is my wife") -> NOT an active task
+  if (Array.isArray(m.interpretation?.relationships) && m.interpretation.relationships.length > 0) {
+    const isRelStatement = /^[A-Z][a-z]+\s+(?:is|isn't|is\s+not|was)\s+(?:my|our)\s+/i.test(cleanText);
+    if (isRelStatement) {
+      return { isMatch: false, headline: '' };
+    }
+  }
+
   // Extract cleanest contextual headline
   const baseContent = content || (m.originalText || '').trim();
   const timeExpr = origTime || (combined.match(contextualTimingRegex)?.[0] ?? '');
@@ -655,6 +693,11 @@ export function isUndatedActionableTaskMemory(
     return { isMatch: false, headline: '' };
   }
 
+  // If memory is completed, dismissed, or done
+  if (m.isDone || m.interpretation?.status === 'completed' || m.interpretation?.status === 'dismissed') {
+    return { isMatch: false, headline: '' };
+  }
+
   const content = (m.interpretation?.content || '').trim();
   const kind = (m.interpretation?.kind || '').toLowerCase();
   const intent = (m.interpretation?.intent || '').toLowerCase();
@@ -664,6 +707,19 @@ export function isUndatedActionableTaskMemory(
 
   // If not_sure, definitely not an actionable task
   if (kind === 'not_sure' || intent === 'not_sure') {
+    return { isMatch: false, headline: '' };
+  }
+
+  // Relationship, profile, and preference records are never actionable tasks
+  if (
+    ['relationship', 'profile', 'preference'].includes(kind) ||
+    ['relationship', 'profile', 'preference'].includes(intent)
+  ) {
+    return { isMatch: false, headline: '' };
+  }
+
+  // Only reminders (kind === 'reminder') are eligible as undated actionable tasks for the Today ticker
+  if (kind !== 'reminder') {
     return { isMatch: false, headline: '' };
   }
 
@@ -717,20 +773,7 @@ export function isUndatedActionableTaskMemory(
     }
   }
 
-  // Action verb pattern at the start of sentence/intention
-  const actionVerbPattern = /^(?:please\s+)?(?:book|ring|call|phone|vacuum|clean|buy|get|pick\s+up|order|pay|email|send|write|make|schedule|arrange|fix|repair|wash|check|ask|tell|remind|take|put|organize|organise|finish|complete|drop\s+off|return|cancel|renew|apply|visit|find|look\s+up|help|feed|walk|mow|weed|water|bake|cook|prep|prepare|change|replace|install|service|switch|turn|do)\b/i;
-  
-  const intentionPhrasePattern = /^(?:i\s+need\s+to|need\s+to|i\s+have\s+to|have\s+to|i\s+must|must|should|i\s+should|got\s+to|i've\s+got\s+to|remember\s+to|don't\s+forget\s+to|to\s+do|todo)\b/i;
-
-  const matchesActionText = actionVerbPattern.test(cleanText) || intentionPhrasePattern.test(cleanText);
-
-  // Defensive contextual guard:
-  // An undated contextual memory must NOT be admitted to TODAY merely because of inferred metadata (kind: reminder, intent: purchase).
-  // It requires an explicit actionable instruction or imperative in the user's text.
-  if (!matchesActionText) {
-    return { isMatch: false, headline: '' };
-  }
-
+  // Clean the headline using cleanActionText
   const headline = cleanActionText(cleanText);
   return { isMatch: true, headline };
 }
