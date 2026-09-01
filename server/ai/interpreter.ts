@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { memoriesResponseSchema } from './schemas';
 import { splitCaptureIntoUnits } from './splitter';
 import { getYMDInTz, parseTimeStringToHM, parseReminderTriggerTime } from '../utils/time';
@@ -122,6 +122,7 @@ export function fallbackInterpretation(text: string, now: Date = new Date()) {
       mode: triggerTime ? 'date_based' : 'contextual',
       timing: triggerTime ? text : 'Contextual / On retrieval',
     },
+    subject_resolved_date: null,
     suggested_action: fallbackAction,
   };
 }
@@ -501,6 +502,7 @@ function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
       timing: item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval',
     },
     temporal_ambiguity: item.temporal_ambiguity || null,
+    subject_resolved_date: null,
     suggested_action: (item.suggested_action && typeof item.suggested_action === 'object' && item.suggested_action.label && item.suggested_action.query && !isProductOrShoppingSuggestedAction(item.suggested_action))
       ? {
           type: item.suggested_action.type || 'web_search',
@@ -509,6 +511,137 @@ function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
         }
       : null,
   };
+}
+
+/**
+ * Deterministic fallback for resolving dates from a List subject string when AI is offline.
+ * Weekdays map to the next occurring instance from referenceDate.
+ * Subjects with no temporal reference return null.
+ */
+export function fallbackSubjectDateResolution(
+  subject: string,
+  localContext: { referenceDate: Date; timeZone: string }
+): string | null {
+  const text = (subject || '').trim().toLowerCase();
+  if (!text) return null;
+
+  const tz = localContext.timeZone || 'Australia/Sydney';
+  const now = localContext.referenceDate || new Date();
+  const todayYMD = getYMDInTz(now, tz);
+
+  if (/\btoday\b/.test(text) || /\btonight\b/.test(text)) {
+    return todayYMD;
+  }
+  if (/\btomorrow\b/.test(text)) {
+    const d = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    return getYMDInTz(d, tz);
+  }
+  if (/\byesterday\b/.test(text)) {
+    const d = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return getYMDInTz(d, tz);
+  }
+
+  // Weekday mapping
+  const weekdays: Record<string, number> = {
+    sunday: 0, sun: 0,
+    monday: 1, mon: 1,
+    tuesday: 2, tue: 2, tues: 2,
+    wednesday: 3, wed: 3, wensday: 3, wens: 3,
+    thursday: 4, thu: 4, thur: 4, thurs: 4,
+    friday: 5, fri: 5,
+    saturday: 6, sat: 6,
+  };
+
+  for (const [dayName, targetDayNum] of Object.entries(weekdays)) {
+    const regex = new RegExp(`\\b${dayName}\\b`, 'i');
+    if (regex.test(text)) {
+      const [yearStr, monthStr, dateStr] = todayYMD.split('-').map(Number);
+      const currentTzDate = new Date(Date.UTC(yearStr, monthStr - 1, dateStr, 12, 0, 0));
+      const currentDay = currentTzDate.getUTCDay();
+
+      let daysUntil = (targetDayNum - currentDay + 7) % 7;
+      if (daysUntil === 0 && /\bnext\b/i.test(text)) {
+        daysUntil = 7;
+      }
+      const targetDate = new Date(currentTzDate.getTime() + daysUntil * 24 * 60 * 60 * 1000);
+      const y = targetDate.getUTCFullYear();
+      const m = String(targetDate.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(targetDate.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a date from a List subject / title string if a genuine temporal expression is present.
+ * Uses exact Phase A2 date-only convention (YYYY-MM-DD, e.g. "2026-09-02").
+ * Bare weekdays ("Wednesday", "Wednesday dinner") resolve to the next occurring instance from referenceDate.
+ * Subjects with no temporal expression (e.g. "Mum's sold items", "Grocery list", "Camping gear checklist") resolve to null.
+ */
+export async function resolveSubjectDate(
+  subject: string,
+  localContext: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date },
+  ai: GoogleGenAI | null
+): Promise<string | null> {
+  const cleanSubject = (subject || '').trim();
+  if (!cleanSubject) return null;
+
+  // Quick heuristic filter: If no temporal keywords appear in the subject string, return null immediately without an LLM call.
+  const hasTemporalCandidate = /\b(today|tomorrow|yesterday|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|wensday|wens|thu|thur|thurs|fri|sat|sun|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})\b/i.test(cleanSubject);
+
+  if (!hasTemporalCandidate) {
+    return null;
+  }
+
+  if (ai) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: `Reference Context for Date/Time & Locale:
+- User Local Date & Time: ${localContext.localDateTimeStr}
+- User TimeZone: ${localContext.timeZone}
+- User Language (BCP-47): ${localContext.language}
+- User Operating Country/Region: ${localContext.region}
+- User Local ISO Offset: ${localContext.offsetStr}
+- Current UTC Reference: ${localContext.utcIso}
+
+List Subject / Title to Evaluate: "${cleanSubject}"`,
+        config: {
+          systemInstruction: `You are Ezzymigo's List Subject Date Resolver.
+Determine whether the provided List subject / title contains a genuine temporal reference (e.g. a bare weekday like "Wednesday" or "Wednesday dinner", "tomorrow", "next Tuesday", an explicit date like "3/9/2026", "Friday drinks", etc.).
+- If YES: Resolve it to a single calendar date in date-only format (YYYY-MM-DD, e.g. "2026-09-02") using the Reference Context. A bare weekday resolves to the next occurring instance of that weekday from the reference date (not recurring, unless "every" is present).
+- If NO: Return null for resolved_date.
+Output valid JSON matching the schema.`,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              resolved_date: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'The resolved calendar date in YYYY-MM-DD format (e.g. "2026-09-02"), or null if no temporal expression is present in the subject title.',
+              },
+            },
+            required: ['resolved_date'],
+          },
+        },
+      });
+
+      if (response.text) {
+        const parsed = JSON.parse(response.text);
+        if (typeof parsed?.resolved_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.resolved_date.trim())) {
+          return parsed.resolved_date.trim();
+        }
+        return null;
+      }
+    } catch (err: any) {
+      console.error('Error in resolveSubjectDate with Gemini:', err?.message || err);
+    }
+  }
+
+  return fallbackSubjectDateResolution(cleanSubject, localContext);
 }
 
 /**
@@ -527,6 +660,12 @@ export async function processThoughtCapturePipeline(
   // Divides the original capture into the smallest meaningful independent memory units
   const splitUnits = await splitCaptureIntoUnits(trimmedText, ai, localContext);
 
+  // If active List subject context is provided, resolve subject-level temporal reference in a separate pass
+  let subjectResolvedDate: string | null = null;
+  if (subject && typeof subject === 'string' && subject.trim()) {
+    subjectResolvedDate = await resolveSubjectDate(subject.trim(), localContext, ai);
+  }
+
   // STAGE 2: Independent Interpretation Pipeline
   // Each resulting unit passes independently through the existing interpretation pipeline
   const now = new Date().toISOString();
@@ -543,12 +682,15 @@ export async function processThoughtCapturePipeline(
     if (subject && typeof subject === 'string' && subject.trim()) {
       const cleanSubject = subject.trim();
       interpretation.subject = cleanSubject;
+      interpretation.subject_resolved_date = subjectResolvedDate || null;
       if (!Array.isArray(interpretation.retrieval_cues)) {
         interpretation.retrieval_cues = [];
       }
       if (!interpretation.retrieval_cues.includes(cleanSubject)) {
         interpretation.retrieval_cues.push(cleanSubject);
       }
+    } else {
+      interpretation.subject_resolved_date = null;
     }
     if (linkedEventId) {
       interpretation.linked_event_id = String(linkedEventId);

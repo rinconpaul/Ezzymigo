@@ -103,6 +103,7 @@ export interface StructuredInterpretation {
   intent?: string;
   status: 'active' | 'done' | string;
   subject?: string | null;
+  subject_resolved_date?: string | null;
   people: string[];
   places: string[];
   topics: string[];
