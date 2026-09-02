@@ -7,6 +7,7 @@ import { ListCard } from './components/ListCard';
 import { AskEzzymigoPanel } from './components/AskEzzymigoPanel';
 import { CalendarInspector } from './components/CalendarInspector';
 import { DeleteKnowledgeModal, LearnedKnowledgeDeletePrompt } from './components/DeleteKnowledgeModal';
+import { findAssociatedRelationships } from './utils/relationshipAssociation';
 import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
 import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship } from './types';
@@ -382,19 +383,8 @@ export default function App() {
         const data = await res.json();
         const activeRels: UserRelationship[] = Array.isArray(data.relationships) ? data.relationships : [];
 
-        // Check memory interpretation people, content, originalText, and relationships
-        const memoryPeople = (memory.interpretation?.people || []).map((p) => p.toLowerCase());
-        const memoryRelPeople = (memory.interpretation?.relationships || []).map((r) => r.person.toLowerCase());
-        const memoryText = `${memory.originalText} ${memory.interpretation?.content || ''}`.toLowerCase();
-
-        const associated = activeRels.filter((r) => {
-          const personLower = r.person.toLowerCase();
-          return (
-            memoryPeople.includes(personLower) ||
-            memoryRelPeople.includes(personLower) ||
-            memoryText.includes(personLower)
-          );
-        });
+        // Check memory for genuine person/relationship association (authoritative structured people/relationships, or standalone whole-name fallback)
+        const associated = findAssociatedRelationships(memory, activeRels);
 
         if (associated.length > 0) {
           // Trigger the learned-knowledge-aware delete confirmation modal
