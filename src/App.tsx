@@ -179,6 +179,19 @@ export default function App() {
       if (data.clarification) {
         setClarification(data.clarification);
         setClarificationAnswer('');
+      } else if (data.phoneOffer) {
+        setClarification({
+          id: `phone_offer_${Date.now()}`,
+          question: `Got it — want to add ${data.phoneOffer.person}'s number?`,
+          entityName: data.phoneOffer.person,
+          entityType: 'phone_offer',
+          memoryId: data.memory?.id || (data.memories && data.memories[0]?.id),
+          metadata: {
+            role: data.phoneOffer.role,
+            isPhoneOffer: true,
+          },
+        });
+        setClarificationAnswer('');
       } else {
         setClarification(null);
       }
@@ -216,7 +229,12 @@ export default function App() {
 
       const data = await res.json();
       if (res.ok) {
-        setClarificationFeedback(data.message || `Learned: ${clarification.entityName} is your ${answerText}`);
+        setClarificationFeedback(
+          data.message ||
+            (clarification.entityType === 'phone_offer'
+              ? `Saved ${clarification.entityName}'s phone number.`
+              : `Learned: ${clarification.entityName} is your ${answerText}`)
+        );
         setClarification(null);
         setClarificationAnswer('');
         setTimeout(() => setClarificationFeedback(null), 5000);
@@ -253,7 +271,7 @@ export default function App() {
         if (phone) {
           setClarificationAnswer((prev) => {
             const trimmed = prev.trim();
-            if (!trimmed) {
+            if (!trimmed || clarification?.entityType === 'phone_offer') {
               return phone;
             }
             if (trimmed.endsWith(',') || trimmed.endsWith('—') || trimmed.endsWith('-')) {
@@ -315,6 +333,20 @@ export default function App() {
         setMemories((prev) =>
           deduplicateMemories(prev.map((item) => (item.id === id ? data.memory : item)))
         );
+      }
+      if (data.phoneOffer) {
+        setClarification({
+          id: `phone_offer_${Date.now()}`,
+          question: `Got it — want to add ${data.phoneOffer.person}'s number?`,
+          entityName: data.phoneOffer.person,
+          entityType: 'phone_offer',
+          memoryId: id,
+          metadata: {
+            role: data.phoneOffer.role,
+            isPhoneOffer: true,
+          },
+        });
+        setClarificationAnswer('');
       }
     } catch (err: any) {
       console.error('Edit error:', err);
@@ -681,7 +713,11 @@ export default function App() {
                     type="text"
                     value={clarificationAnswer}
                     onChange={(e) => setClarificationAnswer(e.target.value)}
-                    placeholder="e.g. My brother, or include their number"
+                    placeholder={
+                      clarification.entityType === 'phone_offer'
+                        ? 'e.g. 0412 345 678, or select from Contacts'
+                        : 'e.g. My brother, or include their number'
+                    }
                     className="flex-1 h-8 px-2.5 bg-white rounded-lg border border-indigo-200 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-600 focus:border-indigo-600 shadow-2xs"
                   />
                   {typeof navigator !== 'undefined' && typeof window !== 'undefined' && ('contacts' in navigator && 'ContactsManager' in window) && (

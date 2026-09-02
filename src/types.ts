@@ -73,11 +73,17 @@ export interface UserEntity {
   updated_at: string;
 }
 
+export interface PhoneOffer {
+  person: string;
+  role: string;
+  memoryId?: string;
+}
+
 export interface ClarificationPrompt {
   id: string;
   question: string;
   entityName: string;
-  entityType: 'person' | 'relationship' | 'place' | 'time_meridiem' | string;
+  entityType: 'person' | 'relationship' | 'place' | 'time_meridiem' | 'phone_offer' | string;
   candidateOptions?: string[];
   memoryId?: string;
   context?: string;

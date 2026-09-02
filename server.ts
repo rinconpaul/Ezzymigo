@@ -301,7 +301,8 @@ app.post('/api/memories', async (req, res) => {
   try {
     const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
 
-    await insertMemories(newMemories);
+    const insertResult = await insertMemories(newMemories);
+    let phoneOffer: { person: string; role: string } | null = insertResult?.phoneOffer || null;
 
     // Persist relationships extracted by processThoughtCapturePipeline
     const extractedRelationships = newMemories.flatMap(m => m.interpretation?.relationships || []);
@@ -323,6 +324,11 @@ app.post('/api/memories', async (req, res) => {
                 });
               }
             }
+          } else if (!phoneOffer) {
+            const activeRel = itemRels.find(r => r && r.person && r.role && r.is_active !== false);
+            if (activeRel) {
+              phoneOffer = { person: activeRel.person, role: activeRel.role };
+            }
           }
         }
       }
@@ -332,10 +338,16 @@ app.post('/api/memories', async (req, res) => {
     const activeRelationships = await readActiveRelationships();
     const clarification = await detectAmbiguityInSavedMemories(newMemories, activeRelationships, trimmedText, ai);
 
+    // Prioritise resolving who the person is first: if ambiguity clarification exists, suppress phone offer
+    if (clarification) {
+      phoneOffer = null;
+    }
+
     return res.status(201).json({
       memory: newMemories[0],
       memories: newMemories,
       clarification: clarification || null,
+      phoneOffer: phoneOffer || null,
     });
   } catch (err: any) {
     console.error('Error in capture & save pipeline:', err);
@@ -505,38 +517,42 @@ app.post('/api/clarifications/resolve', async (req, res) => {
 
     // Extract phone number from rawAnswer if present, to avoid corrupting role/person regex matching
     const { phoneNumber: extractedPhone, cleanedText } = extractPhoneNumber(rawAnswer);
+    const isPhoneOffer = entityType === 'phone_offer' || metadata?.isPhoneOffer === true;
+    const phoneToSave = extractedPhone || (isPhoneOffer && rawAnswer.replace(/[^\d+]/g, '').length >= 6 ? rawAnswer.trim() : null);
     const textToParse = cleanedText || rawAnswer;
 
     let resolvedPerson = trimmedEntity;
-    let resolvedRole = textToParse;
+    let resolvedRole = (metadata && metadata.role) ? metadata.role : textToParse;
 
-    // Check for "X is my Y" / "X is the Y" / "X is a Y"
-    const isMyMatch = textToParse.match(/^(?:([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|the\s+|a\s+|an\s+)?|he['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|she['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|they['’]?re\s+(?:my\s+|the\s+|a\s+|an\s+)?|my\s+)([A-Za-z0-9\s]+?)[.!]?$/i);
+    if (!metadata?.role) {
+      // Check for "X is my Y" / "X is the Y" / "X is a Y"
+      const isMyMatch = textToParse.match(/^(?:([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|the\s+|a\s+|an\s+)?|he['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|she['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|they['’]?re\s+(?:my\s+|the\s+|a\s+|an\s+)?|my\s+)([A-Za-z0-9\s]+?)[.!]?$/i);
 
-    if (textToParse.includes('—')) {
-      const parts = textToParse.split('—').map((s: string) => s.trim());
-      resolvedPerson = parts[0] || trimmedEntity;
-      resolvedRole = parts[1] || '';
-    } else if (textToParse.includes('-')) {
-      const parts = textToParse.split('-').map((s: string) => s.trim());
-      resolvedPerson = parts[0] || trimmedEntity;
-      resolvedRole = parts[1] || '';
-    } else if (isMyMatch) {
-      if (isMyMatch[1] && isMyMatch[1].trim() && !['he', 'she', 'they', 'it'].includes(isMyMatch[1].trim().toLowerCase())) {
-        resolvedPerson = isMyMatch[1].trim();
+      if (textToParse.includes('—')) {
+        const parts = textToParse.split('—').map((s: string) => s.trim());
+        resolvedPerson = parts[0] || trimmedEntity;
+        resolvedRole = parts[1] || '';
+      } else if (textToParse.includes('-')) {
+        const parts = textToParse.split('-').map((s: string) => s.trim());
+        resolvedPerson = parts[0] || trimmedEntity;
+        resolvedRole = parts[1] || '';
+      } else if (isMyMatch) {
+        if (isMyMatch[1] && isMyMatch[1].trim() && !['he', 'she', 'they', 'it'].includes(isMyMatch[1].trim().toLowerCase())) {
+          resolvedPerson = isMyMatch[1].trim();
+        } else {
+          resolvedPerson = trimmedEntity;
+        }
+        resolvedRole = isMyMatch[2] ? isMyMatch[2].trim() : isMyMatch[1].trim();
       } else {
-        resolvedPerson = trimmedEntity;
-      }
-      resolvedRole = isMyMatch[2] ? isMyMatch[2].trim() : isMyMatch[1].trim();
-    } else {
-      const normalizedEntity = normalizeRoleName(trimmedEntity);
-      const commonRoles = ['sister', 'brother', 'son', 'daughter', 'doctor', 'physio', 'plumber', 'electrician', 'mechanic', 'dentist', 'boss', 'wife', 'husband', 'accountant', 'lawyer', 'neighbour', 'neighbor', 'friend', 'mother', 'father', 'mum', 'dad'];
-      if (commonRoles.includes(normalizedEntity)) {
-        resolvedPerson = textToParse;
-        resolvedRole = trimmedEntity;
-      } else {
-        resolvedPerson = trimmedEntity;
-        resolvedRole = textToParse;
+        const normalizedEntity = normalizeRoleName(trimmedEntity);
+        const commonRoles = ['sister', 'brother', 'son', 'daughter', 'doctor', 'physio', 'plumber', 'electrician', 'mechanic', 'dentist', 'boss', 'wife', 'husband', 'accountant', 'lawyer', 'neighbour', 'neighbor', 'friend', 'mother', 'father', 'mum', 'dad'];
+        if (commonRoles.includes(normalizedEntity)) {
+          resolvedPerson = textToParse;
+          resolvedRole = trimmedEntity;
+        } else {
+          resolvedPerson = trimmedEntity;
+          resolvedRole = textToParse;
+        }
       }
     }
 
@@ -550,7 +566,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
     }]);
 
     // 2. Save user entity with structured metadata
-    const entityMetadata: Record<string, any> = extractedPhone ? { phone: extractedPhone } : {};
+    const entityMetadata: Record<string, any> = phoneToSave ? { phone: phoneToSave } : {};
     await saveUserEntity({
       name: resolvedPerson,
       entity_type: 'person',
@@ -559,12 +575,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       metadata: entityMetadata,
     });
 
-    // 3. Create user-visible FACT memory card representing this explicit user-supplied knowledge
-    const factContent = extractedPhone
-      ? `${resolvedPerson} is my ${resolvedRole} — ${extractedPhone}`
-      : `${resolvedPerson} is my ${resolvedRole}`;
-    const factMemoryId = `mem_${Date.now()}_0_${Math.random().toString(36).substring(2, 9)}`;
-    const nowIso = new Date().toISOString();
+    const phoneSuffix = phoneToSave ? ` — ${phoneToSave}` : '';
 
     const retrievalCues = [
       resolvedPerson.toLowerCase(),
@@ -573,21 +584,62 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       `my ${resolvedRole.toLowerCase()}`,
       `${resolvedPerson.toLowerCase()} is my ${resolvedRole.toLowerCase()}`,
     ];
-    if (extractedPhone) {
+    if (phoneToSave) {
       retrievalCues.push(
-        extractedPhone.toLowerCase(),
+        phoneToSave.toLowerCase(),
         `${resolvedPerson.toLowerCase()} phone`,
         `${resolvedPerson.toLowerCase()} phone number`,
         `${resolvedRole.toLowerCase()} phone`,
         `${resolvedRole.toLowerCase()} phone number`,
-        `${resolvedPerson.toLowerCase()} ${extractedPhone.toLowerCase()}`
+        `${resolvedPerson.toLowerCase()} ${phoneToSave.toLowerCase()}`
       );
     }
 
+    if (memoryId && isPhoneOffer) {
+      const allStored = await readMemories();
+      const targetMemory = allStored.find((m: any) => m.id === memoryId);
+      if (targetMemory) {
+        const updatedContent = phoneToSave && !targetMemory.interpretation.content.includes(phoneToSave)
+          ? `${targetMemory.interpretation.content}${phoneSuffix}`
+          : targetMemory.interpretation.content;
+
+        const existingCues = Array.isArray(targetMemory.interpretation.retrieval_cues)
+          ? targetMemory.interpretation.retrieval_cues
+          : [];
+        const newCues = retrievalCues.filter(c => !existingCues.includes(c));
+
+        const updatedInterpretation = {
+          ...targetMemory.interpretation,
+          content: updatedContent,
+          retrieval_cues: [...existingCues, ...newCues],
+        };
+
+        const updatedMem = await updateMemoryInDb(targetMemory.id, updatedInterpretation, updatedContent);
+
+        return res.json({
+          success: true,
+          message: `Saved ${resolvedPerson}'s phone number.`,
+          relationship: {
+            person: resolvedPerson,
+            role: resolvedRole,
+            normalized_role: normalizeRoleName(resolvedRole),
+          },
+          memory: updatedMem,
+        });
+      }
+    }
+
+    // 3. Create user-visible FACT memory card representing this explicit user-supplied knowledge
+    const factContent = phoneToSave
+      ? `${resolvedPerson} is my ${resolvedRole} — ${phoneToSave}`
+      : `${resolvedPerson} is my ${resolvedRole}`;
+    const factMemoryId = `mem_${Date.now()}_0_${Math.random().toString(36).substring(2, 9)}`;
+    const nowIso = new Date().toISOString();
+
     const factMemory = {
       id: factMemoryId,
-      originalText: extractedPhone
-        ? `${resolvedPerson} is my ${resolvedRole} — ${extractedPhone}`
+      originalText: phoneToSave
+        ? `${resolvedPerson} is my ${resolvedRole} — ${phoneToSave}`
         : `${resolvedPerson} is my ${resolvedRole}`,
       createdAt: nowIso,
       isDone: false,
@@ -692,6 +744,8 @@ app.put('/api/memories/:id', async (req, res) => {
       }
     }
 
+    let phoneOffer: { person: string; role: string } | null = (updatedMemory as any)?.phoneOffer || null;
+
     // Persist new/updated relationships
     if (newRelationships.length > 0) {
       const { phoneNumber } = extractPhoneNumber(trimmedText);
@@ -707,12 +761,17 @@ app.put('/api/memories/:id', async (req, res) => {
             });
           }
         }
+      } else if (!phoneOffer) {
+        const activeRel = newRelationships.find((r: any) => r && r.person && r.role && r.is_active !== false);
+        if (activeRel) {
+          phoneOffer = { person: activeRel.person, role: activeRel.role };
+        }
       }
       await saveRelationships(newRelationships);
     }
 
     console.log(`[API MEMORY EDIT] Successfully updated memory ${id} with refreshed metadata. People:`, updatedMemory.interpretation?.people);
-    return res.json({ memory: updatedMemory });
+    return res.json({ memory: updatedMemory, phoneOffer: phoneOffer || null });
   } catch (err: any) {
     console.error('Error updating memory:', err);
     return res.status(500).json({ error: 'Failed to re-interpret and update memory' });

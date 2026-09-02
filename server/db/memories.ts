@@ -221,11 +221,12 @@ export async function readMemoryById(id: string): Promise<any | null> {
 }
 
 // Insert memory records into Bunny Database and schedule reminders if timed
-export async function insertMemories(items: any[]): Promise<void> {
+export async function insertMemories(items: any[]): Promise<{ phoneOffer?: { person: string; role: string } | null }> {
   await initBunnyDb();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const reminderStmts: Array<{ sql: string; args: any[] }> = [];
   const relationshipsToSave: Array<{ person: string; role: string; is_active?: boolean }> = [];
+  let phoneOffer: { person: string; role: string } | null = null;
 
   for (const item of items) {
     const itemRelationships = Array.isArray(item.interpretation.relationships) ? item.interpretation.relationships : [];
@@ -246,6 +247,12 @@ export async function insertMemories(items: any[]): Promise<void> {
               metadata: { phone: phoneNumber },
             });
           }
+        }
+      } else if (!phoneOffer) {
+        // Phase F4: Relationship declared without phone number - generate phoneOffer
+        const activeRel = itemRelationships.find((rel: any) => rel && rel.person && rel.role && rel.is_active !== false);
+        if (activeRel) {
+          phoneOffer = { person: activeRel.person, role: activeRel.role };
         }
       }
     }
@@ -361,6 +368,8 @@ export async function insertMemories(items: any[]): Promise<void> {
   if (relationshipsToSave.length > 0) {
     await saveRelationships(relationshipsToSave);
   }
+
+  return { phoneOffer: phoneOffer || null };
 }
 
 // Toggle memory Done status in Bunny Database
@@ -582,6 +591,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     console.warn(`[Vector Sync] Non-fatal error updating vector for ${id}:`, err);
   });
 
+  let phoneOffer: { person: string; role: string } | null = null;
   if (itemRelationships.length > 0) {
     // Phase F3: If this updated relationship-declaring item contains a phone number, structurally save the user entity with phone metadata
     const textToScan = updatedOriginalText || updatedInterpretation?.content || '';
@@ -598,6 +608,12 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
           });
         }
       }
+    } else {
+      // Phase F4: Relationship declared without phone number - generate phoneOffer
+      const activeRel = itemRelationships.find((rel: any) => rel && rel.person && rel.role && rel.is_active !== false);
+      if (activeRel) {
+        phoneOffer = { person: activeRel.person, role: activeRel.role };
+      }
     }
     await saveRelationships(itemRelationships);
   }
@@ -607,6 +623,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     originalText: row.originalText, // Preserved original capture text
     createdAt: row.createdAt,
     isDone: Boolean(Number(row.isDone)),
+    phoneOffer: phoneOffer || null,
     interpretation: {
       content: updatedInterpretation.content,
       kind: updatedInterpretation.kind,
