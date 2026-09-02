@@ -677,6 +677,10 @@ app.post('/api/clarifications/resolve', async (req, res) => {
 
     await insertMemories([factMemory]);
 
+    const phoneOffer = (!phoneToSave && !isPhoneOffer && resolvedPerson && resolvedRole)
+      ? { person: resolvedPerson, role: resolvedRole }
+      : null;
+
     return res.json({
       success: true,
       message: `Learned: ${resolvedPerson} is your ${resolvedRole}.`,
@@ -686,6 +690,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
         normalized_role: normalizeRoleName(resolvedRole),
       },
       memory: factMemory,
+      phoneOffer: phoneOffer || null,
     });
   } catch (err: any) {
     console.error('[Ambiguity Rule] Error resolving clarification:', err);

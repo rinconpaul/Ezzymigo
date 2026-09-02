@@ -235,8 +235,23 @@ export default function App() {
               ? `Saved ${clarification.entityName}'s phone number.`
               : `Learned: ${clarification.entityName} is your ${answerText}`)
         );
-        setClarification(null);
-        setClarificationAnswer('');
+        if (data.phoneOffer) {
+          setClarification({
+            id: `phone_offer_${Date.now()}`,
+            question: `Got it — want to add ${data.phoneOffer.person}'s number?`,
+            entityName: data.phoneOffer.person,
+            entityType: 'phone_offer',
+            memoryId: data.memory?.id || clarification.memoryId,
+            metadata: {
+              role: data.phoneOffer.role,
+              isPhoneOffer: true,
+            },
+          });
+          setClarificationAnswer('');
+        } else {
+          setClarification(null);
+          setClarificationAnswer('');
+        }
         setTimeout(() => setClarificationFeedback(null), 5000);
         // Refresh memories from persistent storage deterministically
         await fetchMemories();
