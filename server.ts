@@ -306,6 +306,26 @@ app.post('/api/memories', async (req, res) => {
     // Persist relationships extracted by processThoughtCapturePipeline
     const extractedRelationships = newMemories.flatMap(m => m.interpretation?.relationships || []);
     if (extractedRelationships.length > 0) {
+      for (const m of newMemories) {
+        const itemRels = m.interpretation?.relationships || [];
+        if (itemRels.length > 0) {
+          const textToScan = m.originalText || trimmedText;
+          const { phoneNumber } = extractPhoneNumber(textToScan);
+          if (phoneNumber) {
+            for (const rel of itemRels) {
+              if (rel.person && rel.role && rel.is_active !== false) {
+                await saveUserEntity({
+                  name: rel.person,
+                  entity_type: 'person',
+                  role: rel.role,
+                  normalized_role: normalizeRoleName(rel.role),
+                  metadata: { phone: phoneNumber },
+                });
+              }
+            }
+          }
+        }
+      }
       await saveRelationships(extractedRelationships);
     }
 
@@ -674,6 +694,20 @@ app.put('/api/memories/:id', async (req, res) => {
 
     // Persist new/updated relationships
     if (newRelationships.length > 0) {
+      const { phoneNumber } = extractPhoneNumber(trimmedText);
+      if (phoneNumber) {
+        for (const rel of newRelationships) {
+          if (rel && rel.person && rel.role && rel.is_active !== false) {
+            await saveUserEntity({
+              name: rel.person,
+              entity_type: 'person',
+              role: rel.role,
+              normalized_role: normalizeRoleName(rel.role),
+              metadata: { phone: phoneNumber },
+            });
+          }
+        }
+      }
       await saveRelationships(newRelationships);
     }
 

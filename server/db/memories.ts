@@ -2,7 +2,7 @@ import { executeBunnySql } from './client';
 import { initBunnyDb } from './schema';
 import { parseReminderTriggerTime } from '../utils/time';
 import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
-import { saveRelationships } from '../relationships/index';
+import { saveRelationships, saveUserEntity, extractPhoneNumber, normalizeRoleName } from '../relationships/index';
 import { extractSearchDoc, getSearchSyncStatements, getSearchDeleteStatements } from './search_sync';
 import { buildMemoryDocumentString, syncMemoryVector, deleteMemoryVector } from '../retrieval/vector_service';
 
@@ -231,6 +231,23 @@ export async function insertMemories(items: any[]): Promise<void> {
     const itemRelationships = Array.isArray(item.interpretation.relationships) ? item.interpretation.relationships : [];
     if (itemRelationships.length > 0) {
       relationshipsToSave.push(...itemRelationships);
+
+      // Phase F3: If this relationship-declaring item contains a phone number, structurally save the user entity with phone metadata
+      const textToScan = item.originalText || item.interpretation?.content || '';
+      const { phoneNumber } = extractPhoneNumber(textToScan);
+      if (phoneNumber) {
+        for (const rel of itemRelationships) {
+          if (rel && rel.person && rel.role && rel.is_active !== false) {
+            await saveUserEntity({
+              name: rel.person,
+              entity_type: 'person',
+              role: rel.role,
+              normalized_role: normalizeRoleName(rel.role),
+              metadata: { phone: phoneNumber },
+            });
+          }
+        }
+      }
     }
 
     const metaTopicsObj = {
@@ -566,6 +583,22 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   });
 
   if (itemRelationships.length > 0) {
+    // Phase F3: If this updated relationship-declaring item contains a phone number, structurally save the user entity with phone metadata
+    const textToScan = updatedOriginalText || updatedInterpretation?.content || '';
+    const { phoneNumber } = extractPhoneNumber(textToScan);
+    if (phoneNumber) {
+      for (const rel of itemRelationships) {
+        if (rel && rel.person && rel.role && rel.is_active !== false) {
+          await saveUserEntity({
+            name: rel.person,
+            entity_type: 'person',
+            role: rel.role,
+            normalized_role: normalizeRoleName(rel.role),
+            metadata: { phone: phoneNumber },
+          });
+        }
+      }
+    }
     await saveRelationships(itemRelationships);
   }
 
