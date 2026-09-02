@@ -44,6 +44,7 @@ import {
 } from './server/ai/interpreter';
 import {
   normalizeRoleName,
+  extractPhoneNumber,
   readActiveRelationships,
   getActiveRelationshipByRole,
   getActiveRelationshipByPerson,
@@ -482,18 +483,22 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       });
     }
 
+    // Extract phone number from rawAnswer if present, to avoid corrupting role/person regex matching
+    const { phoneNumber: extractedPhone, cleanedText } = extractPhoneNumber(rawAnswer);
+    const textToParse = cleanedText || rawAnswer;
+
     let resolvedPerson = trimmedEntity;
-    let resolvedRole = rawAnswer;
+    let resolvedRole = textToParse;
 
     // Check for "X is my Y" / "X is the Y" / "X is a Y"
-    const isMyMatch = rawAnswer.match(/^(?:([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|the\s+|a\s+|an\s+)?|he['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|she['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|they['’]?re\s+(?:my\s+|the\s+|a\s+|an\s+)?|my\s+)([A-Za-z0-9\s]+?)[.!]?$/i);
+    const isMyMatch = textToParse.match(/^(?:([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|the\s+|a\s+|an\s+)?|he['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|she['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|they['’]?re\s+(?:my\s+|the\s+|a\s+|an\s+)?|my\s+)([A-Za-z0-9\s]+?)[.!]?$/i);
 
-    if (rawAnswer.includes('—')) {
-      const parts = rawAnswer.split('—').map((s: string) => s.trim());
+    if (textToParse.includes('—')) {
+      const parts = textToParse.split('—').map((s: string) => s.trim());
       resolvedPerson = parts[0] || trimmedEntity;
       resolvedRole = parts[1] || '';
-    } else if (rawAnswer.includes('-')) {
-      const parts = rawAnswer.split('-').map((s: string) => s.trim());
+    } else if (textToParse.includes('-')) {
+      const parts = textToParse.split('-').map((s: string) => s.trim());
       resolvedPerson = parts[0] || trimmedEntity;
       resolvedRole = parts[1] || '';
     } else if (isMyMatch) {
@@ -507,11 +512,11 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       const normalizedEntity = normalizeRoleName(trimmedEntity);
       const commonRoles = ['sister', 'brother', 'son', 'daughter', 'doctor', 'physio', 'plumber', 'electrician', 'mechanic', 'dentist', 'boss', 'wife', 'husband', 'accountant', 'lawyer', 'neighbour', 'neighbor', 'friend', 'mother', 'father', 'mum', 'dad'];
       if (commonRoles.includes(normalizedEntity)) {
-        resolvedPerson = rawAnswer;
+        resolvedPerson = textToParse;
         resolvedRole = trimmedEntity;
       } else {
         resolvedPerson = trimmedEntity;
-        resolvedRole = rawAnswer;
+        resolvedRole = textToParse;
       }
     }
 
@@ -524,22 +529,46 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       is_active: true,
     }]);
 
-    // 2. Save user entity
+    // 2. Save user entity with structured metadata
+    const entityMetadata: Record<string, any> = extractedPhone ? { phone: extractedPhone } : {};
     await saveUserEntity({
       name: resolvedPerson,
       entity_type: 'person',
       role: resolvedRole,
       normalized_role: normalizeRoleName(resolvedRole),
-      metadata: {},
+      metadata: entityMetadata,
     });
 
     // 3. Create user-visible FACT memory card representing this explicit user-supplied knowledge
-    const factContent = `${resolvedPerson} is my ${resolvedRole}`;
+    const factContent = extractedPhone
+      ? `${resolvedPerson} is my ${resolvedRole} — ${extractedPhone}`
+      : `${resolvedPerson} is my ${resolvedRole}`;
     const factMemoryId = `mem_${Date.now()}_0_${Math.random().toString(36).substring(2, 9)}`;
     const nowIso = new Date().toISOString();
+
+    const retrievalCues = [
+      resolvedPerson.toLowerCase(),
+      resolvedRole.toLowerCase(),
+      `${resolvedPerson.toLowerCase()} (${resolvedRole.toLowerCase()})`,
+      `my ${resolvedRole.toLowerCase()}`,
+      `${resolvedPerson.toLowerCase()} is my ${resolvedRole.toLowerCase()}`,
+    ];
+    if (extractedPhone) {
+      retrievalCues.push(
+        extractedPhone.toLowerCase(),
+        `${resolvedPerson.toLowerCase()} phone`,
+        `${resolvedPerson.toLowerCase()} phone number`,
+        `${resolvedRole.toLowerCase()} phone`,
+        `${resolvedRole.toLowerCase()} phone number`,
+        `${resolvedPerson.toLowerCase()} ${extractedPhone.toLowerCase()}`
+      );
+    }
+
     const factMemory = {
       id: factMemoryId,
-      originalText: `${resolvedPerson} is my ${resolvedRole}`,
+      originalText: extractedPhone
+        ? `${resolvedPerson} is my ${resolvedRole} — ${extractedPhone}`
+        : `${resolvedPerson} is my ${resolvedRole}`,
       createdAt: nowIso,
       isDone: false,
       interpretation: {
@@ -549,15 +578,9 @@ app.post('/api/clarifications/resolve', async (req, res) => {
         status: 'active',
         people: [resolvedPerson],
         places: [],
-        topics: ['relationship', resolvedRole, 'contact'].filter(Boolean),
+        topics: ['relationship', resolvedRole, 'contact', extractedPhone ? 'phone' : null].filter(Boolean) as string[],
         contexts: ['personal'],
-        retrieval_cues: [
-          resolvedPerson.toLowerCase(),
-          resolvedRole.toLowerCase(),
-          `${resolvedPerson.toLowerCase()} (${resolvedRole.toLowerCase()})`,
-          `my ${resolvedRole.toLowerCase()}`,
-          `${resolvedPerson.toLowerCase()} is my ${resolvedRole.toLowerCase()}`,
-        ],
+        retrieval_cues: retrievalCues,
         items: [],
         relationships: [{
           person: resolvedPerson,

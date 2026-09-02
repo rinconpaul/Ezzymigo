@@ -99,6 +99,35 @@ export async function getActiveRelationshipByPerson(person: string): Promise<{ i
   }
 }
 
+// Extract phone number from raw clarification answer or freeform text
+export function extractPhoneNumber(text: string): { phoneNumber: string | null; cleanedText: string } {
+  if (!text || typeof text !== 'string') {
+    return { phoneNumber: null, cleanedText: text || '' };
+  }
+
+  // Regex pattern for Australian & general phone numbers:
+  // - Mobile: 04xx xxx xxx / +61 4xx xxx xxx / 04xxxxxxxx / 04xx-xxx-xxx / 04xx.xxx.xxx
+  // - Landline with area code: (02) xxxx xxxx / 02 xxxx xxxx / 02-xxxx-xxxx / +61 2 xxxx xxxx
+  // - 8-digit landline: xxxx xxxx / xxxx-xxxx
+  // - 1300 / 1800 / 13 xx xx
+  const phonePattern = /(?:(?:(?:\+?61\s*(?:\(0\))?|0)[2-478](?:[ -]?[0-9]){8})|(?:(?:\+?61\s*(?:\(0\))?|0)4(?:[ -]?[0-9]){8})|(?:\(?0[2-478]\)?\s*[0-9]{4}[ -]?[0-9]{4})|(?:1[38]00[ -]?[0-9]{3}[ -]?[0-9]{3})|(?:13[ -]?[0-9]{2}[ -]?[0-9]{2})|(?<!\d|\$|\/|-)(?:[2-9][0-9]{3}[ -][0-9]{4})(?!\d|\/|-)|(?<!\d|\$|\/|-)\b(?:04[0-9]{2}[ -]?[0-9]{3}[ -]?[0-9]{3})\b)/i;
+
+  const match = text.match(phonePattern);
+  if (!match) {
+    return { phoneNumber: null, cleanedText: text };
+  }
+
+  const rawPhone = match[0].trim();
+
+  // Strip phone and optional contact/label prefixes (e.g. "phone:", "ph:", "mob:", "mobile:", "tel:", etc.)
+  let cleaned = text.replace(match[0], '');
+  cleaned = cleaned.replace(/\b(?:phone(?:\s*number)?|ph|mob|mobile|tel|telephone|contact(?:\s*number)?)\s*[:#-]?\s*/gi, '');
+  cleaned = cleaned.replace(/^[,\s:—-]+|[,\s:—-]+$/g, '').replace(/\s*,\s*/g, ', ').replace(/\s{2,}/g, ' ').trim();
+  cleaned = cleaned.replace(/[,\s:—-]+$/, '').trim();
+
+  return { phoneNumber: rawPhone, cleanedText: cleaned };
+}
+
 // Save or update reusable user entity (supporting future metadata like phone, email, notes)
 export async function saveUserEntity(entity: {
   name: string;
@@ -126,11 +155,11 @@ export async function saveUserEntity(entity: {
               entity_type = excluded.entity_type,
               role = excluded.role,
               normalized_role = excluded.normalized_role,
-              metadata = excluded.metadata,
+              metadata = CASE WHEN excluded.metadata != '{}' THEN excluded.metadata ELSE user_entities.metadata END,
               updated_at = excluded.updated_at;`,
       args: [id, name, entityType, role, normalizedRole, metadataStr, nowIso]
     }]);
-    console.log(`[Entities] Successfully saved user entity "${name}" (${entityType})`);
+    console.log(`[Entities] Successfully saved user entity "${name}" (${entityType}) with metadata:`, metadataStr);
   } catch (err) {
     console.error('[Entities] Error saving user entity:', err);
   }
