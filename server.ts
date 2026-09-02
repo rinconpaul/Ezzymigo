@@ -1331,18 +1331,23 @@ app.post('/api/ask', async (req, res) => {
     // SHADOW ARCHITECTURE D & NATIVE RETRIEVAL (Step 2.2B)
     // Non-blocking shadow execution for diagnostic comparison only.
     // Legacy DCR candidateMemories remains strictly authoritative for prompt synthesis.
+    // GATED: Disabled during normal user Ask requests to eliminate ~7.6s latency overhead.
+    // Preserved for deliberate testing/comparison via ENABLE_ARCH_D_SHADOW env var or enableArchDShadow flag.
     // -------------------------------------------------------------
-    try {
-      const archDResult = await executeArchitectureDRetrieval({
-        question: trimmedQuestion,
-        nowIso: localContext.referenceDate.toISOString(),
-        activeRoleLabels: activeRelationships.map(r => r.role),
-        legacyCandidateIds: candidateMemories.map(m => m.id),
-      });
-      const ad = archDResult.shadowTelemetry;
-      console.log(`[Architecture D Shadow Telemetry] Query: "${trimmedQuestion}" (${ad.query_language_script}) | Route: ${ad.route_taken} | Top: ${ad.top_candidate_id} (Sim: ${ad.top_cosine_similarity?.toFixed(4) ?? 'N/A'}) | Ambiguity Rescue: ${ad.ambiguity_rescue_triggered ? `YES (${ad.ambiguity_rescue_reason})` : 'NO'} | Counts: Legacy=${ad.legacy_ids.length}, ArchD=${ad.architecture_d_ids.length}, Inter=${ad.intersection_ids.length}, LegacyOnly=${ad.legacy_only_ids.length}, ArchDOnly=${ad.architecture_d_only_ids.length} | Latency: Total=${ad.timings.total_architecture_d_ms}ms (Embed=${ad.timings.embedding_api_ms}ms, VecSQL=${ad.timings.vector_sql_ms}ms, Arb=${ad.timings.arbitration_ms}ms, Rescue=${ad.timings.ambiguity_rescue_ms}ms, Hydrate=${ad.timings.hydration_ms}ms)`);
-    } catch (shadowErr) {
-      console.warn('[Architecture D Shadow Non-Fatal Error]:', shadowErr);
+    const enableArchDShadow = process.env.ENABLE_ARCH_D_SHADOW === 'true' || Boolean((req.body as any)?.enableArchDShadow);
+    if (enableArchDShadow) {
+      try {
+        const archDResult = await executeArchitectureDRetrieval({
+          question: trimmedQuestion,
+          nowIso: localContext.referenceDate.toISOString(),
+          activeRoleLabels: activeRelationships.map(r => r.role),
+          legacyCandidateIds: candidateMemories.map(m => m.id),
+        });
+        const ad = archDResult.shadowTelemetry;
+        console.log(`[Architecture D Shadow Telemetry] Query: "${trimmedQuestion}" (${ad.query_language_script}) | Route: ${ad.route_taken} | Top: ${ad.top_candidate_id} (Sim: ${ad.top_cosine_similarity?.toFixed(4) ?? 'N/A'}) | Ambiguity Rescue: ${ad.ambiguity_rescue_triggered ? `YES (${ad.ambiguity_rescue_reason})` : 'NO'} | Counts: Legacy=${ad.legacy_ids.length}, ArchD=${ad.architecture_d_ids.length}, Inter=${ad.intersection_ids.length}, LegacyOnly=${ad.legacy_only_ids.length}, ArchDOnly=${ad.architecture_d_only_ids.length} | Latency: Total=${ad.timings.total_architecture_d_ms}ms (Embed=${ad.timings.embedding_api_ms}ms, VecSQL=${ad.timings.vector_sql_ms}ms, Arb=${ad.timings.arbitration_ms}ms, Rescue=${ad.timings.ambiguity_rescue_ms}ms, Hydrate=${ad.timings.hydration_ms}ms)`);
+      } catch (shadowErr) {
+        console.warn('[Architecture D Shadow Non-Fatal Error]:', shadowErr);
+      }
     }
 
     if (!ai) {
