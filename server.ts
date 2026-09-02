@@ -1254,7 +1254,12 @@ app.post('/api/ask', async (req, res) => {
     const trimmedQuestion = question.trim();
     console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
-    const activeRelationships = await readActiveRelationships();
+    // Phase A: Concurrent database retrieval for relationships, memories, and calendar events
+    const [activeRelationships, memories, calendarEvents] = await Promise.all([
+      readActiveRelationships(),
+      readMemories(),
+      readCalendarEvents(),
+    ]);
 
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
     const ai = getGeminiClient();
@@ -1281,19 +1286,6 @@ app.post('/api/ask', async (req, res) => {
 
     const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
 
-    // Targeted SQL retrieval for Calendar events (Step 2.1)
-    const targetedCalendar = await retrieveTargetedCalendarEvents({
-      question: trimmedQuestion,
-      referenceDate: localContext.referenceDate,
-      timeZone: localContext.timeZone,
-      resolvedEntities,
-      activeRelationships,
-    });
-    const calendarEvents = targetedCalendar.events;
-    console.log(`[Targeted Calendar Retrieval] Strategy: "${targetedCalendar.queryStrategy}", Loaded: ${calendarEvents.length} events (Targeted: ${targetedCalendar.usedTargetedPath})`);
-
-    const memories = await readMemories();
-
     // Run Context Builder Stage (DYNAMIC CONTEXT RETRIEVAL v1)
     const dynamicRetrieval = buildDynamicRetrievalContext(
       trimmedQuestion,
@@ -1302,27 +1294,6 @@ app.post('/api/ask', async (req, res) => {
       activeRelationships,
       localContext
     );
-
-    // Rollback / Fallback safety net for Step 2.1: If targeted calendar returned 0 candidates for a calendar query, check full table
-    if (dynamicRetrieval.candidateCalendarEvents.length === 0 && targetedCalendar.usedTargetedPath) {
-      const isCalQuery = /\b(?:calendar|schedule|appointments?|meetings?|agenda|dr|doctor|dentist|physio)\b/i.test(trimmedQuestion);
-      if (isCalQuery) {
-        const fullCalendar = await readCalendarEvents();
-        if (fullCalendar.length > calendarEvents.length) {
-          const fallbackRetrieval = buildDynamicRetrievalContext(
-            trimmedQuestion,
-            memories,
-            fullCalendar,
-            activeRelationships,
-            localContext
-          );
-          if (fallbackRetrieval.candidateCalendarEvents.length > 0) {
-            console.log(`[Targeted Calendar Fallback] Activated full table fallback for: "${trimmedQuestion}"`);
-            dynamicRetrieval.candidateCalendarEvents = fallbackRetrieval.candidateCalendarEvents;
-          }
-        }
-      }
-    }
 
     const { candidateMemories, candidateCalendarEvents, retrievalMetadata } = dynamicRetrieval;
     console.log(`[Dynamic Retrieval v1] Built focused candidate set: ${candidateMemories.length}/${memories.length} memories, ${candidateCalendarEvents.length}/${calendarEvents.length} calendar events. Anchors: people=[${retrievalMetadata.resolvedPeople.join(', ')}], roles=[${retrievalMetadata.resolvedRoles.join(', ')}], places=[${retrievalMetadata.detectedPlaces.join(', ')}], topics=[${retrievalMetadata.topicsAndKeywords.join(', ')}], temporal=[${retrievalMetadata.temporalAnchors.months.concat(retrievalMetadata.temporalAnchors.relativeExpressions).join(', ')}]`);
