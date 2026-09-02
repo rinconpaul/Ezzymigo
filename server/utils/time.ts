@@ -107,6 +107,24 @@ export function getYMDInTz(d: Date, tz: string = 'Australia/Sydney'): string {
   }
 }
 
+// Helper to shift a YYYY-MM-DD date string by a given number of days in UTC math (safe from DST shifts)
+export function getRelativeYMD(baseYMD: string, dayOffset: number): string {
+  const [y, m, d] = baseYMD.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + dayOffset));
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper to get lowercase weekday name ('sunday'..'saturday') for a YYYY-MM-DD string
+export function getWeekdayFromYMD(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return weekdays[date.getUTCDay()];
+}
+
 // Helper to extract time string in client's timezone
 export function getTimeStrInTz(d: Date, tz: string = 'Australia/Sydney', language: string = 'en-AU'): string {
   try {

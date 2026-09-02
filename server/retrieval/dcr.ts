@@ -1,10 +1,20 @@
 import { normalizeRoleName, resolveRelationshipsInQuery } from '../relationships/index';
 import { LocalContextInfo, MemoryTodayLifecycleBounds, evaluateMemoryTodayLifecycle } from '../today/relevance';
-import { getYMDInTz, getTimeStrInTz, parseTimeStringToHM } from '../utils/time';
+import { getYMDInTz, getTimeStrInTz, parseTimeStringToHM, getRelativeYMD, getWeekdayFromYMD } from '../utils/time';
 
 // -------------------------------------------------------------
 // DYNAMIC CONTEXT RETRIEVAL v1 (Context Builder Engine)
 // -------------------------------------------------------------
+
+export interface ResolvedTemporalTarget {
+  expression: string;
+  targetYMD: string;
+  targetWeekday: string;
+  dayOffset: number;
+  isFuture: boolean;
+  isPast: boolean;
+  isToday: boolean;
+}
 
 export interface DynamicRetrievalResult {
   candidateMemories: any[];
@@ -18,6 +28,7 @@ export interface DynamicRetrievalResult {
       hasTemporalConstraint: boolean;
       months: string[];
       relativeExpressions: string[];
+      resolvedTargets?: Array<{ expression: string; targetYMD: string; targetWeekday: string; dayOffset: number }>;
     };
     expandedTokens: string[];
     resolvedEntities: Array<{ roleMatch: string; normalizedRole: string; resolvedPerson: string }>;
@@ -160,6 +171,166 @@ export function doesOccurrenceOverlapWindow(
   return false;
 }
 
+/**
+ * Resolves relative date expressions (e.g. 'tomorrow', 'yesterday', 'today', 'Friday')
+ * against localContext.referenceDate and localContext.timeZone into concrete target dates and weekdays.
+ */
+export function resolveQueryTemporalTargets(
+  qLower: string,
+  localContext: LocalContextInfo
+): ResolvedTemporalTarget[] {
+  const targets: ResolvedTemporalTarget[] = [];
+  const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
+
+  // 1. Day after tomorrow
+  if (/\b(?:day\s+after\s+tomorrow)\b/i.test(qLower)) {
+    const targetYMD = getRelativeYMD(clientTodayYMD, 2);
+    targets.push({
+      expression: 'day after tomorrow',
+      targetYMD,
+      targetWeekday: getWeekdayFromYMD(targetYMD),
+      dayOffset: 2,
+      isFuture: true,
+      isPast: false,
+      isToday: false,
+    });
+  }
+  // 2. Tomorrow (if not already matched by day after tomorrow)
+  else if (/\b(?:tomorrow|tomorrows|tomorrow's)\b/i.test(qLower)) {
+    const targetYMD = getRelativeYMD(clientTodayYMD, 1);
+    targets.push({
+      expression: 'tomorrow',
+      targetYMD,
+      targetWeekday: getWeekdayFromYMD(targetYMD),
+      dayOffset: 1,
+      isFuture: true,
+      isPast: false,
+      isToday: false,
+    });
+  }
+
+  // 3. Day before yesterday
+  if (/\b(?:day\s+before\s+yesterday)\b/i.test(qLower)) {
+    const targetYMD = getRelativeYMD(clientTodayYMD, -2);
+    targets.push({
+      expression: 'day before yesterday',
+      targetYMD,
+      targetWeekday: getWeekdayFromYMD(targetYMD),
+      dayOffset: -2,
+      isFuture: false,
+      isPast: true,
+      isToday: false,
+    });
+  }
+  // 4. Yesterday (if not matched by day before yesterday)
+  else if (/\b(?:yesterday|yesterdays|yesterday's)\b/i.test(qLower)) {
+    const targetYMD = getRelativeYMD(clientTodayYMD, -1);
+    targets.push({
+      expression: 'yesterday',
+      targetYMD,
+      targetWeekday: getWeekdayFromYMD(targetYMD),
+      dayOffset: -1,
+      isFuture: false,
+      isPast: true,
+      isToday: false,
+    });
+  }
+
+  // 5. Today / Tonight / This morning / This afternoon / This evening
+  if (/\b(?:today|todays|today's|tonight|this\s+morning|this\s+afternoon|this\s+evening)\b/i.test(qLower)) {
+    const targetYMD = clientTodayYMD;
+    if (!targets.some(t => t.targetYMD === targetYMD)) {
+      targets.push({
+        expression: 'today',
+        targetYMD,
+        targetWeekday: getWeekdayFromYMD(targetYMD),
+        dayOffset: 0,
+        isFuture: false,
+        isPast: false,
+        isToday: true,
+      });
+    }
+  }
+
+  // 6. Explicit Weekdays (e.g. "on Friday", "this Friday", "next Friday", "Friday")
+  const allWeekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  for (let wIdx = 0; wIdx < allWeekdays.length; wIdx++) {
+    const wd = allWeekdays[wIdx];
+    const wdRegex = new RegExp(`\\b(?:on\\s+|this\\s+|next\\s+)?${wd}\\b`, 'i');
+    if (wdRegex.test(qLower)) {
+      const todayWd = getWeekdayFromYMD(clientTodayYMD);
+      const todayIdx = allWeekdays.indexOf(todayWd);
+      let diff = wIdx - todayIdx;
+      if (new RegExp(`\\bnext\\s+${wd}\\b`, 'i').test(qLower)) {
+        diff = diff <= 0 ? diff + 7 : diff + 7;
+      } else if (diff < 0 && !new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
+        diff += 7;
+      } else if (new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
+        diff = diff >= 0 ? diff - 7 : diff;
+      }
+      const targetYMD = getRelativeYMD(clientTodayYMD, diff);
+      if (!targets.some(t => t.targetYMD === targetYMD)) {
+        targets.push({
+          expression: wd,
+          targetYMD,
+          targetWeekday: wd,
+          dayOffset: diff,
+          isFuture: diff > 0,
+          isPast: diff < 0,
+          isToday: diff === 0,
+        });
+      }
+    }
+  }
+
+  return targets;
+}
+
+/**
+ * Evaluates whether an active memory represents a recurring schedule that applies to a target weekday.
+ * Strictly distinguishes genuine recurring patterns ('every Friday', 'each Friday', 'Fridays') from
+ * non-recurring single events on a specific date (e.g. 'on Friday, 4 September 2026').
+ */
+export function doesMemoryMatchRecurringWeekday(m: any, targetWeekday: string): boolean {
+  if (m.isDone === true || m.interpretation?.status === 'done' || m.interpretation?.status === 'dismissed') {
+    return false;
+  }
+
+  const isRecurringMode = m.interpretation?.resurfacing?.mode === 'recurring' ||
+    m.interpretation?.intent === 'recurring_schedule' ||
+    m.interpretation?.recurrence !== undefined;
+
+  const interpText = [
+    m.interpretation?.resurfacing?.timing || '',
+    m.interpretation?.original_time_expression || '',
+    m.interpretation?.event_time_expression || '',
+    m.interpretation?.content || '',
+  ].join(' ').toLowerCase();
+
+  const textToCheck = interpText.trim().length > 0 ? interpText : (m.originalText || '').toLowerCase();
+
+  const targetDay = targetWeekday.toLowerCase();
+  const targetShort = targetDay.slice(0, 3);
+
+  const hasEveryOrDaily = /\b(?:every|each|daily|weekly|fortnightly|monthly)\b/i.test(textToCheck);
+  const hasPluralWeekday = new RegExp(`\\b${targetDay}s\\b`, 'i').test(textToCheck);
+
+  if (!isRecurringMode && !hasEveryOrDaily && !hasPluralWeekday) {
+    return false;
+  }
+
+  const isEveryDay = textToCheck.includes('every day') || textToCheck.includes('daily');
+  const isEveryWeekday = textToCheck.includes('every weekday') && !['saturday', 'sunday'].includes(targetDay);
+  const isEveryWeekend = textToCheck.includes('every weekend') && ['saturday', 'sunday'].includes(targetDay);
+
+  const isTargetDayMatch =
+    new RegExp(`\\b(?:every|each)\\s+[^.!?]*\\b${targetDay}\\b`, 'i').test(textToCheck) ||
+    new RegExp(`\\b(?:every|each)\\s+[^.!?]*\\b${targetShort}\\b`, 'i').test(textToCheck) ||
+    new RegExp(`\\b${targetDay}s\\b`, 'i').test(textToCheck);
+
+  return isEveryDay || isEveryWeekday || isEveryWeekend || isTargetDayMatch;
+}
+
 export function buildDynamicRetrievalContext(
   query: string,
   memories: any[],
@@ -228,7 +399,7 @@ export function buildDynamicRetrievalContext(
       candLower.length >= 3 &&
       !ASK_STOP_WORDS.has(candLower) &&
       !RETRIEVAL_MONTHS.some(m => m.name === candLower || m.abbr === candLower) &&
-      !['morning', 'afternoon', 'night', 'evening', 'today', 'tomorrow', 'yesterday', 'week', 'month', 'year'].includes(candLower)
+      !/\b(?:today|tomorrow|yesterday|morning|afternoon|evening|night|week|month|year|do|see|get|have|make|buy)\b/i.test(candLower)
     ) {
       if (!detectedPlaces.some(dp => dp.toLowerCase() === candLower)) {
         detectedPlaces.push(candidate);
@@ -317,8 +488,9 @@ export function buildDynamicRetrievalContext(
   }
 
   const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
+  const resolvedTemporalTargets = resolveQueryTemporalTargets(qLower, localContext);
   const reqWindow = detectRequestedDaypartWindow(qLower, localContext.weekday);
-  const hasTemporalConstraint = detectedMonths.length > 0 || detectedRelativeExprs.length > 0 || reqWindow !== null;
+  const hasTemporalConstraint = detectedMonths.length > 0 || detectedRelativeExprs.length > 0 || reqWindow !== null || resolvedTemporalTargets.length > 0;
 
   // 5. Score and Rank Memories
   const memoryScores = new Map<string, number>();
@@ -428,7 +600,35 @@ export function buildDynamicRetrievalContext(
         }
       }
 
-      // 2. Month matching
+      // 2. Resolved relative temporal targets (e.g. tomorrow, yesterday, specific weekday)
+      for (const tt of resolvedTemporalTargets) {
+        const matchesTargetDate = (iso?: string | null) => {
+          if (!iso) return false;
+          try {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return false;
+            return getYMDInTz(d, localContext.timeZone) === tt.targetYMD;
+          } catch {
+            return false;
+          }
+        };
+
+        if (
+          matchesTargetDate(m.interpretation?.resolved_datetime) ||
+          matchesTargetDate(m.interpretation?.event_datetime) ||
+          matchesTargetDate(m.interpretation?.reminder_datetime) ||
+          matchesTargetDate(m.interpretation?.subject_resolved_date) ||
+          (tt.isPast && matchesTargetDate(m.createdAt))
+        ) {
+          score += 50;
+        }
+
+        if (doesMemoryMatchRecurringWeekday(m, tt.targetWeekday)) {
+          score += 50;
+        }
+      }
+
+      // 3. Month matching
       for (const month of detectedMonths) {
         if (mTiming.includes(month) || mCombinedText.includes(month)) {
           score += 40;
@@ -452,7 +652,7 @@ export function buildDynamicRetrievalContext(
         }
       }
 
-      // 3. Relative expression matching
+      // 4. Relative expression matching (supplementary evidence)
       for (const relExpr of detectedRelativeExprs) {
         const isPresentDayWord = ['today', 'this morning', 'this afternoon', 'this evening', 'tonight'].includes(relExpr);
         if (reqWindow && isPresentDayWord) {
@@ -559,6 +759,23 @@ export function buildDynamicRetrievalContext(
     }
 
     if (hasTemporalConstraint) {
+      // 1. Resolved relative temporal targets (e.g. tomorrow, yesterday, specific weekday)
+      for (const tt of resolvedTemporalTargets) {
+        if (e.start_datetime) {
+          try {
+            const eStartDate = new Date(e.start_datetime);
+            const eEndDate = e.end_datetime ? new Date(e.end_datetime) : eStartDate;
+            const eStartYMD = getYMDInTz(eStartDate, localContext.timeZone);
+            const eEndYMD = getYMDInTz(eEndDate, localContext.timeZone);
+            // Match if target date is start date, or falls within multi-day/all-day event range
+            if (eStartYMD === tt.targetYMD || (tt.targetYMD >= eStartYMD && tt.targetYMD <= eEndYMD)) {
+              calScore += 50;
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Present-day window matching
       if (reqWindow && e.start_datetime) {
         try {
           const eStartDate = new Date(e.start_datetime);
@@ -653,6 +870,12 @@ export function buildDynamicRetrievalContext(
         hasTemporalConstraint,
         months: detectedMonths,
         relativeExpressions: detectedRelativeExprs,
+        resolvedTargets: resolvedTemporalTargets.map(t => ({
+          expression: t.expression,
+          targetYMD: t.targetYMD,
+          targetWeekday: t.targetWeekday,
+          dayOffset: t.dayOffset,
+        })),
       },
       expandedTokens,
       resolvedEntities,
