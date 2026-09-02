@@ -10,7 +10,7 @@ import { DeleteKnowledgeModal, LearnedKnowledgeDeletePrompt } from './components
 import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
 import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship } from './types';
-import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check } from 'lucide-react';
+import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check, Contact } from 'lucide-react';
 
 const ACTIONABLE_INTENTS = new Set([
   'task',
@@ -236,6 +236,37 @@ export default function App() {
   const handleDismissClarification = () => {
     setClarification(null);
     setClarificationAnswer('');
+  };
+
+  // Browser Contact Picker API handler (Phase F2)
+  const handlePickContact = async () => {
+    try {
+      if (!('contacts' in navigator && 'ContactsManager' in window)) return;
+      const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
+      if (contacts && contacts.length > 0) {
+        const selected = contacts[0];
+        const rawPhone = Array.isArray(selected?.tel) && selected.tel.length > 0
+          ? selected.tel[0]
+          : (typeof selected?.tel === 'string' ? selected.tel : null);
+        const phone = rawPhone ? String(rawPhone).trim() : null;
+
+        if (phone) {
+          setClarificationAnswer((prev) => {
+            const trimmed = prev.trim();
+            if (!trimmed) {
+              return phone;
+            }
+            if (trimmed.endsWith(',') || trimmed.endsWith('—') || trimmed.endsWith('-')) {
+              return `${trimmed} ${phone}`;
+            }
+            return `${trimmed}, ${phone}`;
+          });
+        }
+      }
+    } catch (err) {
+      // Fail silently back to text-only flow if user cancels or permission is denied
+      console.debug('[ContactPicker] Contact selection cancelled or failed:', err);
+    }
   };
 
   // Toggle Done / Active
@@ -650,9 +681,21 @@ export default function App() {
                     type="text"
                     value={clarificationAnswer}
                     onChange={(e) => setClarificationAnswer(e.target.value)}
-                    placeholder="e.g. My brother"
+                    placeholder="e.g. My brother, or include their number"
                     className="flex-1 h-8 px-2.5 bg-white rounded-lg border border-indigo-200 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-600 focus:border-indigo-600 shadow-2xs"
                   />
+                  {typeof navigator !== 'undefined' && typeof window !== 'undefined' && ('contacts' in navigator && 'ContactsManager' in window) && (
+                    <button
+                      type="button"
+                      id="clarification-use-contacts-btn"
+                      onClick={handlePickContact}
+                      className="px-2.5 h-8 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 shadow-2xs flex items-center gap-1.5"
+                      title="Select from contacts"
+                    >
+                      <Contact className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Use Contacts</span>
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={!clarificationAnswer.trim() || isResolvingClarification}
