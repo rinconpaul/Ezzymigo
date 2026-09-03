@@ -107,6 +107,63 @@ export function applyCollectionListRule(units: string[]): string[] {
   return mergedUnits;
 }
 
+// Phase B: Conservative deterministic fast-path classifier for V1
+export function isEligibleForSplitterFastPath(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+
+  // 1. Length bounds: 8 to 220 characters
+  if (trimmed.length < 8 || trimmed.length > 220) return false;
+
+  // 2. Standard Latin / ASCII characters only in V1 (foreign scripts & non-ASCII fall back to Gemini)
+  if (!/^[\x20-\x7E’'“”"–—]+$/.test(trimmed)) return false;
+
+  // 3. No newlines
+  if (/[\r\n]/.test(trimmed)) return false;
+
+  // 4. No semicolons
+  if (trimmed.includes(';')) return false;
+
+  // 5. No colons, except standard time formats like 2:30pm or 10:30
+  const withoutTimes = trimmed.replace(/\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm))?\b/gi, '');
+  if (withoutTimes.includes(':')) return false;
+
+  // 6. No list or bullet markers
+  if (/^[-*•]\s+/m.test(trimmed) || /\s+[-*•]\s+/.test(trimmed) || /\b\d+[.)]\s+/.test(trimmed)) return false;
+
+  // 7. At most 1 comma
+  const commaCount = (trimmed.match(/,/g) || []).length;
+  if (commaCount > 1) return false;
+
+  // 8. Single sentence: no interior sentence terminators
+  const strippedEndPunct = trimmed.replace(/[.!?]+$/, '').trim();
+  if (/[.!?](?:\s+\S|[A-Z])/.test(strippedEndPunct)) return false;
+
+  // 9. No additive or chaining transition words
+  if (/\b(also|additionally|plus|as well as|oh and|on top of that|by the way|meanwhile|separately|then|because)\b/i.test(trimmed)) {
+    return false;
+  }
+
+  // 10. Conservative Conjunction Gate: no 'and', 'but', or non-English coordinating conjunctions
+  // Exception: clean 'between X and Y' range
+  if (/\b(and|but|et|mais|y|pero|und|aber)\b/i.test(trimmed)) {
+    const isCleanBetweenAnd = /^\s*between\s+\S+\s+and\s+\S+(?:\s+.*)?$/i.test(trimmed);
+    const andMatches = trimmed.match(/\band\b/gi) || [];
+    if (!isCleanBetweenAnd || andMatches.length > 1) {
+      return false;
+    }
+  }
+
+  // 11. Punctuation-free voice stream guard: if zero punctuation, limit to <= 12 words
+  const hasPunctuation = /[.,!?;:'"’“”\-–—]/.test(trimmed);
+  if (!hasPunctuation) {
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    if (words.length > 12) return false;
+  }
+
+  return true;
+}
+
 // Dedicated Splitter: Divides raw user capture into distinct independent intentions and coherent context units
 export async function splitCaptureIntoUnits(
   text: string,
@@ -115,9 +172,18 @@ export async function splitCaptureIntoUnits(
 ): Promise<string[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
+
+  // Phase B: Conservative deterministic fast path
+  if (isEligibleForSplitterFastPath(trimmed)) {
+    console.log(`[Splitter Fast Path] Bypassed Gemini Splitter (0ms) for coherent single memory: "${trimmed}"`);
+    return [trimmed];
+  }
+
   if (!ai) {
     return [trimmed];
   }
+
+  console.log(`[Gemini Splitter] Calling Gemini Splitter for multi-intention/complex capture: "${trimmed}"`);
 
   try {
     const response = await ai.models.generateContent({
