@@ -148,8 +148,12 @@ export async function fetchGoogleCalendarEvents(daysAhead: number = DEFAULT_CALE
 
       return rawItems.map((item: any) => {
         const isAllDay = Boolean(item.start?.date && !item.start?.dateTime);
-        const startDatetime = item.start?.dateTime || (item.start?.date ? `${item.start.date}T00:00:00Z` : new Date().toISOString());
-        const endDatetime = item.end?.dateTime || (item.end?.date ? `${item.end.date}T23:59:59Z` : startDatetime);
+        const startDatetime = isAllDay
+          ? (item.start?.date || new Date().toISOString().slice(0, 10))
+          : (item.start?.dateTime || new Date().toISOString());
+        const endDatetime = isAllDay
+          ? (item.end?.date || item.start?.date || startDatetime)
+          : (item.end?.dateTime || startDatetime);
         
         const attendees = Array.isArray(item.attendees)
           ? item.attendees.map((a: any) => a.displayName || a.email).filter(Boolean)

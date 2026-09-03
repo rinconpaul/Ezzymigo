@@ -182,6 +182,34 @@ export function resolveQueryTemporalTargets(
   const targets: ResolvedTemporalTarget[] = [];
   const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
 
+  // 0. Explicit calendar dates (e.g. "28 September", "September 28", "Sunday 27 September", "4th of October")
+  const datePattern1 = /\b(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i;
+  const datePattern2 = /\b(?:on\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i;
+
+  const match1 = qLower.match(datePattern1);
+  const match2 = !match1 ? qLower.match(datePattern2) : null;
+  const explicitDayStr = match1 ? match1[1] : (match2 ? match2[2] : null);
+  const explicitMonthStr = match1 ? match1[2] : (match2 ? match2[1] : null);
+
+  if (explicitDayStr && explicitMonthStr) {
+    const monthObj = RETRIEVAL_MONTHS.find(m => m.name === explicitMonthStr.toLowerCase() || m.abbr === explicitMonthStr.toLowerCase() || (explicitMonthStr.toLowerCase() === 'sept' && m.name === 'september'));
+    if (monthObj) {
+      const clientYear = parseInt(clientTodayYMD.slice(0, 4), 10);
+      const mNum = String(monthObj.index + 1).padStart(2, '0');
+      const dNum = String(parseInt(explicitDayStr, 10)).padStart(2, '0');
+      const targetYMD = `${clientYear}-${mNum}-${dNum}`;
+      targets.push({
+        expression: `${explicitDayStr} ${explicitMonthStr}`,
+        targetYMD,
+        targetWeekday: getWeekdayFromYMD(targetYMD),
+        dayOffset: 0,
+        isFuture: targetYMD > clientTodayYMD,
+        isPast: targetYMD < clientTodayYMD,
+        isToday: targetYMD === clientTodayYMD,
+      });
+    }
+  }
+
   // 1. Day after tomorrow
   if (/\b(?:day\s+after\s+tomorrow)\b/i.test(qLower)) {
     const targetYMD = getRelativeYMD(clientTodayYMD, 2);
@@ -253,32 +281,35 @@ export function resolveQueryTemporalTargets(
   }
 
   // 6. Explicit Weekdays (e.g. "on Friday", "this Friday", "next Friday", "Friday")
-  const allWeekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  for (let wIdx = 0; wIdx < allWeekdays.length; wIdx++) {
-    const wd = allWeekdays[wIdx];
-    const wdRegex = new RegExp(`\\b(?:on\\s+|this\\s+|next\\s+)?${wd}\\b`, 'i');
-    if (wdRegex.test(qLower)) {
-      const todayWd = getWeekdayFromYMD(clientTodayYMD);
-      const todayIdx = allWeekdays.indexOf(todayWd);
-      let diff = wIdx - todayIdx;
-      if (new RegExp(`\\bnext\\s+${wd}\\b`, 'i').test(qLower)) {
-        diff = diff <= 0 ? diff + 7 : diff + 7;
-      } else if (diff < 0 && !new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
-        diff += 7;
-      } else if (new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
-        diff = diff >= 0 ? diff - 7 : diff;
-      }
-      const targetYMD = getRelativeYMD(clientTodayYMD, diff);
-      if (!targets.some(t => t.targetYMD === targetYMD)) {
-        targets.push({
-          expression: wd,
-          targetYMD,
-          targetWeekday: wd,
-          dayOffset: diff,
-          isFuture: diff > 0,
-          isPast: diff < 0,
-          isToday: diff === 0,
-        });
+  // Only check relative weekdays if no explicit calendar date was already specified
+  if (!explicitDayStr) {
+    const allWeekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (let wIdx = 0; wIdx < allWeekdays.length; wIdx++) {
+      const wd = allWeekdays[wIdx];
+      const wdRegex = new RegExp(`\\b(?:on\\s+|this\\s+|next\\s+)?${wd}\\b`, 'i');
+      if (wdRegex.test(qLower)) {
+        const todayWd = getWeekdayFromYMD(clientTodayYMD);
+        const todayIdx = allWeekdays.indexOf(todayWd);
+        let diff = wIdx - todayIdx;
+        if (new RegExp(`\\bnext\\s+${wd}\\b`, 'i').test(qLower)) {
+          diff = diff <= 0 ? diff + 7 : diff + 7;
+        } else if (diff < 0 && !new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
+          diff += 7;
+        } else if (new RegExp(`\\blast\\s+${wd}\\b`, 'i').test(qLower)) {
+          diff = diff >= 0 ? diff - 7 : diff;
+        }
+        const targetYMD = getRelativeYMD(clientTodayYMD, diff);
+        if (!targets.some(t => t.targetYMD === targetYMD)) {
+          targets.push({
+            expression: wd,
+            targetYMD,
+            targetWeekday: wd,
+            dayOffset: diff,
+            isFuture: diff > 0,
+            isPast: diff < 0,
+            isToday: diff === 0,
+          });
+        }
       }
     }
   }
@@ -763,13 +794,25 @@ export function buildDynamicRetrievalContext(
       for (const tt of resolvedTemporalTargets) {
         if (e.start_datetime) {
           try {
-            const eStartDate = new Date(e.start_datetime);
-            const eEndDate = e.end_datetime ? new Date(e.end_datetime) : eStartDate;
-            const eStartYMD = getYMDInTz(eStartDate, localContext.timeZone);
-            const eEndYMD = getYMDInTz(eEndDate, localContext.timeZone);
-            // Match if target date is start date, or falls within multi-day/all-day event range
-            if (eStartYMD === tt.targetYMD || (tt.targetYMD >= eStartYMD && tt.targetYMD <= eEndYMD)) {
-              calScore += 50;
+            if (e.is_all_day) {
+              const startYMD = e.start_datetime.slice(0, 10);
+              const endYMDExcl = e.end_datetime ? e.end_datetime.slice(0, 10) : startYMD;
+              // An all-day event covers civil dates [startYMD, endYMDExcl)
+              const isCovered = (endYMDExcl <= startYMD)
+                ? (tt.targetYMD === startYMD)
+                : (tt.targetYMD >= startYMD && tt.targetYMD < endYMDExcl);
+              if (isCovered) {
+                calScore += 50;
+              }
+            } else {
+              const eStartDate = new Date(e.start_datetime);
+              const eEndDate = e.end_datetime ? new Date(e.end_datetime) : eStartDate;
+              const eStartYMD = getYMDInTz(eStartDate, localContext.timeZone);
+              const eEndYMD = getYMDInTz(eEndDate, localContext.timeZone);
+              // Match if target date is start date, or falls within multi-day/all-day event range
+              if (eStartYMD === tt.targetYMD || (tt.targetYMD >= eStartYMD && tt.targetYMD <= eEndYMD)) {
+                calScore += 50;
+              }
             }
           } catch {}
         }
@@ -778,40 +821,60 @@ export function buildDynamicRetrievalContext(
       // 2. Present-day window matching
       if (reqWindow && e.start_datetime) {
         try {
-          const eStartDate = new Date(e.start_datetime);
-          const eEndDate = e.end_datetime ? new Date(e.end_datetime) : new Date(eStartDate.getTime() + 60 * 60 * 1000);
-          const eStartYMD = getYMDInTz(eStartDate, localContext.timeZone);
-          if (eStartYMD === clientTodayYMD) {
-            if (e.is_all_day) {
+          if (e.is_all_day) {
+            const startYMD = e.start_datetime.slice(0, 10);
+            const endYMDExcl = e.end_datetime ? e.end_datetime.slice(0, 10) : startYMD;
+            const isTodayCovered = (endYMDExcl <= startYMD)
+              ? (startYMD === clientTodayYMD)
+              : (clientTodayYMD >= startYMD && clientTodayYMD < endYMDExcl);
+            if (isTodayCovered) {
+              calScore += 50;
+            }
+          } else {
+            const eStartDate = new Date(e.start_datetime);
+            const eEndDate = e.end_datetime ? new Date(e.end_datetime) : new Date(eStartDate.getTime() + 60 * 60 * 1000);
+            const eStartYMD = getYMDInTz(eStartDate, localContext.timeZone);
+            if (eStartYMD === clientTodayYMD) {
               if (reqWindow.daypart === 'today') {
                 calScore += 50;
-              }
-            } else {
-              const sTimeStr = getTimeStrInTz(eStartDate, localContext.timeZone, localContext.language);
-              const eTimeStr = getTimeStrInTz(eEndDate, localContext.timeZone, localContext.language);
-              const sParsed = parseTimeStringToHM(sTimeStr);
-              const eParsed = parseTimeStringToHM(eTimeStr);
-              let evStart = sParsed ? sParsed.hour + sParsed.minute / 60 : 0;
-              let evEnd = eParsed ? eParsed.hour + eParsed.minute / 60 : evStart + 1;
-              if (evEnd <= evStart) evEnd = evStart + 1;
+              } else {
+                const sTimeStr = getTimeStrInTz(eStartDate, localContext.timeZone, localContext.language);
+                const eTimeStr = getTimeStrInTz(eEndDate, localContext.timeZone, localContext.language);
+                const sParsed = parseTimeStringToHM(sTimeStr);
+                const eParsed = parseTimeStringToHM(eTimeStr);
+                let evStart = sParsed ? sParsed.hour + sParsed.minute / 60 : 0;
+                let evEnd = eParsed ? eParsed.hour + eParsed.minute / 60 : evStart + 1;
+                if (evEnd <= evStart) evEnd = evStart + 1;
 
-              const overlapStart = Math.max(evStart, reqWindow.startHour);
-              const overlapEnd = Math.min(evEnd, reqWindow.endHour);
-              if (overlapStart < overlapEnd) {
-                calScore += 50;
+                const overlapStart = Math.max(evStart, reqWindow.startHour);
+                const overlapEnd = Math.min(evEnd, reqWindow.endHour);
+                if (overlapStart < overlapEnd) {
+                  calScore += 50;
+                }
               }
             }
           }
         } catch {}
       }
 
-      for (const month of detectedMonths) {
-        try {
-          const d = new Date(e.start_datetime);
-          if (RETRIEVAL_MONTHS[d.getMonth()]?.name === month || eText.includes(month)) {
-            calScore += 35;
-          }
-        } catch {}
+      // Only apply broad month-level scoring if no specific date target was resolved
+      if (resolvedTemporalTargets.length === 0) {
+        for (const month of detectedMonths) {
+          try {
+            if (e.is_all_day) {
+              const startYMD = e.start_datetime.slice(0, 10);
+              const mIdx = parseInt(startYMD.slice(5, 7), 10) - 1;
+              if (RETRIEVAL_MONTHS[mIdx]?.name === month || eText.includes(month)) {
+                calScore += 35;
+              }
+            } else {
+              const d = new Date(e.start_datetime);
+              if (RETRIEVAL_MONTHS[d.getMonth()]?.name === month || eText.includes(month)) {
+                calScore += 35;
+              }
+            }
+          } catch {}
+        }
       }
       for (const relExpr of detectedRelativeExprs) {
         const isPresentDayWord = ['today', 'this morning', 'this afternoon', 'this evening', 'tonight'].includes(relExpr);
@@ -826,10 +889,17 @@ export function buildDynamicRetrievalContext(
     if (isGenericScheduleIntent) {
       if (e.start_datetime) {
         try {
-          const evStartDate = new Date(e.start_datetime);
-          const evTime = evStartDate.getTime();
-          if (evTime >= startOfTodayMs) {
-            calScore += 30;
+          if (e.is_all_day) {
+            const endYMDExcl = e.end_datetime ? e.end_datetime.slice(0, 10) : e.start_datetime.slice(0, 10);
+            if (endYMDExcl > clientTodayYMD) {
+              calScore += 30;
+            }
+          } else {
+            const evStartDate = new Date(e.start_datetime);
+            const evTime = evStartDate.getTime();
+            if (evTime >= startOfTodayMs) {
+              calScore += 30;
+            }
           }
         } catch {}
       }
@@ -848,8 +918,12 @@ export function buildDynamicRetrievalContext(
           return b.score - a.score;
         }
         // Otherwise, preserve chronological ordering (earliest upcoming event first)
-        const timeA = a.event.start_datetime ? new Date(a.event.start_datetime).getTime() : 0;
-        const timeB = b.event.start_datetime ? new Date(b.event.start_datetime).getTime() : 0;
+        const timeA = a.event.is_all_day
+          ? new Date(`${a.event.start_datetime.slice(0, 10)}T00:00:00Z`).getTime()
+          : (a.event.start_datetime ? new Date(a.event.start_datetime).getTime() : 0);
+        const timeB = b.event.is_all_day
+          ? new Date(`${b.event.start_datetime.slice(0, 10)}T00:00:00Z`).getTime()
+          : (b.event.start_datetime ? new Date(b.event.start_datetime).getTime() : 0);
         return timeA - timeB;
       })
       .slice(0, MAX_DYNAMIC_CALENDAR)

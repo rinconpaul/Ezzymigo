@@ -15,6 +15,7 @@ import { getGeminiClient } from './server/config/gemini';
 import {
   formatLocalTimeContext,
   formatIsoToLocal,
+  formatAllDayCivilDateSpan,
   getYMDInTz,
   getTimeStrInTz,
   parseTimeStringToHM,
@@ -1403,7 +1404,15 @@ app.post('/api/ask', async (req, res) => {
 
       const parts: string[] = [];
       if (candidateCalendarEvents.length > 0) {
-        parts.push(`Calendar events: ${candidateCalendarEvents.map(e => `${e.title} (${e.start_datetime} to ${e.end_datetime})`).join('; ')}`);
+        parts.push(`Calendar events: ${candidateCalendarEvents.map(e => {
+          if (e.is_all_day) {
+            const startYMD = (e.start_datetime || '').slice(0, 10);
+            const endYMDExcl = (e.end_datetime || '').slice(0, 10) || startYMD;
+            const span = formatAllDayCivilDateSpan(startYMD, endYMDExcl, localContext.language || 'en-AU');
+            return `${e.title} (${span} All Day)`;
+          }
+          return `${e.title} (${e.start_datetime} to ${e.end_datetime})`;
+        }).join('; ')}`);
       }
       if (candidateMemories.length > 0) {
         parts.push(`Memories: ${candidateMemories.map(m => m.interpretation?.content || m.originalText).join('; ')}`);
@@ -1461,20 +1470,46 @@ app.post('/api/ask', async (req, res) => {
       };
     });
 
-    const calendarContext = candidateCalendarEvents.map(e => ({
-      id: e.id,
-      title: e.title,
-      start_datetime: e.start_datetime,
-      start_datetime_local: formatIsoToLocal(e.start_datetime, localContext.timeZone),
-      end_datetime: e.end_datetime,
-      end_datetime_local: formatIsoToLocal(e.end_datetime, localContext.timeZone),
-      is_all_day: e.is_all_day,
-      location: e.location || null,
-      description: e.description || null,
-      attendees: e.attendees || [],
-      status: e.status || 'confirmed',
-      source: e.source || 'google_calendar',
-    }));
+    const calendarContext = candidateCalendarEvents.map(e => {
+      if (e.is_all_day) {
+        const startYMD = (e.start_datetime || '').slice(0, 10);
+        const endYMDExcl = (e.end_datetime || '').slice(0, 10) || startYMD;
+        const formattedSpan = formatAllDayCivilDateSpan(startYMD, endYMDExcl, localContext.language || 'en-AU');
+        const displayTiming = `${formattedSpan} (All Day)`;
+
+        return {
+          id: e.id,
+          title: e.title,
+          is_all_day: true,
+          date_local: displayTiming,
+          timing: 'All Day',
+          start_datetime: startYMD,
+          start_datetime_local: displayTiming,
+          end_datetime: endYMDExcl,
+          end_datetime_local: displayTiming,
+          location: e.location || null,
+          description: e.description || null,
+          attendees: e.attendees || [],
+          status: e.status || 'confirmed',
+          source: e.source || 'google_calendar',
+        };
+      }
+
+      return {
+        id: e.id,
+        title: e.title,
+        is_all_day: false,
+        start_datetime: e.start_datetime,
+        start_datetime_local: formatIsoToLocal(e.start_datetime, localContext.timeZone, localContext.language),
+        end_datetime: e.end_datetime,
+        end_datetime_local: formatIsoToLocal(e.end_datetime, localContext.timeZone, localContext.language),
+        location: e.location || null,
+        description: e.description || null,
+        attendees: e.attendees || [],
+        status: e.status || 'confirmed',
+        source: e.source || 'google_calendar',
+      };
+    });
 
     const systemInstruction = `You are Ezzymigo (Ezzy), the user's personal intention and memory companion.
 Your task is to answer user questions using their stored memories, relationships, lists, and imported calendar events.
@@ -1517,6 +1552,7 @@ OPERATIONAL RULES:
    - Respect localized dates/times ('created_at_local', 'resolved_datetime_local') and 'today_occurrence' (active routines/scheduled items for today).
    - Interpret relative historical expressions ("yesterday afternoon", "last weekend", "before my doctor appointment") against the reference time and event timestamps. Stored resolved timestamps remain permanently anchored to their captured dates.
    - For prerequisites: dependent user actions belong to the user once the condition clears; timing on the prerequisite belongs to the condition, not the user's task.
+   - CALENDAR ALL-DAY EVENTS ('is_all_day': true): These are untimed civil calendar-date events belonging strictly to the specified calendar date(s). They are 'All Day' events with NO specific start/end clock time. Never invent or display pseudo-times (such as 10:00 am, 9:59 am, or 12:00 am). Describe them naturally as taking place on that day (e.g. "On Friday, 4 September, it's Doug's birthday").
 
 6. STRICT CITATION & GROUNDING:
    - Ground answers strictly in provided data with zero hallucinations.

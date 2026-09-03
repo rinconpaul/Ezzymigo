@@ -1148,6 +1148,42 @@ export async function computeTodayRelevance(
   // 2. Calendar Events today with strict 4-Stage Lifecycle Handling (Priority 2)
   for (const ev of calendarEvents) {
     if (!ev.start_datetime) continue;
+
+    if (ev.is_all_day) {
+      const startYMD = ev.start_datetime.slice(0, 10);
+      const endYMDExcl = ev.end_datetime ? ev.end_datetime.slice(0, 10) : startYMD;
+      const isToday = (endYMDExcl <= startYMD)
+        ? (startYMD === clientTodayYMD)
+        : (clientTodayYMD >= startYMD && clientTodayYMD < endYMDExcl);
+
+      if (isToday && !seenSourceIds.has(ev.id)) {
+        seenSourceIds.add(ev.id);
+        const isBirthdayOrCelebration =
+          ev.event_type === 'birthday' ||
+          Boolean(ev.birthday_properties) ||
+          (typeof ev.description === 'string' && (
+            /"eventType"\s*:\s*"birthday"/i.test(ev.description) ||
+            /birthdayProperties/i.test(ev.description) ||
+            /\bbirthday\b/i.test(ev.description)
+          )) ||
+          /\b(birthday|bday|anniversary|jubilee)\b/i.test(ev.title || '');
+
+        candidateList.push({
+          source_type: 'calendar',
+          source_id: ev.id,
+          relevance_reason: isBirthdayOrCelebration
+            ? 'Birthday / Celebration today'
+            : 'All-day event today',
+          display_text: ev.title,
+          priority: 2,
+          is_anticipatory: false,
+          event_title: ev.title,
+          ticker_headlines: [ev.title],
+        });
+      }
+      continue;
+    }
+
     const startDate = new Date(ev.start_datetime);
     if (isNaN(startDate.getTime())) continue;
 

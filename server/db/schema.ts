@@ -128,6 +128,13 @@ export async function initBunnyDb(): Promise<void> {
             vector_json TEXT NOT NULL,
             updated_at TEXT NOT NULL
           );`
+        },
+        {
+          // Normalize legacy all-day calendar events to true civil date strings (YYYY-MM-DD)
+          sql: `UPDATE calendar_events
+                SET startDatetime = SUBSTR(startDatetime, 1, 10),
+                    endDatetime = SUBSTR(endDatetime, 1, 10)
+                WHERE isAllDay = 1 AND startDatetime LIKE '%T%';`
         }
       ]);
       dbInitialized = true;

@@ -300,6 +300,13 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
 
   for (const ev of events) {
     const { id, source, sourceEventId } = canonicalizeCalendarEvent(ev);
+    const isAllDay = Boolean(ev.is_all_day || Number(ev.isAllDay));
+    let startVal = ev.start_datetime || ev.startDatetime || nowIso;
+    let endVal = ev.end_datetime || ev.endDatetime || nowIso;
+    if (isAllDay) {
+      startVal = String(startVal).slice(0, 10);
+      endVal = String(endVal).slice(0, 10);
+    }
     stmts.push({
       sql: `INSERT INTO calendar_events (id, source, sourceEventId, title, description, location, attendees, startDatetime, endDatetime, isAllDay, status, updatedAt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -323,9 +330,9 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
         ev.description || null,
         ev.location || null,
         JSON.stringify(Array.isArray(ev.attendees) ? ev.attendees : []),
-        ev.start_datetime || ev.startDatetime || nowIso,
-        ev.end_datetime || ev.endDatetime || nowIso,
-        ev.is_all_day ? 1 : 0,
+        startVal,
+        endVal,
+        isAllDay ? 1 : 0,
         ev.status || 'confirmed',
         ev.updated_at || ev.updatedAt || nowIso,
       ]

@@ -92,6 +92,53 @@ export function formatIsoToLocal(isoString: string | null | undefined, timeZone:
   }
 }
 
+// Format an all-day civil date or date span [startYMD, endYMDExcl) without any timezone shifting or pseudo-times
+export function formatAllDayCivilDateSpan(
+  startYMD: string | null | undefined,
+  endYMDExcl: string | null | undefined,
+  language: string = 'en-AU'
+): string | null {
+  if (!startYMD) return null;
+  try {
+    const rawStart = startYMD.slice(0, 10);
+    const [sy, sm, sd] = rawStart.split('-').map(Number);
+    if (!sy || !sm || !sd) return rawStart;
+
+    const startDate = new Date(Date.UTC(sy, sm - 1, sd, 12, 0, 0));
+    const startStr = new Intl.DateTimeFormat(language || 'en-AU', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(startDate);
+
+    if (endYMDExcl) {
+      const rawEndExcl = endYMDExcl.slice(0, 10);
+      if (rawEndExcl > rawStart) {
+        const [ey, em, ed] = rawEndExcl.split('-').map(Number);
+        // Exclusive end date means the last day covered is the day before
+        const endInclDate = new Date(Date.UTC(ey, em - 1, ed - 1, 12, 0, 0));
+        const endYMDIncl = endInclDate.toISOString().slice(0, 10);
+        if (endYMDIncl !== rawStart) {
+          const endStr = new Intl.DateTimeFormat(language || 'en-AU', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          }).format(endInclDate);
+          return `${startStr} to ${endStr}`;
+        }
+      }
+    }
+
+    return startStr;
+  } catch {
+    return startYMD ? startYMD.slice(0, 10) : null;
+  }
+}
+
 // Helper to format Date to YYYY-MM-DD in client's timezone
 export function getYMDInTz(d: Date, tz: string = 'Australia/Sydney'): string {
   try {

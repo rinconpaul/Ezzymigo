@@ -60,12 +60,17 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
       const endDate = new Date(endIso);
 
       if (isAllDay) {
-        return formatDateTime(startDate, {
+        const startYMD = startIso.slice(0, 10);
+        const [sy, sm, sd] = startYMD.split('-').map(Number);
+        const utcDate = new Date(Date.UTC(sy, sm - 1, sd, 12, 0, 0));
+        const formatted = new Intl.DateTimeFormat(prefs.language || 'en-AU', {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
           year: 'numeric',
-        }, prefs) + ' (All Day)';
+          timeZone: 'UTC',
+        }).format(utcDate);
+        return `${formatted} (All Day)`;
       }
 
       const sameDay = startDate.toDateString() === endDate.toDateString();
