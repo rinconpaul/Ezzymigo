@@ -165,6 +165,84 @@ export async function saveUserEntity(entity: {
   }
 }
 
+// Pure in-memory merge of extracted relationships into active relationships (0 ms latency)
+export function mergeRelationshipsWithExtracted(
+  activeRelationships: Array<{ id?: string; person: string; role: string; normalized_role: string; is_active?: boolean; updated_at?: string }>,
+  extracted: Array<{ person: string; role: string; is_active?: boolean }>
+): Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }> {
+  if (!extracted || extracted.length === 0) {
+    return (activeRelationships || []).map(r => ({
+      id: r.id || `rel_${r.normalized_role}_${(r.person || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      person: r.person,
+      role: r.role,
+      normalized_role: r.normalized_role,
+      is_active: r.is_active !== false,
+      updated_at: r.updated_at || new Date().toISOString(),
+    }));
+  }
+
+  const nowIso = new Date().toISOString();
+  const merged: Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }> = (activeRelationships || []).map(r => ({
+    id: r.id || `rel_${r.normalized_role}_${(r.person || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+    person: r.person,
+    role: r.role,
+    normalized_role: r.normalized_role,
+    is_active: r.is_active !== false,
+    updated_at: r.updated_at || nowIso,
+  }));
+
+  for (const rel of extracted) {
+    const person = (rel.person || '').trim();
+    const rawRole = (rel.role || '').trim();
+    const normalizedRole = normalizeRoleName(rawRole);
+    const isActive = rel.is_active !== false;
+
+    if (!person || !normalizedRole) continue;
+
+    const id = `rel_${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+    if (isActive) {
+      // Singular / exclusive roles supersede previous holders of this role
+      const singularRoles = ['wife', 'husband', 'spouse', 'partner', 'plumber', 'electrician', 'mechanic', 'accountant', 'lawyer', 'boss', 'gp', 'primary doctor'];
+      if (singularRoles.includes(normalizedRole)) {
+        for (let i = 0; i < merged.length; i++) {
+          if (merged[i].normalized_role === normalizedRole && merged[i].person.toLowerCase() !== person.toLowerCase()) {
+            merged[i] = { ...merged[i], is_active: false };
+          }
+        }
+      }
+
+      const existingIdx = merged.findIndex(
+        r => r.person.toLowerCase() === person.toLowerCase() && r.normalized_role === normalizedRole
+      );
+
+      const entry = {
+        id,
+        person,
+        role: rawRole,
+        normalized_role: normalizedRole,
+        is_active: true,
+        updated_at: nowIso,
+      };
+
+      if (existingIdx >= 0) {
+        merged[existingIdx] = entry;
+      } else {
+        merged.unshift(entry);
+      }
+    } else {
+      const existingIdx = merged.findIndex(
+        r => r.id === id || (r.normalized_role === normalizedRole && r.person.toLowerCase() === person.toLowerCase())
+      );
+      if (existingIdx >= 0) {
+        merged[existingIdx] = { ...merged[existingIdx], is_active: false };
+      }
+    }
+  }
+
+  return merged.filter(r => r.is_active);
+}
+
 // Save or update relationships extracted from memories
 export async function saveRelationships(relationships: Array<{ person: string; role: string; is_active?: boolean }>): Promise<void> {
   if (!Array.isArray(relationships) || relationships.length === 0) return;
@@ -508,7 +586,8 @@ export async function detectAmbiguityInSavedMemories(
   memories: any[],
   activeRelationships: Array<{ person: string; role: string; normalized_role: string }>,
   originalText: string,
-  ai: GoogleGenAI | null
+  ai: GoogleGenAI | null,
+  preLoadedMemories?: any[]
 ): Promise<{
   id: string;
   question: string;
@@ -550,7 +629,7 @@ export async function detectAmbiguityInSavedMemories(
   }
 
   // Retrieve existing stored memories to distinguish first-mention from established contextual entities
-  const allStored = await readMemories();
+  const allStored = preLoadedMemories !== undefined ? preLoadedMemories : await readMemories();
   const newIds = new Set(memories.map(m => m.id));
   const priorStored = allStored.filter(m => !newIds.has(m.id));
 

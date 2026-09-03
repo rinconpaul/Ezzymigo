@@ -221,7 +221,10 @@ export async function readMemoryById(id: string): Promise<any | null> {
 }
 
 // Insert memory records into Bunny Database and schedule reminders if timed
-export async function insertMemories(items: any[]): Promise<{ phoneOffer?: { person: string; role: string } | null }> {
+export async function insertMemories(
+  items: any[],
+  options?: { skipRelationshipSave?: boolean }
+): Promise<{ phoneOffer?: { person: string; role: string } | null }> {
   await initBunnyDb();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const reminderStmts: Array<{ sql: string; args: any[] }> = [];
@@ -365,7 +368,7 @@ export async function insertMemories(items: any[]): Promise<{ phoneOffer?: { per
     });
   }
 
-  if (relationshipsToSave.length > 0) {
+  if (!options?.skipRelationshipSave && relationshipsToSave.length > 0) {
     await saveRelationships(relationshipsToSave);
   }
 

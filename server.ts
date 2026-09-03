@@ -57,6 +57,7 @@ import {
   evaluateKnowledgeModification,
   enrichMemoryWithRelationship,
   detectAmbiguityInSavedMemories,
+  mergeRelationshipsWithExtracted,
   resolveRelationshipsInQuery,
 } from './server/relationships/index';
 import {
@@ -287,13 +288,14 @@ app.get('/api/memories', async (req, res) => {
 });
 
 app.post('/api/memories', async (req, res) => {
-  const { originalText, clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body;
+  const rawInput = req.body?.originalText || req.body?.text;
+  const { clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body || {};
 
-  if (!originalText || typeof originalText !== 'string' || !originalText.trim()) {
+  if (!rawInput || typeof rawInput !== 'string' || !rawInput.trim()) {
     return res.status(400).json({ error: 'Original thought text is required' });
   }
 
-  const trimmedText = originalText.trim();
+  const trimmedText = rawInput.trim();
   console.log(`[API MEMORY WRITE] POST /api/memories - Received thought to save: "${trimmedText}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, linkedEventId: ${linkedEventId || 'none'}, subject: ${subject || 'none'})`);
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
   const ai = getGeminiClient();
@@ -301,12 +303,26 @@ app.post('/api/memories', async (req, res) => {
   try {
     const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
 
-    const insertResult = await insertMemories(newMemories);
-    let phoneOffer: { person: string; role: string } | null = insertResult?.phoneOffer || null;
-
-    // Persist relationships extracted by processThoughtCapturePipeline
+    // Initial phoneOffer computation from newMemories (deterministic in-memory)
+    let phoneOffer: { person: string; role: string } | null = null;
     const extractedRelationships = newMemories.flatMap(m => m.interpretation?.relationships || []);
-    if (extractedRelationships.length > 0) {
+    for (const m of newMemories) {
+      const itemRels = m.interpretation?.relationships || [];
+      if (itemRels.length > 0) {
+        const textToScan = m.originalText || trimmedText;
+        const { phoneNumber } = extractPhoneNumber(textToScan);
+        if (!phoneNumber && !phoneOffer) {
+          const activeRel = itemRels.find(r => r && r.person && r.role && r.is_active !== false);
+          if (activeRel) {
+            phoneOffer = { person: activeRel.person, role: activeRel.role };
+          }
+        }
+      }
+    }
+
+    // Persist relationships & entity metadata asynchronously where present
+    const persistRelationshipsPromise = (async () => {
+      if (extractedRelationships.length === 0) return;
       for (const m of newMemories) {
         const itemRels = m.interpretation?.relationships || [];
         if (itemRels.length > 0) {
@@ -324,19 +340,40 @@ app.post('/api/memories', async (req, res) => {
                 });
               }
             }
-          } else if (!phoneOffer) {
-            const activeRel = itemRels.find(r => r && r.person && r.role && r.is_active !== false);
-            if (activeRel) {
-              phoneOffer = { person: activeRel.person, role: activeRel.role };
-            }
           }
         }
       }
       await saveRelationships(extractedRelationships);
+    })();
+
+    // Phase A Tell Concurrency:
+    // 1. insertMemories writes memories and scheduled reminders
+    // 2. persistRelationshipsPromise writes relationships and entities
+    // 3. readMemories pre-loads historical memories for ambiguity detection
+    // 4. readActiveRelationships loads pre-existing active relationships
+    const [insertResult, _relResult, historicalMemories, currentActiveRelationships] = await Promise.all([
+      insertMemories(newMemories, { skipRelationshipSave: true }),
+      persistRelationshipsPromise,
+      readMemories(),
+      readActiveRelationships(),
+    ]);
+
+    if (!phoneOffer && insertResult?.phoneOffer) {
+      phoneOffer = insertResult.phoneOffer;
     }
 
-    const activeRelationships = await readActiveRelationships();
-    const clarification = await detectAmbiguityInSavedMemories(newMemories, activeRelationships, trimmedText, ai);
+    // In-Memory Relationship Merge (0 ms DB wait):
+    // Merge pre-existing active relationships with newly extracted relationships from this request
+    const activeRelationships = mergeRelationshipsWithExtracted(currentActiveRelationships, extractedRelationships);
+
+    // Synchronous Ambiguity Detection with pre-loaded historical memories (0 ms DB wait):
+    const clarification = await detectAmbiguityInSavedMemories(
+      newMemories,
+      activeRelationships,
+      trimmedText,
+      ai,
+      historicalMemories
+    );
 
     // Prioritise resolving who the person is first: if ambiguity clarification exists, suppress phone offer
     if (clarification) {
