@@ -184,3 +184,16 @@ export interface TodayRelevanceResponse {
   timezone?: string;
 }
 
+export interface ImmediateDeviceActionPayload {
+  status: 'ready' | 'missing_number' | 'ambiguous' | 'unknown_person';
+  action: 'call' | 'sms' | 'none';
+  recipientName?: string;
+  role?: string;
+  phoneNumber?: string;
+  sanitizedPhone?: string;
+  prefilledMessage?: string;
+  feedbackMessage: string;
+  candidates?: Array<{ name: string; role?: string }>;
+}
+
+

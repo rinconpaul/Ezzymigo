@@ -10,7 +10,8 @@ async function runAcceptanceTests() {
   // Client context: Thursday 3 September 2026, Australia/Sydney
   const clientNowIso = '2026-09-02T20:26:31.000Z'; // 06:26 AM AEST on 3 Sep 2026
   const clientTz = 'Australia/Sydney';
-  const localContext = formatLocalTimeContext(new Date(clientNowIso), clientTz, 'en-AU', 'AU');
+  const localContext = formatLocalTimeContext(clientNowIso, clientTz, 'en-AU', 'AU');
+
   console.log(`Local Context Reference: ${localContext.localDateTimeStr}`);
 
   const calendarEvents = await readCalendarEvents();

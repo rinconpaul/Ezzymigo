@@ -60,7 +60,11 @@ import {
   detectAmbiguityInSavedMemories,
   mergeRelationshipsWithExtracted,
   resolveRelationshipsInQuery,
+  getUserEntities,
 } from './server/relationships/index';
+import { routeUserIntent } from './server/intent/router';
+import { resolveContactAction, resolveContactQuery } from './server/contacts/resolver';
+
 import {
   buildDynamicRetrievalContext,
   detectRequestedDaypartWindow,
@@ -302,7 +306,33 @@ app.post('/api/memories', async (req, res) => {
   const ai = getGeminiClient();
 
   try {
+    // -------------------------------------------------------------
+    // INTENT & ACTION GATEWAY ROUTER
+    // Immediate communication commands ("Ring Fred", "Text Fred I'm running late")
+    // must NEVER reach memory or reminder persistence!
+    // -------------------------------------------------------------
+    const intentResult = await routeUserIntent(trimmedText, ai);
+    if (intentResult.intent_class === 'IMMEDIATE_CONTACT_ACTION') {
+      console.log(`[Intent Router] Intercepted IMMEDIATE_CONTACT_ACTION:`, intentResult);
+      const actionPayload = await resolveContactAction({
+        targetPerson: intentResult.target_person,
+        targetRole: intentResult.target_role,
+        actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
+        prefilledMessage: intentResult.prefilled_message,
+        rawInput: trimmedText,
+      });
+
+      return res.status(200).json({
+        deviceAction: actionPayload,
+        memories: [],
+        memory: null,
+        clarification: null,
+        phoneOffer: null,
+      });
+    }
+
     const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
+
 
     // Initial phoneOffer computation from newMemories (deterministic in-memory)
     let phoneOffer: { person: string; role: string } | null = null;
@@ -412,7 +442,29 @@ const handleNonPersistingInterpret = async (req: express.Request, res: express.R
   const ai = getGeminiClient();
 
   try {
+    const intentResult = await routeUserIntent(trimmedText, ai);
+    if (intentResult.intent_class === 'IMMEDIATE_CONTACT_ACTION') {
+      const actionPayload = await resolveContactAction({
+        targetPerson: intentResult.target_person,
+        targetRole: intentResult.target_role,
+        actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
+        prefilledMessage: intentResult.prefilled_message,
+        rawInput: trimmedText,
+      });
+
+      return res.status(200).json({
+        success: true,
+        splitUnits: [trimmedText],
+        memories: [],
+        memory: null,
+        count: 0,
+        persisted: false,
+        deviceAction: actionPayload,
+      });
+    }
+
     const { splitUnits, memories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
+
     return res.status(200).json({
       success: true,
       splitUnits,
@@ -1293,11 +1345,27 @@ app.post('/api/ask', async (req, res) => {
     console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
     // Phase A: Concurrent database retrieval for relationships, memories, and calendar events
-    const [activeRelationships, memories, calendarEvents] = await Promise.all([
+    const [activeRelationships, memories, calendarEvents, userEntities] = await Promise.all([
       readActiveRelationships(),
       readMemories(),
       readCalendarEvents(),
+      getUserEntities(),
     ]);
+
+    // Check if query is directly asking for contact info (phone/mobile/number)
+    const contactInfoMatch = trimmedQuestion.match(/\b(?:what['’]?s|what\s+is|do\s+i\s+have|tell\s+me|give\s+me|find)\b.*\b(?:phone|number|mobile|cell|contact)\b/i);
+    if (contactInfoMatch) {
+      const contactQueryResult = await resolveContactQuery(trimmedQuestion);
+      if (contactQueryResult.found) {
+        return res.json({
+          answer: contactQueryResult.answer,
+          memory_ids: [],
+          calendar_event_ids: [],
+          is_out_of_scope: false,
+        });
+      }
+    }
+
 
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
     const ai = getGeminiClient();
@@ -1525,6 +1593,10 @@ ${activeRelationships.length > 0
 ${resolvedEntities.length > 0
   ? `\nRESOLVED QUERY ROLES:\n${resolvedEntities.map(re => `- "${re.roleMatch}" resolves to person "${re.resolvedPerson}"`).join('\n')}`
   : ''}
+${userEntities.length > 0
+  ? `\nUSER'S KNOWN CONTACTS & ENTITIES:\n${userEntities.map(e => `- ${e.name}${e.role ? ` (${e.role})` : ''}: ${e.metadata?.phone ? `Phone: ${e.metadata.phone}` : 'No phone saved'}`).join('\n')}`
+  : ''}
+
 
 OPERATIONAL RULES:
 1. PERSONAL KNOWLEDGE & REASONING (IN-SCOPE):

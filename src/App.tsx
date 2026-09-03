@@ -10,7 +10,9 @@ import { DeleteKnowledgeModal, LearnedKnowledgeDeletePrompt } from './components
 import { findAssociatedRelationships } from './utils/relationshipAssociation';
 import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
-import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship } from './types';
+import { defaultDeviceActionLauncher } from './utils/deviceActionLauncher';
+import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship, ImmediateDeviceActionPayload } from './types';
+
 import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check, Contact } from 'lucide-react';
 
 const ACTIONABLE_INTENTS = new Set([
@@ -160,7 +162,51 @@ export default function App() {
       }
 
       const data = await res.json();
+
+      // Handle immediate device action (tel: or sms:) without creating or persisting memories
+      if (data.deviceAction) {
+        const action = data.deviceAction as ImmediateDeviceActionPayload;
+        if (action.status === 'ready') {
+          await defaultDeviceActionLauncher.launch(action);
+          setClarificationFeedback(action.feedbackMessage);
+          setTimeout(() => {
+            setClarificationFeedback((prev) => (prev === action.feedbackMessage ? null : prev));
+          }, 6000);
+        } else if (action.status === 'missing_number') {
+          setClarification({
+            id: `missing_number_${Date.now()}`,
+            question: action.feedbackMessage,
+            entityName: action.recipientName || 'Contact',
+            entityType: 'phone_offer',
+            metadata: {
+              role: action.role,
+              isPhoneOffer: true,
+            },
+          });
+          setClarificationAnswer('');
+        } else if (action.status === 'ambiguous') {
+          setClarification({
+            id: `ambig_contact_${Date.now()}`,
+            question: action.feedbackMessage,
+            entityName: action.recipientName || 'Contact',
+            entityType: 'relationship',
+            candidateOptions: action.candidates?.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)),
+          });
+          setClarificationAnswer('');
+        } else if (action.status === 'unknown_person') {
+          setClarification({
+            id: `unknown_contact_${Date.now()}`,
+            question: action.feedbackMessage,
+            entityName: action.recipientName || 'Contact',
+            entityType: 'person',
+          });
+          setClarificationAnswer('');
+        }
+        return;
+      }
+
       const newItems: MemoryItem[] = Array.isArray(data.memories)
+
         ? data.memories
         : data.memory
         ? [data.memory]

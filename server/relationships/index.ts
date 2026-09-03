@@ -165,6 +165,124 @@ export async function saveUserEntity(entity: {
   }
 }
 
+export async function getUserEntity(name: string): Promise<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+} | null> {
+  const n = (name || '').trim();
+  if (!n) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE LOWER(name) = LOWER(?) ORDER BY updated_at DESC LIMIT 1;',
+      args: [n]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    let meta: Record<string, any> = {};
+    try {
+      meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    } catch {
+      meta = {};
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      entity_type: row.entity_type,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      metadata: meta,
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Entities] Error getting user entity:', err);
+    return null;
+  }
+}
+
+export async function getUserEntities(): Promise<Array<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+}>> {
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities ORDER BY updated_at DESC;'
+    }]);
+    if (!results[0]?.rows) return [];
+    return results[0].rows.map((row: any) => {
+      let meta: Record<string, any> = {};
+      try {
+        meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+      } catch {
+        meta = {};
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        entity_type: row.entity_type,
+        role: row.role,
+        normalized_role: row.normalized_role,
+        metadata: meta,
+        updated_at: row.updated_at,
+      };
+    });
+  } catch (err) {
+    console.error('[Entities] Error getting all user entities:', err);
+    return [];
+  }
+}
+
+export async function getUserEntityByRole(role: string): Promise<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+} | null> {
+  const norm = normalizeRoleName(role);
+  if (!norm) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE normalized_role = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    let meta: Record<string, any> = {};
+    try {
+      meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    } catch {
+      meta = {};
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      entity_type: row.entity_type,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      metadata: meta,
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Entities] Error getting user entity by role:', err);
+    return null;
+  }
+}
+
 // Pure in-memory merge of extracted relationships into active relationships (0 ms latency)
 export function mergeRelationshipsWithExtracted(
   activeRelationships: Array<{ id?: string; person: string; role: string; normalized_role: string; is_active?: boolean; updated_at?: string }>,

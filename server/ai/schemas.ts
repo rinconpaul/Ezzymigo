@@ -171,3 +171,51 @@ export const memoriesResponseSchema = {
   },
   required: ['memories'],
 };
+
+export const intentClassificationSchema = {
+  type: Type.OBJECT,
+  properties: {
+    intent_class: {
+      type: Type.STRING,
+      enum: [
+        'IMMEDIATE_CONTACT_ACTION',
+        'CONTACT_INFORMATION_QUERY',
+        'FUTURE_CONTACT_INTENTION',
+        'CONTACT_FACT',
+        'GENERAL_THOUGHT',
+      ],
+      description: 'The semantic intent class of the user input.',
+    },
+    action_type: {
+      type: Type.STRING,
+      enum: ['call', 'sms', 'none'],
+      description: 'Type of direct communication action requested, or "none".',
+    },
+    target_person: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Person name mentioned as the target of the contact action or query (e.g. "Fred", "Mum", "Barb").',
+    },
+    target_role: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Role or relationship mentioned (e.g. "electrician", "doctor", "plumber", "mum").',
+    },
+    prefilled_message: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'For SMS/message actions, any message text the user specified to send (e.g. "I\'m running late", "On my way"). Null if no message content specified.',
+    },
+    has_temporal_anchor: {
+      type: Type.BOOLEAN,
+      description: 'True if there is ANY future or scheduled time/date expression (e.g. "tomorrow", "at 4pm", "tonight", "after my appointment", "next week", "in 10 minutes"). If true, this CANNOT be an IMMEDIATE_CONTACT_ACTION.',
+    },
+    temporal_expression: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'The explicit time or date expression detected in the input, if any.',
+    },
+  },
+  required: ['intent_class', 'action_type', 'has_temporal_anchor'],
+};
+
