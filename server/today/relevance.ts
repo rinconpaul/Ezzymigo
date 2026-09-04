@@ -1227,10 +1227,13 @@ export function evaluateTodayRelevanceCandidates(
       const isOptedIn = ev.anticipatory_opted_in !== undefined ? Boolean(ev.anticipatory_opted_in) : true;
       const baseEventId = String(ev.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
       const occurrenceKey = `${baseEventId}:${clientTodayYMD}`;
+      const isDismissed =
+        Array.isArray(dismissedReflectionIds) &&
+        dismissedReflectionIds.includes(occurrenceKey);
 
       // Stage 1: Upcoming Event (now < startMs)
       if (nowMs < startMs && isSuitableAppointment) {
-        if ((eventAnticipatoryMode === 'PRE_AND_POST' || eventAnticipatoryMode === 'PRE_ONLY') && isOptedIn) {
+        if ((eventAnticipatoryMode === 'PRE_AND_POST' || eventAnticipatoryMode === 'PRE_ONLY') && isOptedIn && !isDismissed) {
           const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
           const prepItems = extractCleanPrepItems(prepMemories);
           const prePromptRes = buildAnticipatoryPrompt({
@@ -1557,8 +1560,12 @@ export function evaluateTodayRelevanceCandidates(
       const baseMemoryId = String(m.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
       const occurrenceKey = `${baseMemoryId}:${clientTodayYMD}`;
 
+      const isDismissed =
+        Array.isArray(dismissedReflectionIds) &&
+        dismissedReflectionIds.includes(occurrenceKey);
+
       if (lifecycle.lifecycleStage === 'upcoming') {
-        if ((memMode === 'PRE_AND_POST' || memMode === 'PRE_ONLY') && memOptedIn) {
+        if ((memMode === 'PRE_AND_POST' || memMode === 'PRE_ONLY') && memOptedIn && !isDismissed) {
           const prePromptRes = buildAnticipatoryPrompt({
             stage: 'PRE',
             title: lifecycle.cleanTitle,

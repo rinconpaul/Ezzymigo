@@ -3,7 +3,7 @@ import { MemoryItem, TodayRelevanceCandidate, TodayRelevanceResponse } from '../
 import { MemoryCard } from './MemoryCard';
 import { getUserPreferences } from '../utils/userPreferences';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
-import { Calendar, Mic, MicOff, Send, Loader2, Check, Plus, Clock } from 'lucide-react';
+import { Calendar, Mic, MicOff, Send, Loader2, Check, Plus, Clock, X } from 'lucide-react';
 
 interface TodayTickerProps {
   memories: MemoryItem[];
@@ -14,7 +14,7 @@ interface TodayTickerProps {
 }
 
 // Helper for reflection dismissals in localStorage (scoped by occurrence date: sourceId:YYYY-MM-DD)
-const getClientTodayYMD = (): string => {
+export const getClientTodayYMD = (): string => {
   const prefs = getUserPreferences();
   const tz = prefs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney';
   try {
@@ -29,7 +29,7 @@ const getClientTodayYMD = (): string => {
   }
 };
 
-const getDismissedReflections = (): string[] => {
+export const getDismissedReflections = (): string[] => {
   try {
     const raw = localStorage.getItem('ezzymigo_dismissed_reflections');
     return raw ? JSON.parse(raw) : [];
@@ -38,7 +38,25 @@ const getDismissedReflections = (): string[] => {
   }
 };
 
-const markReflectionDismissed = (eventId: string, occurrenceId?: string) => {
+export const markOccurrenceDismissed = (candidate: TodayRelevanceCandidate) => {
+  try {
+    const todayYMD = getClientTodayYMD();
+    const occurrenceKey =
+      candidate.occurrence_id ||
+      (candidate.source_id.includes(':')
+        ? candidate.source_id
+        : `${candidate.source_id.replace(/:\d{4}-\d{2}-\d{2}$/, '')}:${candidate.event_time && /^\d{4}-\d{2}-\d{2}/.test(candidate.event_time) ? candidate.event_time : todayYMD}`);
+    const list = getDismissedReflections();
+    if (!list.includes(occurrenceKey)) {
+      list.push(occurrenceKey);
+      localStorage.setItem('ezzymigo_dismissed_reflections', JSON.stringify(list));
+    }
+  } catch (e) {
+    console.warn('Failed to save dismissed occurrence:', e);
+  }
+};
+
+export const markReflectionDismissed = (eventId: string, occurrenceId?: string) => {
   try {
     const todayYMD = getClientTodayYMD();
     let occurrenceKey = occurrenceId;
@@ -64,14 +82,74 @@ const AnticipatoryPreparationTray: React.FC<{
   onClose: () => void;
   onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string }) => Promise<void>;
   onItemAdded?: (newItem: string) => void;
-  onRemoveCandidate?: (candidateSourceId: string) => void;
-}> = ({ candidate, onClose, onSaveThought, onItemAdded, onRemoveCandidate }) => {
+  onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
+}> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
   const [text, setText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const trayRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const prefs = getUserPreferences();
   const isReflection = candidate.anticipatory_stage === 'reflect';
+
+  // Global Keydown: Escape key closes tray without altering candidate state
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [onClose]);
+
+  // Click/tap outside closes tray without altering candidate state
+  useEffect(() => {
+    const handlePointerDownOutside = (e: MouseEvent | TouchEvent) => {
+      if (trayRef.current && !trayRef.current.contains(e.target as Node)) {
+        const ticker = document.getElementById('today-ticker-bar');
+        if (ticker && ticker.contains(e.target as Node)) {
+          return;
+        }
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
+  }, [onClose]);
+
+  // Browser / history back popstate closes tray without altering candidate state
+  useEffect(() => {
+    const handlePopState = () => {
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [onClose]);
+
+  // Touch swipe away gestures close tray without altering candidate state
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null || touchStartX.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    // Swipe down/up > 50px or swipe left/right > 80px closes tray
+    if (Math.abs(deltaY) > 50 || Math.abs(deltaX) > 80) {
+      onClose();
+    }
+    touchStartY.current = null;
+    touchStartX.current = null;
+  };
 
   const handleAppendText = useCallback((phrase: string) => {
     setText((prev) => {
@@ -94,13 +172,11 @@ const AnticipatoryPreparationTray: React.FC<{
     return candidate.occurrence_id || `${candidate.source_id.replace(/:\d{4}-\d{2}-\d{2}$/, '')}:${getClientTodayYMD()}`;
   }, [candidate]);
 
-  const handleDismiss = () => {
-    if (isReflection) {
-      const occId = getOccurrenceId();
-      markReflectionDismissed(candidate.source_id, occId);
-      if (onRemoveCandidate) {
-        onRemoveCandidate(candidate.source_id);
-      }
+  // Explicit Dismiss: Alter state ONLY on intentional user dismiss action
+  const handleExplicitDismiss = () => {
+    markOccurrenceDismissed(candidate);
+    if (onDismissOccurrence) {
+      onDismissOccurrence(candidate);
     }
     onClose();
   };
@@ -121,9 +197,9 @@ const AnticipatoryPreparationTray: React.FC<{
         eventTitle: candidate.event_title || candidate.display_text,
       });
       if (isReflection) {
-        markReflectionDismissed(candidate.source_id, occId);
-        if (onRemoveCandidate) {
-          onRemoveCandidate(candidate.source_id);
+        markOccurrenceDismissed(candidate);
+        if (onDismissOccurrence) {
+          onDismissOccurrence(candidate);
         }
       } else {
         if (onItemAdded) {
@@ -150,7 +226,10 @@ const AnticipatoryPreparationTray: React.FC<{
 
   return (
     <div
+      ref={trayRef}
       id="today-anticipatory-prep-tray"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className="bg-zinc-900 text-zinc-100 border border-zinc-800 rounded-xl p-3 space-y-2.5 shadow-sm animate-in fade-in"
     >
       <div className="flex items-start justify-between gap-2">
@@ -167,14 +246,16 @@ const AnticipatoryPreparationTray: React.FC<{
             </div>
           </div>
         </div>
+        {/* Close Button: Pure UI dismissal (no state change) */}
         <button
           id="close-anticipatory-prep-btn"
           type="button"
-          onClick={handleDismiss}
-          className="text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer shrink-0 transition-colors p-1"
-          title="Dismiss prompt"
+          onClick={onClose}
+          className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+          title="Close tray"
+          aria-label="Close tray"
         >
-          Dismiss ✕
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -194,11 +275,7 @@ const AnticipatoryPreparationTray: React.FC<{
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isSaving}
-              placeholder={
-                isReflection
-                  ? 'e.g. Blood test next Thursday and she renewed the scripts electronically...'
-                  : 'e.g. Ask about my blood test and prescription refill...'
-              }
+              placeholder="Anything you want Ezzy to remember or remind you about?"
               className="w-full bg-transparent px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-400 focus:outline-none disabled:opacity-50"
             />
             <div className="flex items-center gap-1 pr-1.5 shrink-0">
@@ -238,6 +315,20 @@ const AnticipatoryPreparationTray: React.FC<{
           )}
         </div>
       )}
+
+      {/* Explicit Dismissal Action: Separated from Close (X) */}
+      <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80 text-[11px] text-zinc-400">
+        <span>Don't want to see this prompt?</span>
+        <button
+          id="dismiss-anticipatory-occurrence-btn"
+          type="button"
+          onClick={handleExplicitDismiss}
+          className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 hover:text-amber-400 transition-colors cursor-pointer py-0.5 px-1 font-medium"
+          title="Dismiss this occurrence from Today"
+        >
+          Dismiss prompt
+        </button>
+      </div>
     </div>
   );
 };
@@ -250,13 +341,73 @@ const AnticipatoryReminderTray: React.FC<{
   onClose: () => void;
   onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string }) => Promise<void>;
   onItemAdded?: (newItem: string) => void;
-}> = ({ candidate, onClose, onSaveThought, onItemAdded }) => {
+  onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
+}> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
   const [showAddInput, setShowAddInput] = useState(false);
   const [newText, setNewText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [localItems, setLocalItems] = useState<string[]>(candidate.preparation_items || []);
+  const trayRef = useRef<HTMLDivElement>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const prefs = getUserPreferences();
+
+  // Global Keydown: Escape key closes tray without altering candidate state
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [onClose]);
+
+  // Click/tap outside closes tray without altering candidate state
+  useEffect(() => {
+    const handlePointerDownOutside = (e: MouseEvent | TouchEvent) => {
+      if (trayRef.current && !trayRef.current.contains(e.target as Node)) {
+        const ticker = document.getElementById('today-ticker-bar');
+        if (ticker && ticker.contains(e.target as Node)) {
+          return;
+        }
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
+  }, [onClose]);
+
+  // Browser / history back popstate closes tray without altering candidate state
+  useEffect(() => {
+    const handlePopState = () => {
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [onClose]);
+
+  // Touch swipe away gestures close tray without altering candidate state
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null || touchStartX.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(deltaY) > 50 || Math.abs(deltaX) > 80) {
+      onClose();
+    }
+    touchStartY.current = null;
+    touchStartX.current = null;
+  };
 
   const handleAppendText = useCallback((phrase: string) => {
     setNewText((prev) => {
@@ -288,7 +439,7 @@ const AnticipatoryReminderTray: React.FC<{
     setIsSaving(true);
     try {
       await onSaveThought(trimmed, {
-        linkedEventId: candidate.source_id,
+        linkedEventId: candidate.occurrence_id || candidate.source_id,
         eventTitle: candidate.event_title || candidate.display_text,
       });
 
@@ -315,7 +466,10 @@ const AnticipatoryReminderTray: React.FC<{
 
   return (
     <div
+      ref={trayRef}
       id="today-anticipatory-reminder-tray"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className="bg-zinc-900 text-zinc-100 border border-zinc-800 rounded-xl p-3 space-y-3 shadow-sm animate-in fade-in"
     >
       <div className="flex items-start justify-between gap-2 border-b border-zinc-800 pb-2.5">
@@ -339,14 +493,16 @@ const AnticipatoryReminderTray: React.FC<{
             </div>
           </div>
         </div>
+        {/* Close Button: Pure UI dismissal (no state change) */}
         <button
           id="close-anticipatory-reminder-btn"
           type="button"
           onClick={onClose}
-          className="text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer shrink-0 transition-colors p-1"
-          title="Dismiss view"
+          className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+          title="Close tray"
+          aria-label="Close tray"
         >
-          Dismiss ✕
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -394,7 +550,7 @@ const AnticipatoryReminderTray: React.FC<{
               onChange={(e) => setNewText(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isSaving}
-              placeholder="e.g. Ask about physiotherapy referral..."
+              placeholder="Anything you want Ezzy to remember or remind you about?"
               className="w-full bg-transparent px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-400 focus:outline-none disabled:opacity-50"
             />
             <div className="flex items-center gap-1 pr-1.5 shrink-0">
@@ -434,6 +590,26 @@ const AnticipatoryReminderTray: React.FC<{
           )}
         </div>
       )}
+
+      {/* Explicit Dismissal Action: Separated from Close (X) */}
+      <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80 text-[11px] text-zinc-400">
+        <span>Done with this reminder?</span>
+        <button
+          id="dismiss-anticipatory-reminder-btn"
+          type="button"
+          onClick={() => {
+            markOccurrenceDismissed(candidate);
+            if (onDismissOccurrence) {
+              onDismissOccurrence(candidate);
+            }
+            onClose();
+          }}
+          className="text-zinc-400 hover:text-zinc-200 underline underline-offset-2 hover:text-amber-400 transition-colors cursor-pointer py-0.5 px-1 font-medium"
+          title="Dismiss this reminder from Today"
+        >
+          Dismiss reminder
+        </button>
+      </div>
     </div>
   );
 };
@@ -591,7 +767,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
 
   // Client-side live ticker cycling timer (Paced dynamically to ensure users have ample time to read auto-scrolling text)
   useEffect(() => {
-    if (!isVisible || candidates.length === 0) return;
+    if (!isVisible || candidates.length === 0 || selectedCalendarItem !== null || surfacedMemoryId !== null) return;
 
     const textLen = (currentHeadline || '').length;
     const cycleIntervalMs = Math.max(4500, Math.min(9000, 3500 + textLen * 60));
@@ -612,7 +788,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
     }, cycleIntervalMs);
 
     return () => clearTimeout(timeout);
-  }, [isVisible, candidates, candidateIndex, headlineIndex, currentHeadline]);
+  }, [isVisible, candidates, candidateIndex, headlineIndex, currentHeadline, selectedCalendarItem, surfacedMemoryId]);
 
   // Find underlying memory if surfaced
   const surfacedMemory = surfacedMemoryId
@@ -621,6 +797,16 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
 
   const handleCandidateClick = (candidate: TodayRelevanceCandidate) => {
     if (!candidate) return;
+
+    const idx = candidates.findIndex((c) =>
+      candidate.occurrence_id && c.occurrence_id
+        ? c.occurrence_id === candidate.occurrence_id
+        : c.source_id === candidate.source_id
+    );
+    if (idx !== -1) {
+      setCandidateIndex(idx);
+      setHeadlineIndex(0);
+    }
 
     if (candidate.anticipatory_stage === 'reflect' || candidate.anticipatory_stage === 'prepare' || candidate.anticipatory_stage === 'remind') {
       setSurfacedMemoryId(null);
@@ -633,6 +819,26 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
       setSelectedCalendarItem((prev) => (prev?.source_id === candidate.source_id ? null : candidate));
     }
   };
+
+  const handleDismissCandidate = useCallback((candidate: TodayRelevanceCandidate) => {
+    setCandidates((prev) => {
+      const newCandidates = prev.filter((c) => {
+        if (candidate.occurrence_id && c.occurrence_id) {
+          return c.occurrence_id !== candidate.occurrence_id;
+        }
+        return c.source_id !== candidate.source_id;
+      });
+      if (newCandidates.length === 0) {
+        setIsVisible(false);
+        setCandidateIndex(0);
+        setHeadlineIndex(0);
+      } else {
+        setCandidateIndex((prevIndex) => (prevIndex >= newCandidates.length ? 0 : prevIndex));
+        setHeadlineIndex(0);
+      }
+      return newCandidates;
+    });
+  }, []);
 
   const handleRemoveCandidate = useCallback((candidateSourceId: string) => {
     setCandidates((prev) => {
@@ -777,10 +983,11 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
               id="close-today-surfaced-memory-btn"
               type="button"
               onClick={() => setSurfacedMemoryId(null)}
-              className="text-[11px] text-zinc-400 hover:text-zinc-700 cursor-pointer transition-colors"
-              title="Dismiss surfaced memory view"
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+              title="Close view"
+              aria-label="Close view"
             >
-              Dismiss view ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -813,6 +1020,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
             onClose={() => setSelectedCalendarItem(null)}
             onSaveThought={onSaveThought}
             onItemAdded={handleItemAddedToCandidate}
+            onDismissOccurrence={handleDismissCandidate}
           />
         ) : selectedCalendarItem.is_anticipatory ? (
           <AnticipatoryPreparationTray
@@ -820,7 +1028,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
             onClose={() => setSelectedCalendarItem(null)}
             onSaveThought={onSaveThought}
             onItemAdded={handleItemAddedToCandidate}
-            onRemoveCandidate={handleRemoveCandidate}
+            onDismissOccurrence={handleDismissCandidate}
           />
         ) : (
           <div
@@ -839,11 +1047,14 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
               </div>
             </div>
             <button
+              id="close-surfaced-calendar-btn"
               type="button"
               onClick={() => setSelectedCalendarItem(null)}
-              className="text-[11px] text-zinc-400 hover:text-zinc-700 cursor-pointer"
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 transition-colors cursor-pointer shrink-0"
+              title="Close view"
+              aria-label="Close view"
             >
-              Dismiss ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
         )
