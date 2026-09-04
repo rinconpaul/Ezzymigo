@@ -39,55 +39,22 @@ export function useSpeechDictation({ onAppendText, onStop, language }: UseSpeech
     }
   };
 
-  const stopListening = useCallback((): Promise<void> => {
+  const stopListening = useCallback(() => {
     isExplicitlyActiveRef.current = false;
     clearRestartTimer();
 
-    return new Promise<void>((resolve) => {
-      const recognition = recognitionRef.current;
-      if (!recognition) {
-        setIsListening(false);
-        if (onStopRef.current) {
-          onStopRef.current();
-        }
-        resolve();
-        return;
-      }
-
-      let settled = false;
-      const finish = () => {
-        if (!settled) {
-          settled = true;
-          setIsListening(false);
-          recognitionRef.current = null;
-          if (onStopRef.current) {
-            onStopRef.current();
-          }
-          resolve();
-        }
-      };
-
-      // Set a short safety timeout so UI never hangs (150ms)
-      const timeoutId = setTimeout(finish, 150);
-
-      const prevOnEnd = recognition.onend;
-      recognition.onend = () => {
-        clearTimeout(timeoutId);
-        if (prevOnEnd) {
-          try {
-            prevOnEnd();
-          } catch {}
-        }
-        finish();
-      };
-
+    if (recognitionRef.current) {
       try {
-        recognition.stop();
+        recognitionRef.current.stop();
       } catch {
-        clearTimeout(timeoutId);
-        finish();
+        // ignore
       }
-    });
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+    if (onStopRef.current) {
+      onStopRef.current();
+    }
   }, []);
 
   const createAndStartRecognition = useCallback(() => {

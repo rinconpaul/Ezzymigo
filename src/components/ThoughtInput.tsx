@@ -102,12 +102,10 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
   }, [isEnteringSubject]);
 
   const handleAppendText = useCallback((phrase: string) => {
-    setThought((prev) => {
-      const trimmedBase = prev.trim();
-      const nextText = trimmedBase ? `${trimmedBase} ${phrase}` : phrase;
-      thoughtRef.current = nextText;
-      return nextText;
-    });
+    const trimmedBase = thoughtRef.current.trim();
+    const nextText = trimmedBase ? `${trimmedBase} ${phrase}` : phrase;
+    thoughtRef.current = nextText;
+    setThought(nextText);
   }, []);
 
   const handleAppendSubjectDraft = useCallback((phrase: string) => {
@@ -204,12 +202,15 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
     }
   }, [thought, textareaRef]);
 
-  const submitThought = async (rawText?: string) => {
-    const textToSave = (rawText !== undefined ? rawText : thoughtRef.current).trim();
-    if (!textToSave || isLoading) return;
+  const handleSubmit = async () => {
+    if (isListening) {
+      stopListening();
+    }
+    const textToSubmit = (thoughtRef.current || thought).trim();
+    if (!textToSubmit || isLoading) return;
 
     try {
-      await onSave(textToSave, effectiveSubject);
+      await onSave(textToSubmit, effectiveSubject);
       setThought('');
       thoughtRef.current = '';
       if (textareaRef.current) {
@@ -228,29 +229,13 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
     }
   };
 
-  const handleSubmit = async () => {
-    if (isListening) {
-      await stopListening();
-    }
-    const textToSubmit = thoughtRef.current.trim();
-    if (!textToSubmit || isLoading) return;
-    await submitThought(textToSubmit);
-  };
-
-  const handleMicClick = async () => {
+  const handleMicClick = () => {
     if (subjectDictation.isListening) {
-      await subjectDictation.stopListening();
+      subjectDictation.stopListening();
     }
 
     if (isListening) {
-      // Voice-stop behaviour:
-      // When the user taps the mic while listening, finalize the transcript
-      // and submit that completed Tell through the existing proven Save/submit path.
-      await stopListening();
-      const textToSubmit = thoughtRef.current.trim();
-      if (textToSubmit) {
-        await submitThought(textToSubmit);
-      }
+      handleSubmit();
     } else {
       startListening();
     }
