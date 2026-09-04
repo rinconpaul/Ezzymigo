@@ -30,21 +30,29 @@ export class WebDeviceActionLauncher implements DeviceActionLauncher {
     }
 
     try {
-      window.location.assign(uri);
+      // Direct anchor click with _top target is the most reliable way across iOS Safari,
+      // Android Chrome, and iframes to invoke native tel: or sms: URI schemes.
+      const link = document.createElement('a');
+      link.href = uri;
+      link.target = '_top';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       return { success: true, uri };
     } catch (err) {
-      console.warn('[DeviceActionLauncher] Direct assign failed, attempting link click fallback:', err);
+      console.warn('[DeviceActionLauncher] Anchor click failed, attempting window.location fallback:', err);
       try {
-        const link = document.createElement('a');
-        link.href = uri;
-        link.target = '_top';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.location.href = uri;
         return { success: true, uri };
-      } catch (fallbackErr) {
-        console.error('[DeviceActionLauncher] Fallback failed:', fallbackErr);
-        return { success: false, uri };
+      } catch (innerErr) {
+        try {
+          window.location.assign(uri);
+          return { success: true, uri };
+        } catch (assignErr) {
+          console.error('[DeviceActionLauncher] All launch methods failed:', assignErr);
+          return { success: false, uri };
+        }
       }
     }
   }
