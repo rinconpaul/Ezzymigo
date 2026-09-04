@@ -602,8 +602,9 @@ async function runSuite() {
     }
   } catch (err) {
     console.error('Test execution exception:', err);
-    await cleanupFixtures();
     process.exit(1);
+  } finally {
+    await cleanupFixtures();
   }
 }
 

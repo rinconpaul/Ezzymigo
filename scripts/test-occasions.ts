@@ -9,6 +9,7 @@ import {
 import {
   getUserOccasionPreferences,
   saveUserOccasionPreferences,
+  deleteUserOccasionPreferences,
 } from '../server/db/occasions';
 import { isMemoryEligibleForReflection } from '../server/today/relevance';
 import { generateAnticipationOffer } from '../server/anticipatory/classifier';
@@ -150,43 +151,65 @@ async function runOccasionsTests() {
   passed += 7;
 
   // ---------------------------------------------------------------------------
-  // TEST 6: Persistence in Bunny DB
+  // TEST 6: Persistence in Bunny DB (Isolated Test User + Guard Enforcement)
   // ---------------------------------------------------------------------------
-  console.log('\n[Test 6] Occasions Persistence in Database');
-  const initialPrefs = await getUserOccasionPreferences();
-  assert(typeof initialPrefs.country === 'string', 'Initial prefs has valid country');
-  assert(Array.isArray(initialPrefs.selectedTraditions), 'selectedTraditions is an array');
-  assert(typeof initialPrefs.occasions === 'object', 'occasions is an object map');
+  console.log('\n[Test 6] Occasions Persistence in Database (Isolated Test User + Production Guard)');
 
-  // Save custom preferences: Australia ACT with Vietnamese tradition enabled
-  const updatedPrefs = await saveUserOccasionPreferences({
-    country: 'AU',
-    subdivision: 'ACT',
-    selectedTraditions: ['vietnamese'],
-    occasions: {
-      au_mothers_day: true,
-      au_fathers_day: false,
-      trad_vn_tet: true,
-      trad_vn_cold_food: false,
-    },
-  });
+  // 1. Verify Production Data Guard blocks mutating default_user
+  let guardBlocked = false;
+  try {
+    await saveUserOccasionPreferences({ occasions: { au_fathers_day: false } }, 'default_user');
+  } catch (guardErr: any) {
+    if (guardErr.message?.includes('PRODUCTION DATA GUARD VIOLATION')) {
+      guardBlocked = true;
+    }
+  }
+  assert(guardBlocked, 'Production Data Guard successfully blocks test writes to protected default_user');
 
-  assert(updatedPrefs.country === 'AU', 'Saved country is AU');
-  assert(updatedPrefs.subdivision === 'ACT', 'Saved subdivision is ACT');
-  assert(updatedPrefs.selectedTraditions.includes('vietnamese'), 'Saved traditions includes vietnamese');
-  assert(updatedPrefs.occasions['au_mothers_day'] === true, 'Saved au_mothers_day is true');
-  assert(updatedPrefs.occasions['au_fathers_day'] === false, 'Saved au_fathers_day is false');
-  assert(updatedPrefs.occasions['trad_vn_tet'] === true, 'Saved trad_vn_tet is true');
-  assert(updatedPrefs.occasions['trad_vn_cold_food'] === false, 'Saved trad_vn_cold_food is false');
+  // 2. Perform test persistence using isolated test-scoped ID
+  const TEST_OCCASION_USER_ID = `test_isolated_user_occasions_${Date.now()}`;
+  try {
+    const initialPrefs = await getUserOccasionPreferences(TEST_OCCASION_USER_ID);
+    assert(typeof initialPrefs.country === 'string', 'Initial prefs has valid country');
+    assert(Array.isArray(initialPrefs.selectedTraditions), 'selectedTraditions is an array');
+    assert(typeof initialPrefs.occasions === 'object', 'occasions is an object map');
 
-  // Read back to confirm round-trip persistence
-  const reloaded = await getUserOccasionPreferences();
-  assert(reloaded.country === 'AU', 'Reloaded country is AU');
-  assert(reloaded.subdivision === 'ACT', 'Reloaded subdivision is ACT');
-  assert(reloaded.selectedTraditions.includes('vietnamese'), 'Reloaded traditions contains vietnamese');
-  assert(reloaded.occasions['au_mothers_day'] === true, 'Reloaded au_mothers_day is true');
-  assert(reloaded.occasions['au_fathers_day'] === false, 'Reloaded au_fathers_day is false');
-  passed += 15;
+    // Save custom preferences for isolated test user
+    const updatedPrefs = await saveUserOccasionPreferences(
+      {
+        country: 'AU',
+        subdivision: 'ACT',
+        selectedTraditions: ['vietnamese'],
+        occasions: {
+          au_mothers_day: true,
+          au_fathers_day: false,
+          trad_vn_tet: true,
+          trad_vn_cold_food: false,
+        },
+      },
+      TEST_OCCASION_USER_ID
+    );
+
+    assert(updatedPrefs.country === 'AU', 'Saved country is AU');
+    assert(updatedPrefs.subdivision === 'ACT', 'Saved subdivision is ACT');
+    assert(updatedPrefs.selectedTraditions.includes('vietnamese'), 'Saved traditions includes vietnamese');
+    assert(updatedPrefs.occasions['au_mothers_day'] === true, 'Saved au_mothers_day is true');
+    assert(updatedPrefs.occasions['au_fathers_day'] === false, 'Saved au_fathers_day is false');
+    assert(updatedPrefs.occasions['trad_vn_tet'] === true, 'Saved trad_vn_tet is true');
+    assert(updatedPrefs.occasions['trad_vn_cold_food'] === false, 'Saved trad_vn_cold_food is false');
+
+    // Read back to confirm round-trip persistence
+    const reloaded = await getUserOccasionPreferences(TEST_OCCASION_USER_ID);
+    assert(reloaded.country === 'AU', 'Reloaded country is AU');
+    assert(reloaded.subdivision === 'ACT', 'Reloaded subdivision is ACT');
+    assert(reloaded.selectedTraditions.includes('vietnamese'), 'Reloaded traditions contains vietnamese');
+    assert(reloaded.occasions['au_mothers_day'] === true, 'Reloaded au_mothers_day is true');
+    assert(reloaded.occasions['au_fathers_day'] === false, 'Reloaded au_fathers_day is false');
+    passed += 16;
+  } finally {
+    // Guaranteed cleanup even on test failure
+    await deleteUserOccasionPreferences(TEST_OCCASION_USER_ID);
+  }
 
   // -------------------------------------------------------------
   // Test 5: Date Resolution Engine & Rule-Driven Calculations

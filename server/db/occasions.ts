@@ -3,13 +3,13 @@ import { initBunnyDb } from './schema';
 import { UserOccasionPreferences } from '../../src/types';
 import { getDefaultOccasionPreferences } from '../../src/data/occasionsCatalog';
 
-const PREFS_ROW_ID = 'default_user';
+export const DEFAULT_USER_ID = 'default_user';
 
 /**
  * Retrieves the persistent occasion preferences for the user.
  * Falls back to default regional preferences (Australia — ACT) if none stored yet.
  */
-export async function getUserOccasionPreferences(): Promise<UserOccasionPreferences> {
+export async function getUserOccasionPreferences(userId = DEFAULT_USER_ID): Promise<UserOccasionPreferences> {
   await initBunnyDb();
 
   try {
@@ -18,7 +18,7 @@ export async function getUserOccasionPreferences(): Promise<UserOccasionPreferen
         sql: `SELECT id, country, subdivision, selected_traditions, occasions_json, updated_at
               FROM user_occasion_preferences
               WHERE id = ? LIMIT 1;`,
-        args: [PREFS_ROW_ID],
+        args: [userId],
       },
     ]);
 
@@ -72,11 +72,12 @@ export async function getUserOccasionPreferences(): Promise<UserOccasionPreferen
  * Persists the user's occasion preferences to Bunny DB.
  */
 export async function saveUserOccasionPreferences(
-  prefs: Partial<UserOccasionPreferences>
+  prefs: Partial<UserOccasionPreferences>,
+  userId = DEFAULT_USER_ID
 ): Promise<UserOccasionPreferences> {
   await initBunnyDb();
 
-  const current = await getUserOccasionPreferences();
+  const current = await getUserOccasionPreferences(userId);
   const country = (prefs.country !== undefined ? prefs.country : current.country) || 'AU';
   const subdivision = prefs.subdivision !== undefined ? prefs.subdivision : current.subdivision;
   const selectedTraditions = Array.isArray(prefs.selectedTraditions)
@@ -96,7 +97,7 @@ export async function saveUserOccasionPreferences(
               occasions_json = excluded.occasions_json,
               updated_at = excluded.updated_at;`,
       args: [
-        PREFS_ROW_ID,
+        userId,
         country,
         subdivision || null,
         JSON.stringify(selectedTraditions),
@@ -113,4 +114,20 @@ export async function saveUserOccasionPreferences(
     occasions,
     updatedAt,
   };
+}
+
+/**
+ * Deletes isolated test user preferences from Bunny DB.
+ * Guaranteed to refuse deletion of protected default_user record.
+ */
+export async function deleteUserOccasionPreferences(userId: string): Promise<void> {
+  if (!userId || userId === DEFAULT_USER_ID) {
+    throw new Error(`[PRODUCTION DATA GUARD] Cannot delete protected user '${DEFAULT_USER_ID}'.`);
+  }
+  await executeBunnySql([
+    {
+      sql: `DELETE FROM user_occasion_preferences WHERE id = ?;`,
+      args: [userId],
+    },
+  ]);
 }

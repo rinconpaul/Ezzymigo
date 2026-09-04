@@ -19,8 +19,42 @@ export function getBunnyTargetUrl(): string | null {
   return urlObj.toString();
 }
 
+// Helper to detect if running under an automated test runner / script
+export function isTestContext(): boolean {
+  if (process.env.NODE_ENV === 'test' || process.env.IS_TEST_RUN === 'true') {
+    return true;
+  }
+  const argvStr = process.argv.join(' ');
+  return argvStr.includes('/scripts/') || argvStr.includes('test');
+}
+
+// Production Data Guard: Blocks test code from mutating live production / default_user data
+export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
+  if (!isTestContext()) return;
+
+  for (const st of statements) {
+    const sqlLower = (st.sql || '').toLowerCase();
+    const isWrite = /^\s*(insert|update|delete|replace|drop|alter|truncate)\b/i.test(sqlLower);
+    if (!isWrite) continue;
+
+    // Check if targeting protected default_user record
+    const hasDefaultUserInSql = /\bdefault_user\b/i.test(st.sql);
+    const hasDefaultUserInArgs =
+      Array.isArray(st.args) &&
+      st.args.some((a) => typeof a === 'string' && a.trim() === 'default_user');
+
+    if (hasDefaultUserInSql || hasDefaultUserInArgs) {
+      const err = `[PRODUCTION DATA GUARD VIOLATION] Automated test code attempted to execute write operation mutating protected record 'default_user'! SQL: "${st.sql}". Tests must use isolated test IDs (e.g. 'test_...').`;
+      console.error(`❌ ${err}`);
+      throw new Error(err);
+    }
+  }
+}
+
 // Execute SQL statements on Bunny Database (libSQL pipeline)
 export async function executeBunnySql(statements: Array<SqlStatement>): Promise<SqlResultBlock[]> {
+  assertProductionWriteAllowed(statements);
+
   const targetUrl = getBunnyTargetUrl();
   const token = process.env.BUNNY_DATABASE_TOKEN?.trim() || '';
 
