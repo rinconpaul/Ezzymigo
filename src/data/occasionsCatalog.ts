@@ -1,0 +1,986 @@
+import { RegionOption, TraditionSource, CatalogOccasion, UserOccasionPreferences } from '../types';
+
+export const SUPPORTED_REGIONS: RegionOption[] = [
+  // Australia
+  { id: 'AU-ACT', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'ACT', subdivisionName: 'Australian Capital Territory', displayName: 'Australia — ACT' },
+  { id: 'AU-NSW', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'NSW', subdivisionName: 'New South Wales', displayName: 'Australia — NSW' },
+  { id: 'AU-VIC', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'VIC', subdivisionName: 'Victoria', displayName: 'Australia — Victoria' },
+  { id: 'AU-QLD', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'QLD', subdivisionName: 'Queensland', displayName: 'Australia — Queensland' },
+  { id: 'AU-WA', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'WA', subdivisionName: 'Western Australia', displayName: 'Australia — Western Australia' },
+  { id: 'AU-SA', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'SA', subdivisionName: 'South Australia', displayName: 'Australia — South Australia' },
+  { id: 'AU-TAS', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'TAS', subdivisionName: 'Tasmania', displayName: 'Australia — Tasmania' },
+  { id: 'AU-NT', countryCode: 'AU', countryName: 'Australia', subdivisionCode: 'NT', subdivisionName: 'Northern Territory', displayName: 'Australia — Northern Territory' },
+  // United States
+  { id: 'US-ALL', countryCode: 'US', countryName: 'United States', displayName: 'United States — National' },
+  { id: 'US-CA', countryCode: 'US', countryName: 'United States', subdivisionCode: 'CA', subdivisionName: 'California', displayName: 'United States — California' },
+  { id: 'US-NY', countryCode: 'US', countryName: 'United States', subdivisionCode: 'NY', subdivisionName: 'New York', displayName: 'United States — New York' },
+  { id: 'US-TX', countryCode: 'US', countryName: 'United States', subdivisionCode: 'TX', subdivisionName: 'Texas', displayName: 'United States — Texas' },
+  // United Kingdom
+  { id: 'GB-ENG', countryCode: 'GB', countryName: 'United Kingdom', subdivisionCode: 'ENG', subdivisionName: 'England', displayName: 'United Kingdom — England' },
+  { id: 'GB-SCT', countryCode: 'GB', countryName: 'United Kingdom', subdivisionCode: 'SCT', subdivisionName: 'Scotland', displayName: 'United Kingdom — Scotland' },
+  { id: 'GB-WLS', countryCode: 'GB', countryName: 'United Kingdom', subdivisionCode: 'WLS', subdivisionName: 'Wales', displayName: 'United Kingdom — Wales' },
+  { id: 'GB-NIR', countryCode: 'GB', countryName: 'United Kingdom', subdivisionCode: 'NIR', subdivisionName: 'Northern Ireland', displayName: 'United Kingdom — Northern Ireland' },
+  // Canada
+  { id: 'CA-ALL', countryCode: 'CA', countryName: 'Canada', displayName: 'Canada — National' },
+  { id: 'CA-ON', countryCode: 'CA', countryName: 'Canada', subdivisionCode: 'ON', subdivisionName: 'Ontario', displayName: 'Canada — Ontario' },
+  { id: 'CA-BC', countryCode: 'CA', countryName: 'Canada', subdivisionCode: 'BC', subdivisionName: 'British Columbia', displayName: 'Canada — British Columbia' },
+  // New Zealand
+  { id: 'NZ-ALL', countryCode: 'NZ', countryName: 'New Zealand', displayName: 'New Zealand' },
+  // Vietnam
+  { id: 'VN-ALL', countryCode: 'VN', countryName: 'Vietnam', displayName: 'Vietnam' },
+];
+
+export const TRADITION_SOURCES: TraditionSource[] = [
+  { id: 'vietnamese', name: 'Vietnamese', description: 'Traditional Vietnamese calendar observances and seasonal festivals.' },
+  { id: 'chinese_lunar', name: 'Chinese / Lunar', description: 'Traditional lunisolar festivals and solar term celebrations.' },
+  { id: 'jewish', name: 'Jewish', description: 'Hebrew calendar high holidays, pilgrim festivals, and commemorations.' },
+  { id: 'islamic', name: 'Islamic', description: 'Hijri calendar holidays, fasts, and Eid celebrations.' },
+  { id: 'hindu', name: 'Hindu', description: 'Vedic and Hindu festive observances and sacred days.' },
+  { id: 'christian', name: 'Christian', description: 'Liturgical celebrations across Western and traditional calendars.' },
+  { id: 'buddhist', name: 'Buddhist', description: 'Key commemorative days of the Buddha’s life and teachings.' },
+  { id: 'sikh', name: 'Sikh', description: 'Gurpurabs, historic commemorations, and seasonal observances.' },
+];
+
+export const CATALOG_OCCASIONS: CatalogOccasion[] = [
+  // ==========================================
+  // Australia (Popular where you live)
+  // ==========================================
+  {
+    id: 'au_mothers_day',
+    name: "Mother's Day",
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Second Sunday in May celebrating mothers and mother figures.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 5, nth: 2, weekday: 0 },
+  },
+  {
+    id: 'au_fathers_day',
+    name: "Father's Day",
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'First Sunday in September celebrating fathers and father figures.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 9, nth: 1, weekday: 0 },
+  },
+  {
+    id: 'au_valentines_day',
+    name: "Valentine's Day",
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'February 14 celebration of romance and affection.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 2, day: 14 },
+  },
+  {
+    id: 'au_christmas',
+    name: 'Christmas',
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'December 25 social and family holiday celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 25 },
+  },
+  {
+    id: 'au_easter',
+    name: 'Easter',
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Autumn Easter long weekend observances.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'easter_sunday' },
+  },
+  {
+    id: 'au_new_years_eve',
+    name: "New Year's Eve",
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'December 31 celebrations and welcoming the new year.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 31 },
+  },
+  {
+    id: 'au_anzac_day',
+    name: 'ANZAC Day',
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'April 25 national day of remembrance.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 4, day: 25 },
+  },
+  {
+    id: 'au_boxing_day',
+    name: 'Boxing Day',
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'December 26 public holiday and social gatherings.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 26 },
+  },
+  {
+    id: 'au_australia_day',
+    name: 'Australia Day',
+    category: 'popular_regional',
+    countryCode: 'AU',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'January 26 national public holiday.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 1, day: 26 },
+  },
+
+  // ==========================================
+  // United States (Popular where you live)
+  // ==========================================
+  {
+    id: 'us_mothers_day',
+    name: "Mother's Day",
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Second Sunday in May honoring mothers.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 5, nth: 2, weekday: 0 },
+  },
+  {
+    id: 'us_fathers_day',
+    name: "Father's Day",
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Third Sunday in June honoring fathers.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 6, nth: 3, weekday: 0 },
+  },
+  {
+    id: 'us_valentines_day',
+    name: "Valentine's Day",
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'February 14 celebration of love.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 2, day: 14 },
+  },
+  {
+    id: 'us_thanksgiving',
+    name: 'Thanksgiving',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Fourth Thursday in November family gathering and feast.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 11, nth: 4, weekday: 4 },
+  },
+  {
+    id: 'us_christmas',
+    name: 'Christmas',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'December 25 holiday celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 25 },
+  },
+  {
+    id: 'us_halloween',
+    name: 'Halloween',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'October 31 costume and autumn celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 10, day: 31 },
+  },
+  {
+    id: 'us_independence_day',
+    name: 'Independence Day (4th of July)',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'July 4 national holiday.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 7, day: 4 },
+  },
+  {
+    id: 'us_memorial_day',
+    name: 'Memorial Day',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Last Monday in May remembrance.',
+    status: 'supported',
+    dateRule: { type: 'LAST_WEEKDAY_OF_MONTH', month: 5, weekday: 1 },
+  },
+  {
+    id: 'us_labor_day',
+    name: 'Labor Day',
+    category: 'popular_regional',
+    countryCode: 'US',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'First Monday in September national holiday.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 9, nth: 1, weekday: 1 },
+  },
+
+  // ==========================================
+  // United Kingdom (Popular where you live)
+  // ==========================================
+  {
+    id: 'gb_mothering_sunday',
+    name: 'Mothering Sunday',
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Fourth Sunday in Lent honoring mothers.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'uk_mothering_sunday' },
+  },
+  {
+    id: 'gb_fathers_day',
+    name: "Father's Day",
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Third Sunday in June honoring fathers.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 6, nth: 3, weekday: 0 },
+  },
+  {
+    id: 'gb_valentines_day',
+    name: "Valentine's Day",
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'February 14 romance celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 2, day: 14 },
+  },
+  {
+    id: 'gb_christmas',
+    name: 'Christmas',
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'December 25 festive holiday.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 25 },
+  },
+  {
+    id: 'gb_easter',
+    name: 'Easter',
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Spring Easter holiday period.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'easter_sunday' },
+  },
+  {
+    id: 'gb_boxing_day',
+    name: 'Boxing Day',
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'December 26 bank holiday.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 26 },
+  },
+  {
+    id: 'gb_bonfire_night',
+    name: 'Guy Fawkes / Bonfire Night',
+    category: 'popular_regional',
+    countryCode: 'GB',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'November 5 fireworks and bonfire celebrations.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 11, day: 5 },
+  },
+
+  // ==========================================
+  // Canada (Popular where you live)
+  // ==========================================
+  {
+    id: 'ca_mothers_day',
+    name: "Mother's Day",
+    category: 'popular_regional',
+    countryCode: 'CA',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Second Sunday in May.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 5, nth: 2, weekday: 0 },
+  },
+  {
+    id: 'ca_fathers_day',
+    name: "Father's Day",
+    category: 'popular_regional',
+    countryCode: 'CA',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Third Sunday in June.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 6, nth: 3, weekday: 0 },
+  },
+  {
+    id: 'ca_thanksgiving',
+    name: 'Thanksgiving',
+    category: 'popular_regional',
+    countryCode: 'CA',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Second Monday in October.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 10, nth: 2, weekday: 1 },
+  },
+  {
+    id: 'ca_canada_day',
+    name: 'Canada Day',
+    category: 'popular_regional',
+    countryCode: 'CA',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'July 1 national celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 7, day: 1 },
+  },
+  {
+    id: 'ca_christmas',
+    name: 'Christmas',
+    category: 'popular_regional',
+    countryCode: 'CA',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'December 25 celebration.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 25 },
+  },
+
+  // ==========================================
+  // New Zealand (Popular where you live)
+  // ==========================================
+  {
+    id: 'nz_mothers_day',
+    name: "Mother's Day",
+    category: 'popular_regional',
+    countryCode: 'NZ',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Second Sunday in May.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 5, nth: 2, weekday: 0 },
+  },
+  {
+    id: 'nz_fathers_day',
+    name: "Father's Day",
+    category: 'popular_regional',
+    countryCode: 'NZ',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'First Sunday in September.',
+    status: 'supported',
+    dateRule: { type: 'NTH_WEEKDAY_OF_MONTH', month: 9, nth: 1, weekday: 0 },
+  },
+  {
+    id: 'nz_anzac_day',
+    name: 'ANZAC Day',
+    category: 'popular_regional',
+    countryCode: 'NZ',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'April 25 national day of remembrance.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 4, day: 25 },
+  },
+  {
+    id: 'nz_waitangi_day',
+    name: 'Waitangi Day',
+    category: 'popular_regional',
+    countryCode: 'NZ',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'February 6 national day.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 2, day: 6 },
+  },
+  {
+    id: 'nz_matariki',
+    name: 'Matariki',
+    category: 'popular_regional',
+    countryCode: 'NZ',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Māori New Year celebration.',
+    status: 'pending',
+    unsupportedReason: 'Official Te Kāhui o Matariki stellar calculation pending',
+  },
+
+  // ==========================================
+  // Vietnam (Popular where you live)
+  // ==========================================
+  {
+    id: 'vn_tet',
+    name: 'Tết Nguyên Đán (Lunar New Year)',
+    category: 'popular_regional',
+    countryCode: 'VN',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'The most important traditional holiday and family reunion in Vietnam.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'tet' },
+  },
+  {
+    id: 'vn_mid_autumn',
+    name: 'Tết Trung Thu (Mid-Autumn Festival)',
+    category: 'popular_regional',
+    countryCode: 'VN',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: '15th day of the 8th lunar month festival of mooncakes and lanterns.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'mid_autumn' },
+  },
+  {
+    id: 'vn_womens_day',
+    name: "Vietnamese Women's Day",
+    category: 'popular_regional',
+    countryCode: 'VN',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'October 20 honoring women.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 10, day: 20 },
+  },
+  {
+    id: 'vn_reunification_day',
+    name: 'Reunification Day',
+    category: 'popular_regional',
+    countryCode: 'VN',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'April 30 national holiday.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 4, day: 30 },
+  },
+  {
+    id: 'vn_national_day',
+    name: 'Vietnam National Day',
+    category: 'popular_regional',
+    countryCode: 'VN',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'September 2 national declaration of independence.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 9, day: 2 },
+  },
+
+  // ==========================================
+  // TRADITIONS: Vietnamese
+  // ==========================================
+  {
+    id: 'trad_vn_tet',
+    name: 'Tết Nguyên Đán',
+    category: 'tradition',
+    traditionId: 'vietnamese',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Vietnamese Lunar New Year and celebration of spring.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'tet' },
+  },
+  {
+    id: 'trad_vn_mid_autumn',
+    name: 'Tết Trung Thu (Mid-Autumn)',
+    category: 'tradition',
+    traditionId: 'vietnamese',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Children’s festival and autumn harvest reunion with mooncakes.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'mid_autumn' },
+  },
+  {
+    id: 'trad_vn_vu_lan',
+    name: 'Lễ Vu Lan (Hungry Ghost / Filial Piety)',
+    category: 'tradition',
+    traditionId: 'vietnamese',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: '7th lunar month festival honoring ancestors and mothers.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'vu_lan' },
+  },
+  {
+    id: 'trad_vn_kitchen_gods',
+    name: 'Ông Công Ông Táo (Kitchen Gods)',
+    category: 'tradition',
+    traditionId: 'vietnamese',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: '23rd day of the 12th lunar month sending the Kitchen Gods to heaven.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'kitchen_gods' },
+  },
+  {
+    id: 'trad_vn_cold_food',
+    name: 'Tết Hàn Thực (Cold Food Day)',
+    category: 'tradition',
+    traditionId: 'vietnamese',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: '3rd day of the 3rd lunar month eating bánh trôi and bánh chay.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'vietnamese_lunar', calendarEventKey: 'cold_food' },
+  },
+
+  // ==========================================
+  // TRADITIONS: Chinese / Lunar
+  // ==========================================
+  {
+    id: 'trad_chinese_lunar_new_year',
+    name: 'Lunar New Year / Spring Festival',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Beginning of the new year on the traditional lunar calendar.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'lunar_new_year' },
+  },
+  {
+    id: 'trad_chinese_lantern_festival',
+    name: 'Lantern Festival (Yuanxiao)',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: '15th day of the first lunar month culminating the New Year celebrations.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'lantern_festival' },
+  },
+  {
+    id: 'trad_chinese_qingming',
+    name: 'Qingming Festival (Tomb Sweeping)',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Traditional day for remembering ancestors and visiting family graves.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'qingming' },
+  },
+  {
+    id: 'trad_chinese_dragon_boat',
+    name: 'Dragon Boat Festival (Duanwu)',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: '5th day of the 5th lunar month with dragon boat races and zongzi.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'dragon_boat' },
+  },
+  {
+    id: 'trad_chinese_mid_autumn',
+    name: 'Mid-Autumn Festival (Zhongqiu)',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: '15th day of the 8th lunar month celebrating the full moon and reunion.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'mid_autumn' },
+  },
+  {
+    id: 'trad_chinese_double_ninth',
+    name: 'Double Ninth Festival (Chongyang)',
+    category: 'tradition',
+    traditionId: 'chinese_lunar',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: '9th day of the 9th lunar month honoring seniors and autumn heights.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'chinese_lunar', calendarEventKey: 'double_ninth' },
+  },
+
+  // ==========================================
+  // TRADITIONS: Jewish
+  // ==========================================
+  {
+    id: 'trad_jewish_rosh_hashanah',
+    name: 'Rosh Hashanah',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Jewish New Year and Days of Awe reflection.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'hebrew', calendarEventKey: 'rosh_hashanah' },
+  },
+  {
+    id: 'trad_jewish_yom_kippur',
+    name: 'Yom Kippur',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Day of Atonement, solemn fasting, and prayer.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'hebrew', calendarEventKey: 'yom_kippur' },
+  },
+  {
+    id: 'trad_jewish_hanukkah',
+    name: 'Hanukkah',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Eight-day Festival of Lights commemorating rededication.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'hebrew', calendarEventKey: 'hanukkah', durationDays: 8 },
+  },
+  {
+    id: 'trad_jewish_passover',
+    name: 'Passover (Pesach)',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Spring festival of liberation with traditional seder meals.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'hebrew', calendarEventKey: 'passover', durationDays: 8 },
+  },
+  {
+    id: 'trad_jewish_purim',
+    name: 'Purim',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Joyous holiday celebrating the deliverance told in the Book of Esther.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'hebrew', calendarEventKey: 'purim' },
+  },
+  {
+    id: 'trad_jewish_sukkot',
+    name: 'Sukkot',
+    category: 'tradition',
+    traditionId: 'jewish',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Autumn Feast of Booths / Tabernacles.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'hebrew', calendarEventKey: 'sukkot', durationDays: 7 },
+  },
+
+  // ==========================================
+  // TRADITIONS: Islamic
+  // ==========================================
+  {
+    id: 'trad_islamic_ramadan',
+    name: 'Ramadan (Beginning of Fasting)',
+    category: 'tradition',
+    traditionId: 'islamic',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Ninth month of the Islamic calendar dedicated to fasting, prayer, and community.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'islamic_hijri', calendarEventKey: 'ramadan' },
+  },
+  {
+    id: 'trad_islamic_eid_al_fitr',
+    name: 'Eid al-Fitr',
+    category: 'tradition',
+    traditionId: 'islamic',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Festival marking the end of the dawn-to-sunset fasting of Ramadan.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'islamic_hijri', calendarEventKey: 'eid_al_fitr', durationDays: 3 },
+  },
+  {
+    id: 'trad_islamic_eid_al_adha',
+    name: 'Eid al-Adha',
+    category: 'tradition',
+    traditionId: 'islamic',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Feast of the Sacrifice honoring obedience to God.',
+    status: 'supported',
+    dateRule: { type: 'MULTI_DAY_PERIOD', calendarSystem: 'islamic_hijri', calendarEventKey: 'eid_al_adha', durationDays: 4 },
+  },
+  {
+    id: 'trad_islamic_new_year',
+    name: 'Islamic New Year (Hijri)',
+    category: 'tradition',
+    traditionId: 'islamic',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Beginning of the new Islamic lunar year in the month of Muharram.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'islamic_hijri', calendarEventKey: 'islamic_new_year' },
+  },
+  {
+    id: 'trad_islamic_mawlid',
+    name: 'Mawlid an-Nabi',
+    category: 'tradition',
+    traditionId: 'islamic',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Observance of the birthday of the Prophet Muhammad.',
+    status: 'supported',
+    dateRule: { type: 'LUNAR_OR_RELIGIOUS_CALENDAR', calendarSystem: 'islamic_hijri', calendarEventKey: 'mawlid_an_nabi' },
+  },
+
+  // ==========================================
+  // TRADITIONS: Christian
+  // ==========================================
+  {
+    id: 'trad_christian_christmas',
+    name: 'Christmas (Nativity)',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the birth of Jesus Christ.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 12, day: 25 },
+  },
+  {
+    id: 'trad_christian_easter',
+    name: 'Easter (Resurrection Sunday)',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the resurrection of Jesus.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'easter_sunday' },
+  },
+  {
+    id: 'trad_christian_good_friday',
+    name: 'Good Friday',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Solemn commemoration of the crucifixion.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'good_friday' },
+  },
+  {
+    id: 'trad_christian_ash_wednesday',
+    name: 'Ash Wednesday / Lent',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Beginning of the 40-day Lenten period of reflection.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'ash_wednesday' },
+  },
+  {
+    id: 'trad_christian_advent',
+    name: 'Advent',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Season of preparation leading up to Christmas.',
+    status: 'supported',
+    dateRule: { type: 'COMPUTED_GREGORIAN', computedKey: 'advent_sunday' },
+  },
+  {
+    id: 'trad_christian_epiphany',
+    name: 'Epiphany / Three Kings’ Day',
+    category: 'tradition',
+    traditionId: 'christian',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Celebration of the revelation of God incarnate as Jesus Christ.',
+    status: 'supported',
+    dateRule: { type: 'FIXED_GREGORIAN', month: 1, day: 6 },
+  },
+
+  // ==========================================
+  // TRADITIONS: Hindu (PENDING authoritative panchangam resolver)
+  // ==========================================
+  {
+    id: 'trad_hindu_diwali',
+    name: 'Diwali (Deepavali)',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Festival of Lights celebrating the triumph of light over darkness.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+  {
+    id: 'trad_hindu_holi',
+    name: 'Holi',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Festival of Colours welcoming spring and playful celebration.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+  {
+    id: 'trad_hindu_navratri',
+    name: 'Navratri / Durga Puja',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Nine nights honoring the divine feminine and good overcoming evil.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+  {
+    id: 'trad_hindu_raksha_bandhan',
+    name: 'Raksha Bandhan',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Ceremony celebrating bonds of protection and sibling love.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+  {
+    id: 'trad_hindu_janmashtami',
+    name: 'Krishna Janmashtami',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the birth of Lord Krishna.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+  {
+    id: 'trad_hindu_shivaratri',
+    name: 'Maha Shivaratri',
+    category: 'tradition',
+    traditionId: 'hindu',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Night of Shiva prayer, meditation, and chanting.',
+    status: 'pending',
+    unsupportedReason: 'Vedic Panchang astronomical computation pending authoritative engine',
+  },
+
+  // ==========================================
+  // TRADITIONS: Buddhist (PENDING authoritative lunar/sectarian resolver)
+  // ==========================================
+  {
+    id: 'trad_buddhist_vesak',
+    name: 'Vesak (Buddha Day)',
+    category: 'tradition',
+    traditionId: 'buddhist',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Commemoration of the Buddha’s birth, enlightenment, and passing away.',
+    status: 'pending',
+    unsupportedReason: 'Regional Theravada/Mahayana astronomical calendar pending authoritative engine',
+  },
+  {
+    id: 'trad_buddhist_dharma_day',
+    name: 'Dharma Day (Asalha Puja)',
+    category: 'tradition',
+    traditionId: 'buddhist',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Commemoration of the Buddha’s first teaching of the Wheel of Dharma.',
+    status: 'pending',
+    unsupportedReason: 'Regional Theravada/Mahayana astronomical calendar pending authoritative engine',
+  },
+  {
+    id: 'trad_buddhist_bodhi_day',
+    name: 'Bodhi Day',
+    category: 'tradition',
+    traditionId: 'buddhist',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Day celebrating Siddhartha Gautama attaining enlightenment.',
+    status: 'pending',
+    unsupportedReason: 'Regional Theravada/Mahayana astronomical calendar pending authoritative engine',
+  },
+  {
+    id: 'trad_buddhist_parinirvana',
+    name: 'Parinirvana Day (Nirvana Day)',
+    category: 'tradition',
+    traditionId: 'buddhist',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Reflection on impermanence and the Buddha’s entry into final Nirvana.',
+    status: 'pending',
+    unsupportedReason: 'Regional Theravada/Mahayana astronomical calendar pending authoritative engine',
+  },
+  {
+    id: 'trad_buddhist_magha_puja',
+    name: 'Magha Puja (Sangha Day)',
+    category: 'tradition',
+    traditionId: 'buddhist',
+    defaultAnticipatoryMode: 'PRE_ONLY',
+    description: 'Celebration of the spiritual community of disciples.',
+    status: 'pending',
+    unsupportedReason: 'Regional Theravada/Mahayana astronomical calendar pending authoritative engine',
+  },
+
+  // ==========================================
+  // TRADITIONS: Sikh (PENDING authoritative Nanakshahi resolver)
+  // ==========================================
+  {
+    id: 'trad_sikh_vaisakhi',
+    name: 'Vaisakhi (Baisakhi)',
+    category: 'tradition',
+    traditionId: 'sikh',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the founding of the Khalsa by Guru Gobind Singh.',
+    status: 'pending',
+    unsupportedReason: 'Nanakshahi solar/lunar calendar reconciliation pending authoritative engine',
+  },
+  {
+    id: 'trad_sikh_guru_nanak',
+    name: 'Guru Nanak Gurpurab',
+    category: 'tradition',
+    traditionId: 'sikh',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the birth of Guru Nanak, the founder of Sikhism.',
+    status: 'pending',
+    unsupportedReason: 'Nanakshahi solar/lunar calendar reconciliation pending authoritative engine',
+  },
+  {
+    id: 'trad_sikh_guru_gobind',
+    name: 'Guru Gobind Singh Gurpurab',
+    category: 'tradition',
+    traditionId: 'sikh',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Celebration of the birthday of the tenth Sikh Guru.',
+    status: 'pending',
+    unsupportedReason: 'Nanakshahi solar/lunar calendar reconciliation pending authoritative engine',
+  },
+  {
+    id: 'trad_sikh_bandi_chhor',
+    name: 'Bandi Chhor Divas',
+    category: 'tradition',
+    traditionId: 'sikh',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Day of Liberation commemorating Guru Hargobind’s release of 52 kings.',
+    status: 'pending',
+    unsupportedReason: 'Nanakshahi solar/lunar calendar reconciliation pending authoritative engine',
+  },
+  {
+    id: 'trad_sikh_hola_mohalla',
+    name: 'Hola Mohalla',
+    category: 'tradition',
+    traditionId: 'sikh',
+    defaultAnticipatoryMode: 'PRE_AND_POST',
+    description: 'Festival of martial arts, poetry, and bravery.',
+    status: 'pending',
+    unsupportedReason: 'Nanakshahi solar/lunar calendar reconciliation pending authoritative engine',
+  },
+];
+
+/**
+ * Returns popular occasions for a given country code (and optional state/subdivision).
+ */
+export function getRegionalOccasions(countryCode: string, subdivisionCode?: string): CatalogOccasion[] {
+  const normCountry = (countryCode || '').toUpperCase().trim();
+  const normSubdiv = (subdivisionCode || '').toUpperCase().trim();
+
+  return CATALOG_OCCASIONS.filter(item => {
+    if (item.category !== 'popular_regional') return false;
+    if ((item.countryCode || '').toUpperCase() !== normCountry) return false;
+    if (item.subdivisionCode && normSubdiv && (item.subdivisionCode || '').toUpperCase() !== normSubdiv) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Returns all occasions belonging to a selected tradition/calendar source.
+ */
+export function getTraditionOccasions(traditionId: string): CatalogOccasion[] {
+  const normId = (traditionId || '').toLowerCase().trim();
+  return CATALOG_OCCASIONS.filter(item => item.category === 'tradition' && (item.traditionId || '').toLowerCase() === normId);
+}
+
+/**
+ * Provides default initial preferences for a given region.
+ */
+export function getDefaultOccasionPreferences(countryCode = 'AU', subdivisionCode = 'ACT'): UserOccasionPreferences {
+  const regionalItems = getRegionalOccasions(countryCode, subdivisionCode);
+  const occasionsMap: Record<string, boolean> = {};
+
+  // Enable popular regional occasions by default
+  for (const item of regionalItems) {
+    occasionsMap[item.id] = true;
+  }
+
+  return {
+    country: countryCode,
+    subdivision: subdivisionCode,
+    selectedTraditions: [],
+    occasions: occasionsMap,
+    updatedAt: new Date().toISOString(),
+  };
+}

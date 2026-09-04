@@ -521,6 +521,7 @@ async function runSuite() {
         intent: 'note',
         content: 'Mum loved her new slacks and she wants to look at cardigans next week',
         people: ['Mum'],
+        places: [],
         topics: ['slacks', 'cardigans'],
         linked_event_id: 'cal_visit_mum:2026-09-07',
         status: 'active',

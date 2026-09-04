@@ -84,6 +84,10 @@ import {
   startReminderDispatcherInterval,
 } from './server/push/index';
 import {
+  getUserOccasionPreferences,
+  saveUserOccasionPreferences,
+} from './server/db/occasions';
+import {
   readMemories,
   readMemoryById,
   insertMemories,
@@ -1309,6 +1313,29 @@ app.post('/api/relationships/backfill', async (req, res) => {
   } catch (err: any) {
     console.error('Error backfilling relationships:', err);
     return res.status(500).json({ error: 'Failed to backfill relationships' });
+  }
+});
+
+// GET /api/occasions/preferences - Get stored user occasion preferences
+app.get('/api/occasions/preferences', async (req, res) => {
+  try {
+    const preferences = await getUserOccasionPreferences();
+    return res.json({ preferences });
+  } catch (err: any) {
+    console.error('Error fetching occasion preferences:', err);
+    return res.status(500).json({ error: 'Failed to fetch occasion preferences' });
+  }
+});
+
+// POST /api/occasions/preferences - Persist user occasion preferences
+app.post('/api/occasions/preferences', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const preferences = await saveUserOccasionPreferences(body);
+    return res.json({ success: true, preferences });
+  } catch (err: any) {
+    console.error('Error saving occasion preferences:', err);
+    return res.status(500).json({ error: 'Failed to save occasion preferences' });
   }
 });
 

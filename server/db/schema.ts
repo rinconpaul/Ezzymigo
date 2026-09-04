@@ -98,6 +98,16 @@ export async function initBunnyDb(): Promise<void> {
           );`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS user_occasion_preferences (
+            id TEXT PRIMARY KEY,
+            country TEXT NOT NULL,
+            subdivision TEXT,
+            selected_traditions TEXT NOT NULL DEFAULT '[]',
+            occasions_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL
+          );`
+        },
+        {
           sql: `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             memory_id UNINDEXED,
             content,

@@ -163,6 +163,17 @@ export function generateAnticipationOffer(
     };
   }
 
+  if (mode === 'PRE_ONLY') {
+    // Advance awareness only:
+    return {
+      memoryId: item.id,
+      mode: 'PRE_ONLY',
+      question: 'Want me to give you a heads-up beforehand?',
+      person: person || undefined,
+      eventTitle: text,
+    };
+  }
+
   if (mode === 'PRE_AND_POST') {
     // One-off event question:
     // "Want me to give you a heads-up beforehand and check in afterward?"

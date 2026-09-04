@@ -19,7 +19,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
   let prerequisite: any = null;
   let subject: string | null = null;
   let subject_resolved_date: string | null = null;
-  let anticipatory_mode: 'NONE' | 'POST_ONLY' | 'PRE_AND_POST' = 'NONE';
+  let anticipatory_mode: 'NONE' | 'PRE_ONLY' | 'POST_ONLY' | 'PRE_AND_POST' = 'NONE';
   let anticipatory_opted_in: boolean = false;
 
   if (rawTopics) {
@@ -39,7 +39,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
         linked_event_id = parsed.linked_event_id || null;
         subject = typeof parsed.subject === 'string' && parsed.subject.trim() ? parsed.subject.trim() : null;
         subject_resolved_date = typeof parsed.subject_resolved_date === 'string' && parsed.subject_resolved_date.trim() ? parsed.subject_resolved_date.trim() : null;
-        if (parsed.anticipatory_mode && ['NONE', 'POST_ONLY', 'PRE_AND_POST'].includes(parsed.anticipatory_mode)) {
+        if (parsed.anticipatory_mode && ['NONE', 'PRE_ONLY', 'POST_ONLY', 'PRE_AND_POST'].includes(parsed.anticipatory_mode)) {
           anticipatory_mode = parsed.anticipatory_mode;
         }
         if (parsed.anticipatory_opted_in !== undefined) {
@@ -726,7 +726,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
 // Update memory anticipatory preference in Bunny Database
 export async function updateMemoryAnticipation(
   id: string,
-  mode: 'NONE' | 'POST_ONLY' | 'PRE_AND_POST',
+  mode: 'NONE' | 'PRE_ONLY' | 'POST_ONLY' | 'PRE_AND_POST',
   optedIn: boolean
 ): Promise<any | null> {
   await initBunnyDb();

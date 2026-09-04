@@ -90,7 +90,85 @@ export interface ClarificationPrompt {
   metadata?: Record<string, any>;
 }
 
-export type AnticipatoryMode = 'NONE' | 'POST_ONLY' | 'PRE_AND_POST';
+export type AnticipatoryMode = 'NONE' | 'PRE_ONLY' | 'POST_ONLY' | 'PRE_AND_POST';
+
+export interface RegionOption {
+  id: string; // e.g. "AU-ACT", "AU-NSW", "US-CA", "VN-ALL"
+  countryCode: string; // e.g. "AU", "US", "GB", "CA", "NZ", "VN"
+  countryName: string; // e.g. "Australia"
+  subdivisionCode?: string; // e.g. "ACT", "NSW"
+  subdivisionName?: string; // e.g. "Australian Capital Territory"
+  displayName: string; // e.g. "Australia — ACT"
+}
+
+export interface TraditionSource {
+  id: string; // e.g. "vietnamese", "chinese_lunar", "jewish", etc.
+  name: string;
+  description: string;
+}
+
+export type OccasionDateRuleType =
+  | 'FIXED_GREGORIAN'
+  | 'NTH_WEEKDAY_OF_MONTH'
+  | 'LAST_WEEKDAY_OF_MONTH'
+  | 'COMPUTED_GREGORIAN'
+  | 'LUNAR_OR_RELIGIOUS_CALENDAR'
+  | 'MULTI_DAY_PERIOD'
+  | 'REGION_SPECIFIC';
+
+export interface OccasionDateRule {
+  type: OccasionDateRuleType;
+  status?: 'supported' | 'pending';
+  unsupportedReason?: string;
+  month?: number; // 1-12
+  day?: number;   // 1-31
+  durationDays?: number; // default 1
+  nth?: number; // 1-5
+  weekday?: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  computedKey?: 'easter_sunday' | 'good_friday' | 'easter_monday' | 'ash_wednesday' | 'advent_sunday' | 'uk_mothering_sunday' | string;
+  calendarSystem?: 'hebrew' | 'islamic_hijri' | 'chinese_lunar' | 'vietnamese_lunar';
+  calendarEventKey?: string;
+  lunarMonth?: number;
+  lunarDay?: number;
+  regionRules?: Record<string, OccasionDateRule>; // keyed by regionId (e.g. "AU", "AU-ACT", "US")
+  defaultRule?: OccasionDateRule;
+}
+
+export interface OccasionOccurrence {
+  occasionId: string;
+  occurrenceId: string; // e.g. "au_fathers_day:2026-09-06"
+  title: string;
+  startDate: string; // "YYYY-MM-DD"
+  endDate: string;   // "YYYY-MM-DD"
+  isMultiDay: boolean;
+  countryCode?: string;
+  subdivisionCode?: string;
+  traditionId?: string;
+  anticipatoryMode: AnticipatoryMode;
+  metadata?: Record<string, any>;
+}
+
+export interface CatalogOccasion {
+  id: string;
+  name: string;
+  category: 'popular_regional' | 'tradition';
+  traditionId?: string;
+  countryCode?: string;
+  subdivisionCode?: string;
+  defaultAnticipatoryMode: AnticipatoryMode;
+  description?: string;
+  dateRule?: OccasionDateRule;
+  status?: 'supported' | 'pending';
+  unsupportedReason?: string;
+}
+
+export interface UserOccasionPreferences {
+  country: string; // e.g. "AU"
+  subdivision?: string; // e.g. "ACT"
+  selectedTraditions: string[]; // array of tradition IDs, e.g. ["vietnamese"]
+  occasions: Record<string, boolean>; // occasionId -> enabled/disabled
+  updatedAt: string;
+}
 
 export interface AnticipationOffer {
   memoryId: string;
@@ -180,7 +258,7 @@ export interface AskResponse {
 }
 
 export interface TodayRelevanceCandidate {
-  source_type: 'memory' | 'calendar';
+  source_type: 'memory' | 'calendar' | 'occasion';
   source_id: string;
   occurrence_id?: string;
   relevance_reason: string;

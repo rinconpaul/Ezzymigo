@@ -7,6 +7,7 @@ import { ListCard } from './components/ListCard';
 import { AskEzzymigoPanel } from './components/AskEzzymigoPanel';
 import { CalendarInspector } from './components/CalendarInspector';
 import { DeleteKnowledgeModal, LearnedKnowledgeDeletePrompt } from './components/DeleteKnowledgeModal';
+import { OccasionsModal } from './components/OccasionsModal';
 import { findAssociatedRelationships } from './utils/relationshipAssociation';
 import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
@@ -94,6 +95,7 @@ export default function App() {
   const [isDeletingKnowledge, setIsDeletingKnowledge] = useState(false);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const [isSubjectPaused, setIsSubjectPaused] = useState(false);
+  const [isOccasionsOpen, setIsOccasionsOpen] = useState(false);
   const tellInputRef = useRef<HTMLTextAreaElement>(null);
   const [authState, setAuthState] = useState<AuthState>({
     isConnected: false,
@@ -829,18 +831,28 @@ export default function App() {
           />
         </section>
 
-        {/* Stored Intention Memories Section */}
+        {/* Memories Section */}
         <section className="space-y-2.5 pt-1">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1.5 border-b border-zinc-200">
             <div className="flex items-center flex-wrap gap-2">
               <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-600 shrink-0" />
               <h2 className="text-xs sm:text-sm md:text-base font-bold text-zinc-900 leading-none">
-                Stored Intention Memories
+                Memories
               </h2>
               <span className="text-[11px] bg-zinc-200 text-zinc-700 font-semibold px-2 py-0.5 rounded-full leading-none">
                 {filteredMemories.length}
                 {inboxFilter !== 'all' ? ` of ${memories.length}` : ''}
               </span>
+              <button
+                id="occasions-dropdown-button"
+                type="button"
+                onClick={() => setIsOccasionsOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium text-zinc-700 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200/80 border border-zinc-200/80 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md transition-colors cursor-pointer leading-none shadow-2xs ml-0.5"
+                title="Choose occasions and traditions to remember and anticipate"
+              >
+                <span>Occasions</span>
+                <ChevronDown className="w-3 h-3 text-zinc-500" />
+              </button>
               {inboxFilter !== 'all' && (
                 <span className="inline-flex items-center gap-1 text-[11px] bg-zinc-900 text-white font-medium px-2 py-0.5 rounded-full shadow-2xs">
                   <span>Filter: {getInboxFilterDisplayLabel(inboxFilter)}</span>
@@ -1012,6 +1024,12 @@ export default function App() {
           return performDeleteAndForget(personName);
         }}
         onCancel={() => setDeleteKnowledgePrompt(null)}
+      />
+
+      {/* Occasions Configuration Modal */}
+      <OccasionsModal
+        isOpen={isOccasionsOpen}
+        onClose={() => setIsOccasionsOpen(false)}
       />
     </div>
   );

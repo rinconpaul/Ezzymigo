@@ -114,6 +114,13 @@ export function identifyEventDetails(
     }
   }
 
+  // Check Father's Day / Mother's Day
+  if (/father'?s\s+day/i.test(cleanTitle)) {
+    if (!person) person = 'Dad';
+  } else if (/mother'?s\s+day/i.test(cleanTitle) || /mothering\s+sunday/i.test(cleanTitle)) {
+    if (!person) person = 'Mum';
+  }
+
   // If still no person, check active relationships against cleanTitle
   if (!person) {
     for (const rel of activeRelationships) {
@@ -179,7 +186,7 @@ export function isStronglyRelevantMemory(
   }
 
   // Must have action, preparation, or discussion intent:
-  const hasActionVerb = /\b(?:ask|discuss|mention|check|bring|take|give|tell|show|pick\s*up|renew|scripts?|prescription|blood\s*test|referral|scan|x-ray|symptoms?|results?|follow\s*up|remind|organise|organize)\b/i.test(lowerContent);
+  const hasActionVerb = /\b(?:ask|discuss|mention|check|bring|take|give|tell|show|pick\s*up|buy|get|send|call|order|book|renew|scripts?|prescription|blood\s*test|referral|scan|x-ray|symptoms?|results?|follow\s*up|remind|organise|organize)\b/i.test(lowerContent);
   if (!hasActionVerb) {
     return false;
   }
@@ -272,7 +279,8 @@ export function formatContextSentence(rawItem: string, stage: 'PRE' | 'POST'): s
     return normalized.endsWith('.') ? normalized : `${normalized}.`;
   }
 
-  return `You were going to ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
+  const prefix = stage === 'PRE' ? 'You wanted to' : 'You were going to';
+  return `${prefix} ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
 }
 
 /**

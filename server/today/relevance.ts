@@ -3,9 +3,26 @@ import { readMemories } from '../db/memories';
 import { readCalendarEvents } from '../calendar/store';
 import { readActiveRelationships } from '../relationships/index';
 import { isDependentReminderClause } from '../ai/splitter';
-import { AnticipatoryMode } from '../../src/types';
+import { AnticipatoryMode, OccasionOccurrence } from '../../src/types';
 import { classifyAnticipatoryMode, isRecurringRoutineText } from '../anticipatory/classifier';
 import { buildAnticipatoryPrompt } from '../anticipatory/promptBuilder';
+import { getActiveUserOccasionOccurrences } from '../occasions/manager';
+import { daysBetween } from '../occasions/dateResolver';
+
+export function getOccasionTemporalDescription(targetYMD: string, todayYMD: string, timeZone = 'Australia/Sydney'): string {
+  const diff = daysBetween(todayYMD, targetYMD);
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff > 1 && diff <= 7) {
+    const [y, m, d] = targetYMD.split('-').map(Number);
+    const targetDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(targetDate);
+    return `this ${dayName}`;
+  }
+  const [y, m, d] = targetYMD.split('-').map(Number);
+  const targetDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(targetDate);
+}
 
 export type LocalContextInfo = ReturnType<typeof formatLocalTimeContext>;
 
@@ -757,7 +774,7 @@ export function isMemoryEligibleForReflection(m: any): boolean {
 
   // 0. Check explicit anticipatory mode if present
   const mode: AnticipatoryMode | undefined = interp.anticipatory_mode || m.anticipatory_mode;
-  if (mode === 'NONE') return false;
+  if (mode === 'NONE' || mode === 'PRE_ONLY') return false;
 
   const isOptedIn = interp.anticipatory_opted_in !== undefined
     ? Boolean(interp.anticipatory_opted_in)
@@ -1024,7 +1041,8 @@ export function evaluateTodayRelevanceCandidates(
   calendarEvents: any[],
   activeRelationships: any[],
   localContext: LocalContextInfo,
-  dismissedReflectionIds: string[] = []
+  dismissedReflectionIds: string[] = [],
+  selectedOccasions: OccasionOccurrence[] = []
 ) {
   const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
   const nowMs = localContext.referenceDate.getTime();
@@ -1044,7 +1062,7 @@ export function evaluateTodayRelevanceCandidates(
   });
   
   const candidateList: Array<{
-    source_type: 'memory' | 'calendar';
+    source_type: 'memory' | 'calendar' | 'occasion';
     source_id: string;
     occurrence_id?: string;
     relevance_reason: string;
@@ -1212,7 +1230,7 @@ export function evaluateTodayRelevanceCandidates(
 
       // Stage 1: Upcoming Event (now < startMs)
       if (nowMs < startMs && isSuitableAppointment) {
-        if (eventAnticipatoryMode === 'PRE_AND_POST' && isOptedIn) {
+        if ((eventAnticipatoryMode === 'PRE_AND_POST' || eventAnticipatoryMode === 'PRE_ONLY') && isOptedIn) {
           const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
           const prepItems = extractCleanPrepItems(prepMemories);
           const prePromptRes = buildAnticipatoryPrompt({
@@ -1341,6 +1359,140 @@ export function evaluateTodayRelevanceCandidates(
     }
   }
 
+  // 2B. Selected Occasions (Resolved Occurrences & Anticipatory Integration)
+  for (const occ of selectedOccasions) {
+    const mode: AnticipatoryMode = occ.anticipatoryMode || 'NONE';
+    const diffStart = daysBetween(clientTodayYMD, occ.startDate);
+    const diffEnd = daysBetween(clientTodayYMD, occ.endDate);
+    const isTodayOrDuring = clientTodayYMD >= occ.startDate && clientTodayYMD <= occ.endDate;
+    const isDismissed = Array.isArray(dismissedReflectionIds) && dismissedReflectionIds.includes(occ.occurrenceId);
+
+    if (isDismissed) continue;
+
+    // Stage 1: Post-Occasion Reflection (1-2 days after occasion has ended)
+    if (diffEnd < 0 && (diffEnd === -1 || diffEnd === -2)) {
+      // ONLY trigger POST if mode is POST_ONLY or PRE_AND_POST.
+      // Strict rule: PRE_ONLY or NONE MUST NEVER trigger post-event reflection!
+      if (mode === 'POST_ONLY' || mode === 'PRE_AND_POST') {
+        const postPromptRes = buildAnticipatoryPrompt({
+          stage: 'POST',
+          title: occ.title,
+          memories: activeMemories,
+          activeRelationships,
+          eventId: occ.occurrenceId,
+        });
+
+        candidateList.push({
+          source_type: 'occasion',
+          source_id: occ.occasionId,
+          occurrence_id: occ.occurrenceId,
+          relevance_reason: 'Occasion reflection check-in',
+          display_text: postPromptRes.prompt,
+          priority: 2,
+          is_anticipatory: true,
+          anticipatory_stage: 'reflect',
+          anticipatory_mode: mode,
+          event_title: occ.title,
+          event_time: occ.endDate,
+          ticker_headlines: [postPromptRes.prompt],
+        });
+      }
+    }
+    // Stage 2: Occasion Today / Ongoing Multi-Day Period
+    else if (isTodayOrDuring) {
+      if (occ.startDate === occ.endDate) {
+        // Single day occasion today
+        if (mode === 'PRE_ONLY' || mode === 'PRE_AND_POST') {
+          const prePromptRes = buildAnticipatoryPrompt({
+            stage: 'PRE',
+            title: occ.title,
+            temporalDesc: 'today',
+            memories: activeMemories,
+            activeRelationships,
+            eventId: occ.occurrenceId,
+          });
+          candidateList.push({
+            source_type: 'occasion',
+            source_id: occ.occasionId,
+            occurrence_id: occ.occurrenceId,
+            relevance_reason: 'Occasion today',
+            display_text: prePromptRes.prompt,
+            priority: 2,
+            is_anticipatory: true,
+            anticipatory_stage: 'prepare',
+            anticipatory_mode: mode,
+            event_title: occ.title,
+            event_time: occ.startDate,
+            ticker_headlines: [prePromptRes.prompt],
+          });
+        } else {
+          const text = `${occ.title} is today`;
+          candidateList.push({
+            source_type: 'occasion',
+            source_id: occ.occasionId,
+            occurrence_id: occ.occurrenceId,
+            relevance_reason: 'Occasion today',
+            display_text: text,
+            priority: 2,
+            is_anticipatory: false,
+            anticipatory_mode: mode,
+            event_title: occ.title,
+            event_time: occ.startDate,
+            ticker_headlines: [text],
+          });
+        }
+      } else {
+        // Multi-day period (e.g. Ramadan, Hanukkah, Tết)
+        const isFirstDay = clientTodayYMD === occ.startDate;
+        const text = isFirstDay ? `${occ.title} begins today` : occ.title;
+        candidateList.push({
+          source_type: 'occasion',
+          source_id: occ.occasionId,
+          occurrence_id: occ.occurrenceId,
+          relevance_reason: isFirstDay ? 'Occasion begins today' : 'Ongoing occasion',
+          display_text: text,
+          priority: 2,
+          is_anticipatory: false,
+          anticipatory_mode: mode,
+          event_title: occ.title,
+          event_time: occ.startDate,
+          ticker_headlines: [text],
+        });
+      }
+    }
+    // Stage 3: Advance Preparation (1 to 7 days before start)
+    else if (diffStart >= 1 && diffStart <= 7) {
+      // ONLY trigger PRE if mode is PRE_ONLY or PRE_AND_POST.
+      // Strict rule: POST_ONLY or NONE MUST NEVER trigger advance preparation!
+      if (mode === 'PRE_ONLY' || mode === 'PRE_AND_POST') {
+        const temporalDesc = getOccasionTemporalDescription(occ.startDate, clientTodayYMD, localContext.timeZone);
+        const prePromptRes = buildAnticipatoryPrompt({
+          stage: 'PRE',
+          title: occ.title,
+          temporalDesc,
+          memories: activeMemories,
+          activeRelationships,
+          eventId: occ.occurrenceId,
+        });
+
+        candidateList.push({
+          source_type: 'occasion',
+          source_id: occ.occasionId,
+          occurrence_id: occ.occurrenceId,
+          relevance_reason: `Upcoming occasion (${temporalDesc})`,
+          display_text: prePromptRes.prompt,
+          priority: 2,
+          is_anticipatory: true,
+          anticipatory_stage: 'prepare',
+          anticipatory_mode: mode,
+          event_title: occ.title,
+          event_time: occ.startDate,
+          ticker_headlines: [prePromptRes.prompt],
+        });
+      }
+    }
+  }
+
   // 3. Lists Scheduled for Today via Subject Temporal Resolution (Priority 3)
   // For active memories where subject_resolved_date matches clientTodayYMD, group by subject
   // and emit exactly ONE pointer candidate per distinct subject.
@@ -1406,7 +1558,7 @@ export function evaluateTodayRelevanceCandidates(
       const occurrenceKey = `${baseMemoryId}:${clientTodayYMD}`;
 
       if (lifecycle.lifecycleStage === 'upcoming') {
-        if (memMode === 'PRE_AND_POST' && memOptedIn) {
+        if ((memMode === 'PRE_AND_POST' || memMode === 'PRE_ONLY') && memOptedIn) {
           const prePromptRes = buildAnticipatoryPrompt({
             stage: 'PRE',
             title: lifecycle.cleanTitle,
@@ -1548,11 +1700,12 @@ export async function computeTodayRelevance(
   const t0 = Date.now();
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
 
-  // Parallel fetch memories, calendar events, and active relationships
-  const [memories, calendarEvents, activeRelationships] = await Promise.all([
+  // Parallel fetch memories, calendar events, active relationships, and resolved occasions
+  const [memories, calendarEvents, activeRelationships, occasionOccurrences] = await Promise.all([
     readMemories(),
     readCalendarEvents(),
     readActiveRelationships(),
+    getActiveUserOccasionOccurrences(localContext.referenceDate, localContext.timeZone),
   ]);
   const tDb = Date.now();
 
@@ -1561,7 +1714,8 @@ export async function computeTodayRelevance(
     calendarEvents,
     activeRelationships,
     localContext,
-    dismissedReflectionIds
+    dismissedReflectionIds,
+    occasionOccurrences
   );
 
   const tEnd = Date.now();
@@ -1591,7 +1745,8 @@ export function evaluateTodayRelevance(
   referenceDate: Date,
   timeZone: string,
   clientTodayYMD: string,
-  dismissedReflectionIds: string[] = []
+  dismissedReflectionIds: string[] = [],
+  selectedOccasions: OccasionOccurrence[] = []
 ) {
   const localContext = formatLocalTimeContext(referenceDate.toISOString(), timeZone);
   const candidates = evaluateTodayRelevanceCandidates(
@@ -1599,7 +1754,8 @@ export function evaluateTodayRelevance(
     calendarEvents,
     activeRelationships,
     localContext,
-    dismissedReflectionIds
+    dismissedReflectionIds,
+    selectedOccasions
   );
   return {
     candidates,

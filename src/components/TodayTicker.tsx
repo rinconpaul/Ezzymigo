@@ -628,7 +628,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
     } else if (candidate.source_type === 'memory') {
       setSelectedCalendarItem(null);
       setSurfacedMemoryId((prev) => (prev === candidate.source_id ? null : candidate.source_id));
-    } else if (candidate.source_type === 'calendar') {
+    } else if (candidate.source_type === 'calendar' || candidate.source_type === 'occasion') {
       setSurfacedMemoryId(null);
       setSelectedCalendarItem((prev) => (prev?.source_id === candidate.source_id ? null : candidate));
     }
