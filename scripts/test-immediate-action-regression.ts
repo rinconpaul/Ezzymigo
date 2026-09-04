@@ -105,7 +105,23 @@ async function setupFixtures() {
     metadata: { phone: '0422 222 222' },
   });
 
-  // 4. Calendar event with attendee/title "Dinner with Test_CalendarGuest" (no relationship/phone)
+  // 4. Test_Barb (friend with phone for multilingual tests)
+  await saveRelationships([
+    {
+      person: 'Test_Barb',
+      role: 'friend',
+      is_active: true,
+    },
+  ]);
+  await saveUserEntity({
+    name: 'Test_Barb',
+    entity_type: 'person',
+    role: 'friend',
+    normalized_role: 'friend',
+    metadata: { phone: '0412 999 888' },
+  });
+
+  // 5. Calendar event with attendee/title "Dinner with Test_CalendarGuest" (no relationship/phone)
   await executeBunnySql([{
     sql: `INSERT INTO calendar_events (id, source, sourceEventId, title, startDatetime, endDatetime, isAllDay, status, updatedAt)
           VALUES ('cal_test_guest', 'google_calendar', 'evt_test_guest', 'Dinner with Test_CalendarGuest', '2026-09-10 19:00:00', '2026-09-10 21:00:00', 0, 'confirmed', '2026-09-03T10:00:00.000Z');`,
@@ -474,6 +490,454 @@ async function runRegressionMatrix() {
       details: `Status: ${data13.deviceAction?.status}, Phone: ${data13.deviceAction?.phoneNumber || 'none'}, Feedback: ${data13.deviceAction?.feedbackMessage}`,
     });
     console.log(`Scenario 13: ${isNonEstablished13 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // =============================================================
+    // MULTILINGUAL INTEGRITY GATE: SPANISH
+    // =============================================================
+
+    // Scenario 14: Spanish Immediate Call ("Llama a Test_Barb")
+    console.log('\n--- Scenario 14: Spanish Immediate Call ("Llama a Test_Barb") ---');
+    const res14 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Llama a Test_Barb',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data14 = await res14.json();
+    const countAfter14 = await countMemoriesWithPattern('Test_Barb');
+    const isCallReady14 =
+      data14.deviceAction?.action === 'call' &&
+      data14.deviceAction?.status === 'ready' &&
+      data14.deviceAction?.phoneNumber === '0412 999 888' &&
+      data14.deviceAction?.sanitizedPhone === '0412999888' &&
+      data14.deviceAction?.recipientName === 'Test_Barb' &&
+      countAfter14 === 0;
+
+    results.push({
+      scenario: 14,
+      name: 'Spanish Immediate Call ("Llama a Test_Barb")',
+      passed: Boolean(isCallReady14),
+      details: `Action: ${data14.deviceAction?.action}, Status: ${data14.deviceAction?.status}, Recipient: ${data14.deviceAction?.recipientName}, Phone: ${data14.deviceAction?.phoneNumber}, Zero-memories: ${countAfter14 === 0}`,
+    });
+    console.log(`Scenario 14: ${isCallReady14 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 15: Spanish Future Call ("Llama a Test_Barb mañana")
+    console.log('\n--- Scenario 15: Spanish Future Call ("Llama a Test_Barb mañana") ---');
+    const res15 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Llama a Test_Barb mañana',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data15 = await res15.json();
+    const memoryCreated15 = (Array.isArray(data15.memories) && data15.memories.length > 0) || Boolean(data15.memory);
+    const noImmediate15 = !data15.deviceAction;
+
+    results.push({
+      scenario: 15,
+      name: 'Spanish Future Call ("Llama a Test_Barb mañana")',
+      passed: Boolean(memoryCreated15 && noImmediate15),
+      details: `Memory created: ${memoryCreated15}, deviceAction triggered: ${Boolean(data15.deviceAction)}`,
+    });
+    console.log(`Scenario 15: ${memoryCreated15 && noImmediate15 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 16: Spanish Immediate SMS with Message ("Envíale un mensaje a Test_Barb diciendo que llegaré tarde")
+    console.log('\n--- Scenario 16: Spanish Immediate SMS ("Envíale un mensaje a Test_Barb diciendo que llegaré tarde") ---');
+    const res16 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Envíale un mensaje a Test_Barb diciendo que llegaré tarde',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data16 = await res16.json();
+    const isSmsReady16 =
+      data16.deviceAction?.action === 'sms' &&
+      data16.deviceAction?.status === 'ready' &&
+      data16.deviceAction?.phoneNumber === '0412 999 888' &&
+      data16.deviceAction?.recipientName === 'Test_Barb' &&
+      Boolean(data16.deviceAction?.prefilledMessage?.toLowerCase().includes('tarde'));
+
+    results.push({
+      scenario: 16,
+      name: 'Spanish Immediate SMS ("Envíale un mensaje a Test_Barb diciendo que llegaré tarde")',
+      passed: Boolean(isSmsReady16),
+      details: `Action: ${data16.deviceAction?.action}, Status: ${data16.deviceAction?.status}, Message: "${data16.deviceAction?.prefilledMessage}"`,
+    });
+    console.log(`Scenario 16: ${isSmsReady16 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 17: Spanish Explicit Reminder ("Recuérdame llamar a Test_Barb mañana")
+    console.log('\n--- Scenario 17: Spanish Explicit Reminder ("Recuérdame llamar a Test_Barb mañana") ---');
+    const res17 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Recuérdame llamar a Test_Barb mañana',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data17 = await res17.json();
+    const memoryCreated17 = (Array.isArray(data17.memories) && data17.memories.length > 0) || Boolean(data17.memory);
+    const noImmediate17 = !data17.deviceAction;
+
+    results.push({
+      scenario: 17,
+      name: 'Spanish Explicit Reminder ("Recuérdame llamar a Test_Barb mañana")',
+      passed: Boolean(memoryCreated17 && noImmediate17),
+      details: `Memory created: ${memoryCreated17}, deviceAction triggered: ${Boolean(data17.deviceAction)}`,
+    });
+    console.log(`Scenario 17: ${memoryCreated17 && noImmediate17 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 18: Spanish Immediate Call by Role ("Llama a mi electricista")
+    console.log('\n--- Scenario 18: Spanish Immediate Call by Role ("Llama a mi electricista") ---');
+    const res18 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Llama a mi electricista',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data18 = await res18.json();
+    const isRoleCallReady18 =
+      data18.deviceAction?.action === 'call' &&
+      data18.deviceAction?.status === 'ready' &&
+      data18.deviceAction?.recipientName === 'Test_Fred' &&
+      data18.deviceAction?.phoneNumber === '0412 345 678';
+
+    results.push({
+      scenario: 18,
+      name: 'Spanish Immediate Call by Role ("Llama a mi electricista")',
+      passed: Boolean(isRoleCallReady18),
+      details: `Recipient: ${data18.deviceAction?.recipientName}, Role: ${data18.deviceAction?.role}, Phone: ${data18.deviceAction?.phoneNumber}`,
+    });
+    console.log(`Scenario 18: ${isRoleCallReady18 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // =============================================================
+    // MULTILINGUAL INTEGRITY GATE: FRENCH
+    // =============================================================
+
+    // Scenario 19: French Immediate Call ("Appelle Test_Barb")
+    console.log('\n--- Scenario 19: French Immediate Call ("Appelle Test_Barb") ---');
+    const res19 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Appelle Test_Barb',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data19 = await res19.json();
+    const isCallReady19 =
+      data19.deviceAction?.action === 'call' &&
+      data19.deviceAction?.status === 'ready' &&
+      data19.deviceAction?.phoneNumber === '0412 999 888' &&
+      data19.deviceAction?.recipientName === 'Test_Barb';
+
+    results.push({
+      scenario: 19,
+      name: 'French Immediate Call ("Appelle Test_Barb")',
+      passed: Boolean(isCallReady19),
+      details: `Action: ${data19.deviceAction?.action}, Status: ${data19.deviceAction?.status}, Recipient: ${data19.deviceAction?.recipientName}, Phone: ${data19.deviceAction?.phoneNumber}`,
+    });
+    console.log(`Scenario 19: ${isCallReady19 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 20: French Future Call ("Appelle Test_Barb demain")
+    console.log('\n--- Scenario 20: French Future Call ("Appelle Test_Barb demain") ---');
+    const res20 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Appelle Test_Barb demain',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data20 = await res20.json();
+    const memoryCreated20 = (Array.isArray(data20.memories) && data20.memories.length > 0) || Boolean(data20.memory);
+    const noImmediate20 = !data20.deviceAction;
+
+    results.push({
+      scenario: 20,
+      name: 'French Future Call ("Appelle Test_Barb demain")',
+      passed: Boolean(memoryCreated20 && noImmediate20),
+      details: `Memory created: ${memoryCreated20}, deviceAction triggered: ${Boolean(data20.deviceAction)}`,
+    });
+    console.log(`Scenario 20: ${memoryCreated20 && noImmediate20 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 21: French Immediate SMS with Message ("Envoie un SMS à Test_Barb en disant que j'aurai du retard")
+    console.log('\n--- Scenario 21: French Immediate SMS ("Envoie un SMS à Test_Barb en disant que j\'aurai du retard") ---');
+    const res21 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: "Envoie un SMS à Test_Barb en disant que j'aurai du retard",
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data21 = await res21.json();
+    const isSmsReady21 =
+      data21.deviceAction?.action === 'sms' &&
+      data21.deviceAction?.status === 'ready' &&
+      data21.deviceAction?.phoneNumber === '0412 999 888' &&
+      data21.deviceAction?.recipientName === 'Test_Barb' &&
+      Boolean(data21.deviceAction?.prefilledMessage?.toLowerCase().includes('retard'));
+
+    results.push({
+      scenario: 21,
+      name: 'French Immediate SMS ("Envoie un SMS à Test_Barb en disant que j\'aurai du retard")',
+      passed: Boolean(isSmsReady21),
+      details: `Action: ${data21.deviceAction?.action}, Status: ${data21.deviceAction?.status}, Message: "${data21.deviceAction?.prefilledMessage}"`,
+    });
+    console.log(`Scenario 21: ${isSmsReady21 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 22: French Explicit Reminder ("Rappelle-moi d'appeler Test_Barb demain")
+    console.log('\n--- Scenario 22: French Explicit Reminder ("Rappelle-moi d\'appeler Test_Barb demain") ---');
+    const res22 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: "Rappelle-moi d'appeler Test_Barb demain",
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data22 = await res22.json();
+    const memoryCreated22 = (Array.isArray(data22.memories) && data22.memories.length > 0) || Boolean(data22.memory);
+    const noImmediate22 = !data22.deviceAction;
+
+    results.push({
+      scenario: 22,
+      name: 'French Explicit Reminder ("Rappelle-moi d\'appeler Test_Barb demain")',
+      passed: Boolean(memoryCreated22 && noImmediate22),
+      details: `Memory created: ${memoryCreated22}, deviceAction triggered: ${Boolean(data22.deviceAction)}`,
+    });
+    console.log(`Scenario 22: ${memoryCreated22 && noImmediate22 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 23: French Immediate Call by Role ("Appelle mon électricien")
+    console.log('\n--- Scenario 23: French Immediate Call by Role ("Appelle mon électricien") ---');
+    const res23 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Appelle mon électricien',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data23 = await res23.json();
+    const isRoleCallReady23 =
+      data23.deviceAction?.action === 'call' &&
+      data23.deviceAction?.status === 'ready' &&
+      data23.deviceAction?.recipientName === 'Test_Fred' &&
+      data23.deviceAction?.phoneNumber === '0412 345 678';
+
+    results.push({
+      scenario: 23,
+      name: 'French Immediate Call by Role ("Appelle mon électricien")',
+      passed: Boolean(isRoleCallReady23),
+      details: `Recipient: ${data23.deviceAction?.recipientName}, Role: ${data23.deviceAction?.role}, Phone: ${data23.deviceAction?.phoneNumber}`,
+    });
+    console.log(`Scenario 23: ${isRoleCallReady23 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // =============================================================
+    // MULTILINGUAL INTEGRITY GATE: GERMAN
+    // =============================================================
+
+    // Scenario 24: German Immediate Call ("Ruf Test_Barb an")
+    console.log('\n--- Scenario 24: German Immediate Call ("Ruf Test_Barb an") ---');
+    const res24 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Ruf Test_Barb an',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data24 = await res24.json();
+    const isCallReady24 =
+      data24.deviceAction?.action === 'call' &&
+      data24.deviceAction?.status === 'ready' &&
+      data24.deviceAction?.phoneNumber === '0412 999 888' &&
+      data24.deviceAction?.recipientName === 'Test_Barb';
+
+    results.push({
+      scenario: 24,
+      name: 'German Immediate Call ("Ruf Test_Barb an")',
+      passed: Boolean(isCallReady24),
+      details: `Action: ${data24.deviceAction?.action}, Status: ${data24.deviceAction?.status}, Recipient: ${data24.deviceAction?.recipientName}, Phone: ${data24.deviceAction?.phoneNumber}`,
+    });
+    console.log(`Scenario 24: ${isCallReady24 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 25: German Future Call ("Ruf Test_Barb morgen an")
+    console.log('\n--- Scenario 25: German Future Call ("Ruf Test_Barb morgen an") ---');
+    const res25 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Ruf Test_Barb morgen an',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data25 = await res25.json();
+    const memoryCreated25 = (Array.isArray(data25.memories) && data25.memories.length > 0) || Boolean(data25.memory);
+    const noImmediate25 = !data25.deviceAction;
+
+    results.push({
+      scenario: 25,
+      name: 'German Future Call ("Ruf Test_Barb morgen an")',
+      passed: Boolean(memoryCreated25 && noImmediate25),
+      details: `Memory created: ${memoryCreated25}, deviceAction triggered: ${Boolean(data25.deviceAction)}`,
+    });
+    console.log(`Scenario 25: ${memoryCreated25 && noImmediate25 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 26: German Immediate SMS with Message ("Schreib Test_Barb eine SMS dass ich später komme")
+    console.log('\n--- Scenario 26: German Immediate SMS ("Schreib Test_Barb eine SMS dass ich später komme") ---');
+    const res26 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Schreib Test_Barb eine SMS dass ich später komme',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data26 = await res26.json();
+    const isSmsReady26 =
+      data26.deviceAction?.action === 'sms' &&
+      data26.deviceAction?.status === 'ready' &&
+      data26.deviceAction?.phoneNumber === '0412 999 888' &&
+      data26.deviceAction?.recipientName === 'Test_Barb' &&
+      Boolean(data26.deviceAction?.prefilledMessage?.toLowerCase().includes('später'));
+
+    results.push({
+      scenario: 26,
+      name: 'German Immediate SMS ("Schreib Test_Barb eine SMS dass ich später komme")',
+      passed: Boolean(isSmsReady26),
+      details: `Action: ${data26.deviceAction?.action}, Status: ${data26.deviceAction?.status}, Message: "${data26.deviceAction?.prefilledMessage}"`,
+    });
+    console.log(`Scenario 26: ${isSmsReady26 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 27: German Explicit Reminder ("Erinnere mich daran, Test_Barb morgen anzurufen")
+    console.log('\n--- Scenario 27: German Explicit Reminder ("Erinnere mich daran, Test_Barb morgen anzurufen") ---');
+    const res27 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Erinnere mich daran, Test_Barb morgen anzurufen',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data27 = await res27.json();
+    const memoryCreated27 = (Array.isArray(data27.memories) && data27.memories.length > 0) || Boolean(data27.memory);
+    const noImmediate27 = !data27.deviceAction;
+
+    results.push({
+      scenario: 27,
+      name: 'German Explicit Reminder ("Erinnere mich daran, Test_Barb morgen anzurufen")',
+      passed: Boolean(memoryCreated27 && noImmediate27),
+      details: `Memory created: ${memoryCreated27}, deviceAction triggered: ${Boolean(data27.deviceAction)}`,
+    });
+    console.log(`Scenario 27: ${memoryCreated27 && noImmediate27 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 28: German Immediate Call by Role ("Ruf meinen Elektriker an")
+    console.log('\n--- Scenario 28: German Immediate Call by Role ("Ruf meinen Elektriker an") ---');
+    const res28 = await fetch(`${BASE_URL}/api/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Ruf meinen Elektriker an',
+        clientNow: '2026-09-03T10:00:00.000Z',
+      }),
+    });
+    const data28 = await res28.json();
+    const isRoleCallReady28 =
+      data28.deviceAction?.action === 'call' &&
+      data28.deviceAction?.status === 'ready' &&
+      data28.deviceAction?.recipientName === 'Test_Fred' &&
+      data28.deviceAction?.phoneNumber === '0412 345 678';
+
+    results.push({
+      scenario: 28,
+      name: 'German Immediate Call by Role ("Ruf meinen Elektriker an")',
+      passed: Boolean(isRoleCallReady28),
+      details: `Recipient: ${data28.deviceAction?.recipientName}, Role: ${data28.deviceAction?.role}, Phone: ${data28.deviceAction?.phoneNumber}`,
+    });
+    console.log(`Scenario 28: ${isRoleCallReady28 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // =============================================================
+    // MULTILINGUAL ASK / CONTACT QUERIES
+    // =============================================================
+
+    // Scenario 29: Spanish Contact Query via Ask
+    console.log('\n--- Scenario 29: Spanish Contact Query ("¿Cuál es el número de teléfono de Test_Fred?") ---');
+    const res29 = await fetch(`${BASE_URL}/api/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: '¿Cuál es el número de teléfono de Test_Fred?',
+        clientNow: '2026-09-03T10:00:00.000Z',
+        localContext: { language: 'es', region: 'ES', timeZone: 'Europe/Madrid' },
+      }),
+    });
+    const data29 = await res29.json();
+    const answerContainsPhone29 =
+      data29.answer?.includes('0412 345 678') || data29.answer?.includes('0412345678');
+
+    results.push({
+      scenario: 29,
+      name: 'Spanish Contact Query ("¿Cuál es el número de teléfono de Test_Fred?")',
+      passed: Boolean(answerContainsPhone29),
+      details: `Answer: "${data29.answer}"`,
+    });
+    console.log(`Scenario 29: ${answerContainsPhone29 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 30: French Contact Query via Ask
+    console.log('\n--- Scenario 30: French Contact Query ("Quel est le numéro de téléphone de Test_Fred ?") ---');
+    const res30 = await fetch(`${BASE_URL}/api/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: 'Quel est le numéro de téléphone de Test_Fred ?',
+        clientNow: '2026-09-03T10:00:00.000Z',
+        localContext: { language: 'fr', region: 'FR', timeZone: 'Europe/Paris' },
+      }),
+    });
+    const data30 = await res30.json();
+    const answerContainsPhone30 =
+      data30.answer?.includes('0412 345 678') || data30.answer?.includes('0412345678');
+
+    results.push({
+      scenario: 30,
+      name: 'French Contact Query ("Quel est le numéro de téléphone de Test_Fred ?")',
+      passed: Boolean(answerContainsPhone30),
+      details: `Answer: "${data30.answer}"`,
+    });
+    console.log(`Scenario 30: ${answerContainsPhone30 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
+
+    // Scenario 31: German Contact Query via Ask
+    console.log('\n--- Scenario 31: German Contact Query ("Wie lautet die Telefonnummer von Test_Fred?") ---');
+    const res31 = await fetch(`${BASE_URL}/api/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: 'Wie lautet die Telefonnummer von Test_Fred?',
+        clientNow: '2026-09-03T10:00:00.000Z',
+        localContext: { language: 'de', region: 'DE', timeZone: 'Europe/Berlin' },
+      }),
+    });
+    const data31 = await res31.json();
+    const answerContainsPhone31 =
+      data31.answer?.includes('0412 345 678') || data31.answer?.includes('0412345678');
+
+    results.push({
+      scenario: 31,
+      name: 'German Contact Query ("Wie lautet die Telefonnummer von Test_Fred?")',
+      passed: Boolean(answerContainsPhone31),
+      details: `Answer: "${data31.answer}"`,
+    });
+    console.log(`Scenario 31: ${answerContainsPhone31 ? '✅ PASS' : '❌ FAIL'} (${results[results.length - 1].details})`);
 
   } finally {
     // Guaranteed cleanup of isolated test fixtures

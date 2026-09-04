@@ -184,7 +184,7 @@ export const intentClassificationSchema = {
         'CONTACT_FACT',
         'GENERAL_THOUGHT',
       ],
-      description: 'The semantic intent class of the user input.',
+      description: 'The semantic intent class of the user input across any language.',
     },
     action_type: {
       type: Type.STRING,
@@ -194,26 +194,26 @@ export const intentClassificationSchema = {
     target_person: {
       type: Type.STRING,
       nullable: true,
-      description: 'Person name mentioned as the target of the contact action or query (e.g. "Fred", "Mum", "Barb").',
+      description: 'Person name mentioned as the target of the contact action or query (e.g. "Barb", "Fred", "Marie"). CRITICAL: The person name MUST be kept exactly as written in the user input without translation or modification.',
     },
     target_role: {
       type: Type.STRING,
       nullable: true,
-      description: 'Role or relationship mentioned (e.g. "electrician", "doctor", "plumber", "mum").',
+      description: 'Normalized role or relationship in English if mentioned (e.g. "electrician", "doctor", "plumber", "mum", "sister", "architect", "builder").',
     },
     prefilled_message: {
       type: Type.STRING,
       nullable: true,
-      description: 'For SMS/message actions, any message text the user specified to send (e.g. "I\'m running late", "On my way"). Null if no message content specified.',
+      description: 'For SMS/message actions, any message text the user specified to send (e.g. "I\'m running late", "llegaré tarde", "j\'aurai du retard", "ich komme später"). Strip out conversational carrier phrasing like "saying that", "diciendo que", "disant que", "dass". Null if no message content specified.',
     },
     has_temporal_anchor: {
       type: Type.BOOLEAN,
-      description: 'True if there is ANY future or scheduled time/date expression (e.g. "tomorrow", "at 4pm", "tonight", "after my appointment", "next week", "in 10 minutes"). If true, this CANNOT be an IMMEDIATE_CONTACT_ACTION.',
+      description: 'True if there is ANY future, delayed, or scheduled time/date expression, or reminder framing in ANY language (e.g. "tomorrow", "mañana", "demain", "morgen", "at 4pm", "tonight", "ce soir", "heute Abend", "in 10 minutes", "recuérdame", "rappelle-moi", "erinnere mich", "don\'t let me forget"). If true, this CANNOT be an IMMEDIATE_CONTACT_ACTION.',
     },
     temporal_expression: {
       type: Type.STRING,
       nullable: true,
-      description: 'The explicit time or date expression detected in the input, if any.',
+      description: 'The explicit time, date, delay, or scheduling expression detected in the input, if any (in the source language, e.g. "mañana", "demain", "morgen", "tomorrow").',
     },
   },
   required: ['intent_class', 'action_type', 'has_temporal_anchor'],

@@ -51,13 +51,13 @@ export async function resolveContactAction(params: {
   let personQuery = (params.targetPerson || '').trim();
   let roleQuery = (params.targetRole || '').trim();
 
-  // If both person and role are empty, try extracting from raw input (e.g. "Ring Fred" -> "Fred", "Call Mum" -> "Mum")
+  // If both person and role are empty, check if any known entity is mentioned in raw input
   if (!personQuery && !roleQuery) {
-    const verbMatch = rawInput.match(/\b(?:call|ring|phone|text|message)\s+([a-z0-9'’]+(?:\s+[a-z0-9'’]+)?)\b/i);
-    if (verbMatch && verbMatch[1]) {
-      const candidate = verbMatch[1].trim();
-      if (!['tomorrow', 'today', 'tonight', 'later', 'him', 'her', 'them', 'me'].includes(candidate.toLowerCase())) {
-        personQuery = candidate;
+    const knownEnts = await getUserEntities();
+    for (const ent of knownEnts) {
+      if (rawInput.toLowerCase().includes(ent.name.toLowerCase())) {
+        personQuery = ent.name;
+        break;
       }
     }
   }

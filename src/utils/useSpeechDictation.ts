@@ -3,16 +3,18 @@ import { getUserPreferences } from './userPreferences';
 
 interface UseSpeechDictationOptions {
   onAppendText: (text: string) => void;
+  onStop?: () => void;
   language?: string;
 }
 
-export function useSpeechDictation({ onAppendText, language }: UseSpeechDictationOptions) {
+export function useSpeechDictation({ onAppendText, onStop, language }: UseSpeechDictationOptions) {
   const [isListening, setIsListening] = useState(false);
   const [speechNotice, setSpeechNotice] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const isExplicitlyActiveRef = useRef<boolean>(false);
   const onAppendTextRef = useRef(onAppendText);
+  const onStopRef = useRef(onStop);
   const languageRef = useRef(language);
   const restartTimerRef = useRef<any>(null);
   const instanceIdRef = useRef<string>(Math.random().toString(36).substring(2, 9));
@@ -20,6 +22,10 @@ export function useSpeechDictation({ onAppendText, language }: UseSpeechDictatio
   useEffect(() => {
     onAppendTextRef.current = onAppendText;
   }, [onAppendText]);
+
+  useEffect(() => {
+    onStopRef.current = onStop;
+  }, [onStop]);
 
   useEffect(() => {
     languageRef.current = language;
@@ -46,6 +52,9 @@ export function useSpeechDictation({ onAppendText, language }: UseSpeechDictatio
       recognitionRef.current = null;
     }
     setIsListening(false);
+    if (onStopRef.current) {
+      onStopRef.current();
+    }
   }, []);
 
   const createAndStartRecognition = useCallback(() => {
@@ -126,6 +135,9 @@ export function useSpeechDictation({ onAppendText, language }: UseSpeechDictatio
           }, 150);
         } else {
           setIsListening(false);
+          if (onStopRef.current) {
+            onStopRef.current();
+          }
         }
       };
 

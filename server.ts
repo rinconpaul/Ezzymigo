@@ -1352,21 +1352,6 @@ app.post('/api/ask', async (req, res) => {
       getUserEntities(),
     ]);
 
-    // Check if query is directly asking for contact info (phone/mobile/number)
-    const contactInfoMatch = trimmedQuestion.match(/\b(?:what['’]?s|what\s+is|do\s+i\s+have|tell\s+me|give\s+me|find)\b.*\b(?:phone|number|mobile|cell|contact)\b/i);
-    if (contactInfoMatch) {
-      const contactQueryResult = await resolveContactQuery(trimmedQuestion);
-      if (contactQueryResult.found) {
-        return res.json({
-          answer: contactQueryResult.answer,
-          memory_ids: [],
-          calendar_event_ids: [],
-          is_out_of_scope: false,
-        });
-      }
-    }
-
-
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
     const ai = getGeminiClient();
     const knowledgeModResult = await evaluateKnowledgeModification(trimmedQuestion, activeRelationships, Boolean(confirm), ai);

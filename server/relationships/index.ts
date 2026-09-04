@@ -10,16 +10,25 @@ import { detectClockTimeAmbiguity, ClockTimeAmbiguity } from '../utils/timeAmbig
 export function normalizeRoleName(role: string): string {
   if (!role || typeof role !== 'string') return '';
   let cleaned = role.toLowerCase().trim();
-  // Strip leading possessives/articles (e.g. "my ", "our ", "the ", "a ", "an ")
-  cleaned = cleaned.replace(/^(?:my|our|the|a|an)\s+/i, '').trim();
+  // Strip leading possessives/articles (English, Spanish, French, German)
+  cleaned = cleaned.replace(/^(?:my|our|the|a|an|mi|mis|el|la|los|las|mon|ma|mes|le|la|les|un|une|mein|meine|meinen|der|die|das|ein|eine|einen)\s+/i, '').trim();
   // Strip trailing punctuation or possessives like "'s"
   cleaned = cleaned.replace(/['’]s$/i, '').replace(/[.,?!]+$/, '').trim();
 
-  // Normalize common synonyms
-  if (['general practitioner', 'physician', 'doc', 'dr'].includes(cleaned)) return 'doctor';
-  if (['physiotherapist'].includes(cleaned)) return 'physio';
-  if (['hubby'].includes(cleaned)) return 'husband';
-  if (['wifey'].includes(cleaned)) return 'wife';
+  // Normalize common synonyms and multilingual terms
+  if (['general practitioner', 'physician', 'doc', 'dr', 'médico', 'medico', 'médecin', 'arzt', 'ärztin'].includes(cleaned)) return 'doctor';
+  if (['physiotherapist', 'kinésithérapeute', 'fisioterapeuta'].includes(cleaned)) return 'physio';
+  if (['electricista', 'électricien', 'electricien', 'elektriker'].includes(cleaned)) return 'electrician';
+  if (['plomero', 'fontanero', 'plombier', 'klempner', 'installateur'].includes(cleaned)) return 'plumber';
+  if (['constructor', 'constructeur', 'baumeister', 'bauarbeiter'].includes(cleaned)) return 'builder';
+  if (['arquitecto', 'architecte'].includes(cleaned)) return 'architect';
+  if (['mecánico', 'mecanico', 'mécanicien', 'mecanicien', 'mechaniker'].includes(cleaned)) return 'mechanic';
+  if (['hermana', 'soeur', 'sœur', 'schwester'].includes(cleaned)) return 'sister';
+  if (['hermano', 'frère', 'frere', 'bruder'].includes(cleaned)) return 'brother';
+  if (['madre', 'mamá', 'mama', 'maman', 'mère', 'mere', 'mutter'].includes(cleaned)) return 'mum';
+  if (['padre', 'papá', 'papa', 'père', 'pere', 'vater'].includes(cleaned)) return 'dad';
+  if (['esposo', 'hubby', 'mari', 'ehemann'].includes(cleaned)) return 'husband';
+  if (['esposa', 'wifey', 'femme', 'ehefrau'].includes(cleaned)) return 'wife';
   return cleaned;
 }
 

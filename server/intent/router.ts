@@ -17,18 +17,6 @@ export interface IntentRoutingResult {
   raw_input: string;
 }
 
-// Deterministic temporal pattern to ensure no future/scheduled timing leaks into IMMEDIATE_CONTACT_ACTION
-const FUTURE_TEMPORAL_PATTERN = /\b(?:tomorrow(?:\s+(?:morning|afternoon|evening|night))?|tonight|yesterday|this\s+(?:morning|afternoon|evening|night|weekend|week)|next\s+(?:week|weekend|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|saturday|sunday|monday|tuesday|wednesday|thursday|friday|january|february|march|april|may|june|july|august|september|october|november|december|at\s+\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?|\d{1,2}(?::\d{2})?\s*(?:am|pm)|in\s+\d+\s*(?:mins?|minutes?|hours?|days?|weeks?)|after\s+(?:my\s+)?[a-z]+|when\s+[a-z]+|later(?:\s+on)?)\b/i;
-
-// Explicit reminder framing pattern
-const EXPLICIT_REMINDER_PATTERN = /\b(?:remind\s+me\s+to|don['’]t\s+let\s+me\s+forget\s+to|set\s+a\s+reminder|give\s+me\s+a\s+reminder|make\s+a\s+reminder)\b/i;
-
-// Contact info query pattern
-const CONTACT_QUERY_PATTERN = /\b(?:what['’]?s|what\s+is|do\s+i\s+have|can\s+you\s+(?:give|tell)\s+me)\s+(?:the\s+|my\s+)?[a-z0-9\s'’-]+(?:phone(?:\s*number)?|mobile|number|cell|email|contact(?:\s*info)?)\b/i;
-
-// Contact fact/relationship pattern (e.g. "Fred is my electrician", "Barb's mobile is 0412...")
-const CONTACT_FACT_PATTERN = /\b(?:is\s+my\s+|is\s+the\s+|'s\s+(?:mobile|phone|number|cell|email)\s+is)\b/i;
-
 export async function routeUserIntent(
   rawInput: string,
   ai: GoogleGenAI
@@ -47,58 +35,57 @@ export async function routeUserIntent(
     };
   }
 
-  // Pre-check deterministic indicators
-  const hasDeterministicTemporal = FUTURE_TEMPORAL_PATTERN.test(trimmed);
-  const isExplicitReminder = EXPLICIT_REMINDER_PATTERN.test(trimmed);
-  const isContactQuery = CONTACT_QUERY_PATTERN.test(trimmed);
-
   try {
-    const prompt = `Analyze the user's input and classify its semantic intent class:
+    const prompt = `You are Ezzymigo's Multilingual Action and Intent Classifier.
+Analyze the user's input and classify its semantic intent class across ANY language (English, Spanish, French, German, Italian, etc.).
 
+INTENT CLASSES:
 1. IMMEDIATE_CONTACT_ACTION:
-   The user is giving an imperative command to initiate communication RIGHT NOW with a person or role.
-   Examples:
-   - "Ring Fred."
-   - "Call Fred."
-   - "Text Fred."
-   - "Text Fred I'm running late"
-   - "Message Fred."
-   - "Phone Mum."
-   - "Give Fred a ring."
-   - "Can you call Fred?"
-   - "Phone the electrician."
-   - "Send Fred a text."
-   CRITICAL: There must be NO future temporal qualifier (no "tomorrow", "at 4pm", "tonight", "after my meeting", etc.).
+   The user gives an imperative command to initiate communication RIGHT NOW with a person or role (call/phone/ring or text/sms/message).
+   Crucially, there is NO future temporal anchor, NO delayed time, and NO reminder framing.
+   Examples across languages:
+   - English: "Ring Barb", "Call Barb", "Phone my electrician", "Text Barb", "Text Barb I'm running late", "Send a message to Barb"
+   - Spanish: "Llama a Barb", "Llamar a Barb", "Llama a mi electricista", "Envíale un mensaje a Barb diciendo que llegaré tarde", "Escríbele a Barb"
+   - French: "Appelle Barb", "Téléphone à mon électricien", "Envoie un SMS à Barb en disant que j'aurai du retard", "Écris à Barb"
+   - German: "Ruf Barb an", "Ruf meinen Elektriker an", "Schreib Barb eine SMS dass ich später komme", "Schick Barb eine Nachricht"
 
-2. CONTACT_INFORMATION_QUERY:
-   The user is asking a question to find or retrieve phone number, email, or contact details.
-   Examples:
-   - "What's Fred's phone number?"
-   - "What's Mum's mobile?"
-   - "Do I have Kevin's number?"
+2. FUTURE_CONTACT_INTENTION:
+   The user expresses an intention to contact someone in the FUTURE, sets a reminder to contact someone, or includes ANY temporal delay or schedule (e.g. tomorrow, mañana, demain, morgen, at 5pm, tonight, ce soir, heute Abend, later, in 10 minutes, etc.).
+   Examples across languages:
+   - English: "Call Barb tomorrow", "Remind me to call Barb tomorrow", "Ring Mum tonight", "Text Barb at 5pm", "Don't let me forget to phone Mum"
+   - Spanish: "Llama a Barb mañana", "Recuérdame llamar a Barb mañana", "Llamar a mamá esta noche", "Escribir a Barb a las 5", "No me dejes olvidar llamar a mamá"
+   - French: "Appelle Barb demain", "Rappelle-moi d'appeler Barb demain", "Téléphoner à maman ce soir", "Envoyer un message à Barb à 17h", "N'oublie pas de m'appeler maman"
+   - German: "Ruf Barb morgen an", "Erinnere mich daran Barb morgen anzurufen", "Mama heute Abend anrufen", "Schreib Barb um 17 Uhr", "Lass mich nicht vergessen Mama anzurufen"
 
-3. FUTURE_CONTACT_INTENTION:
-   The user intends to contact someone in the FUTURE, or is asking for a reminder to contact someone.
-   Examples:
-   - "Remind me to ring Fred tomorrow."
-   - "I need to phone Mum tonight."
-   - "Text Kevin after my appointment."
-   - "Ring Fred at 4pm."
-   - "Don't let me forget to phone Mum after lunch."
-   - "I should call Fred tomorrow."
+3. CONTACT_INFORMATION_QUERY:
+   The user is asking a question to find or retrieve a person's phone number, mobile, email, or contact details.
+   Examples across languages:
+   - English: "What is Barb's phone number?", "Do I have Barb's mobile?", "What's my electrician's number?"
+   - Spanish: "¿Cuál es el número de Barb?", "¿Tienes el teléfono de Barb?", "¿Cuál es el número de mi electricista?"
+   - French: "Quel est le numéro de Barb ?", "As-tu le portable de Barb ?", "Quel est le numéro de mon électricien ?"
+   - German: "Wie ist die Telefonnummer von Barb?", "Habe ich Barbs Handynummer?", "Wie lautet die Nummer von meinem Elektriker?"
 
 4. CONTACT_FACT:
-   The user is providing knowledge about a person's role, relationship, or contact details.
-   Examples:
-   - "Fred is my electrician."
-   - "Fred is my electrician, 0412 345 678."
-   - "Barb's mobile is 0411 222 333."
+   The user is providing knowledge about a person's role, relationship, or contact details to remember.
+   Examples across languages:
+   - English: "Barb is my sister", "Barb is my sister, her number is 0412 345 678"
+   - Spanish: "Barb es mi hermana", "Barb es mi hermana, su número es 0412 345 678"
+   - French: "Barb est ma sœur", "Barb est ma sœur, son numéro est le 0412 345 678"
+   - German: "Barb ist meine Schwester", "Barb ist meine Schwester, ihre Nummer ist 0412 345 678"
 
 5. GENERAL_THOUGHT:
-   Any other thought, note, task, shopping list, observation, memory, or reflection.
-   Examples:
-   - "Buy 9V batteries for smoke alarm."
-   - "Dentist appointment went well."
+   Any general thought, note, task, shopping item, observation, memory, or reflection that is not a direct communication command or contact inquiry.
+   Examples across languages:
+   - English: "Buy 9V batteries for smoke alarm", "Meeting went well"
+   - Spanish: "Comprar pilas de 9V para la alarma de humo", "La reunión salió bien"
+   - French: "Acheter des piles 9V pour le détecteur de fumée", "La réunion s'est bien passée"
+   - German: "9V-Batterien für den Rauchmelder kaufen", "Das Meeting lief gut"
+
+MANDATORY RULES:
+1. PERSON NAMES: Preserve the exact person name without translation or alteration (e.g. "Barb" remains "Barb", "Test_Fred" remains "Test_Fred").
+2. TEMPORAL RULE: If there is ANY future or scheduled time/date expression, or reminder framing (in ANY language), has_temporal_anchor MUST be true, and intent_class MUST NOT be IMMEDIATE_CONTACT_ACTION.
+3. PREFILLED MESSAGE: For SMS/messages with content (e.g. "Text Barb I'm running late", "Envíale un mensaje a Barb diciendo que llegaré tarde", "Envoie un SMS à Barb en disant que j'aurai du retard", "Schreib Barb dass ich später komme"), extract ONLY the message body itself ("I'm running late", "llegaré tarde", "j'aurai du retard", "ich komme später").
+4. TARGET ROLE: Normalize the role into English in lowercase (e.g. "electricista" -> "electrician", "électricien" -> "electrician", "elektriker" -> "electrician", "hermana" -> "sister").
 
 User Input: "${trimmed}"`;
 
@@ -107,7 +94,7 @@ User Input: "${trimmed}"`;
       contents: prompt,
       config: {
         systemInstruction:
-          'You are Ezzymigo\'s Action and Intent Router. Accurately classify communication commands, queries, future reminders, facts, and general thoughts. Output strictly valid JSON matching the schema.',
+          'You are Ezzymigo\'s Multilingual Action and Intent Router. Accurately classify communication commands, queries, future reminders, facts, and general thoughts across languages. Output strictly valid JSON matching the schema.',
         responseMimeType: 'application/json',
         responseSchema: intentClassificationSchema,
         temperature: 0.1,
@@ -116,36 +103,35 @@ User Input: "${trimmed}"`;
 
     if (response.text) {
       const parsed = JSON.parse(response.text);
-      let intentClass = parsed.intent_class;
-      let actionType = parsed.action_type || 'none';
-      let targetPerson = parsed.target_person || null;
-      let targetRole = parsed.target_role || null;
-      let prefilledMessage = parsed.prefilled_message || null;
-      let hasTemporal = Boolean(parsed.has_temporal_anchor) || hasDeterministicTemporal;
-      let temporalExpr = parsed.temporal_expression || null;
+      let intentClass = parsed.intent_class as IntentRoutingResult['intent_class'];
+      let actionType = (parsed.action_type || 'none') as IntentRoutingResult['action_type'];
+      const targetPerson = parsed.target_person?.trim() || null;
+      const targetRole = parsed.target_role?.trim() || null;
+      let prefilledMessage = parsed.prefilled_message?.trim() || null;
+      const hasTemporal = Boolean(parsed.has_temporal_anchor) || Boolean(parsed.temporal_expression?.trim());
+      const temporalExpr = parsed.temporal_expression?.trim() || null;
 
-      // Deterministic Safeguard 1: Temporal expressions forbid IMMEDIATE_CONTACT_ACTION
+      // Deterministic Safeguard 1: Structured temporal anchor strictly forbids IMMEDIATE_CONTACT_ACTION
       if (hasTemporal && intentClass === 'IMMEDIATE_CONTACT_ACTION') {
         intentClass = 'FUTURE_CONTACT_INTENTION';
+        actionType = 'none';
       }
 
-      // Deterministic Safeguard 2: Explicit reminder phrasing is always FUTURE_CONTACT_INTENTION
-      if (isExplicitReminder) {
-        intentClass = 'FUTURE_CONTACT_INTENTION';
-      }
-
-      // Deterministic Safeguard 3: Contact queries
-      if (isContactQuery && intentClass !== 'CONTACT_INFORMATION_QUERY') {
-        intentClass = 'CONTACT_INFORMATION_QUERY';
-      }
-
-      // Deterministic Safeguard 4: Pre-fill message extraction for SMS
-      if (actionType === 'sms' && !prefilledMessage) {
-        // e.g. "Text Fred I'm running late" -> text = "I'm running late"
-        const smsMatch = trimmed.match(/^(?:text|message|send\s+(?:a\s+)?(?:text|message)\s+to)\s+([a-z0-9\s'’-]+?)\s+(?:saying\s+|that\s+)?([a-z0-9\s'’.,!?-]+)$/i);
-        if (smsMatch && smsMatch[2] && !/^(?:tomorrow|at\s+\d|tonight|later)/i.test(smsMatch[2])) {
-          prefilledMessage = smsMatch[2].trim();
+      // Deterministic Safeguard 2: Immediate action must have valid action_type
+      if (intentClass === 'IMMEDIATE_CONTACT_ACTION') {
+        if (actionType !== 'call' && actionType !== 'sms') {
+          actionType = prefilledMessage ? 'sms' : 'call';
         }
+      } else {
+        // Non-immediate actions do not fire immediate device calls or SMS
+        actionType = 'none';
+      }
+
+      // Deterministic Safeguard 3: Clean prefilled message carrier artifacts if any
+      if (prefilledMessage) {
+        prefilledMessage = prefilledMessage
+          .replace(/^(?:saying\s+that|saying|that|diciendo\s+que|diciendo|disant\s+que|disant|dass)\s+/i, '')
+          .trim();
       }
 
       return {
@@ -163,63 +149,7 @@ User Input: "${trimmed}"`;
     console.error('[IntentRouter] Error in semantic classification:', err?.message || err);
   }
 
-  // Deterministic Fallback if model fails
-  if (isExplicitReminder || hasDeterministicTemporal) {
-    return {
-      intent_class: 'FUTURE_CONTACT_INTENTION',
-      action_type: 'none',
-      target_person: null,
-      target_role: null,
-      prefilled_message: null,
-      has_temporal_anchor: true,
-      temporal_expression: null,
-      raw_input: trimmed,
-    };
-  }
-
-  if (isContactQuery) {
-    return {
-      intent_class: 'CONTACT_INFORMATION_QUERY',
-      action_type: 'none',
-      target_person: null,
-      target_role: null,
-      prefilled_message: null,
-      has_temporal_anchor: false,
-      temporal_expression: null,
-      raw_input: trimmed,
-    };
-  }
-
-  if (CONTACT_FACT_PATTERN.test(trimmed)) {
-    return {
-      intent_class: 'CONTACT_FACT',
-      action_type: 'none',
-      target_person: null,
-      target_role: null,
-      prefilled_message: null,
-      has_temporal_anchor: false,
-      temporal_expression: null,
-      raw_input: trimmed,
-    };
-  }
-
-  // Fallback imperative check: "Ring Fred", "Call Fred", "Text Fred"
-  const immediateMatch = trimmed.match(/^(?:(?:can\s+you\s+)?(?:call|ring|phone|text|message)|give\s+([a-z0-9\s'’-]+)\s+a\s+(?:ring|call)|send\s+([a-z0-9\s'’-]+)\s+a\s+(?:text|message))\b/i);
-  if (immediateMatch) {
-    const isCall = /\b(?:call|ring|phone)\b/i.test(trimmed);
-    const isSms = /\b(?:text|message)\b/i.test(trimmed);
-    return {
-      intent_class: 'IMMEDIATE_CONTACT_ACTION',
-      action_type: isCall ? 'call' : (isSms ? 'sms' : 'none'),
-      target_person: null,
-      target_role: null,
-      prefilled_message: null,
-      has_temporal_anchor: false,
-      temporal_expression: null,
-      raw_input: trimmed,
-    };
-  }
-
+  // Safe Fallback if model fails: Treat as GENERAL_THOUGHT to safely defer to memory pipeline
   return {
     intent_class: 'GENERAL_THOUGHT',
     action_type: 'none',

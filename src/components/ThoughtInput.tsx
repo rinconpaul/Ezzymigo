@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, Mic, MessageSquarePlus, X, Check, Pause, Play, Plus, List } from 'lucide-react';
+import { Send, Loader2, Mic, MessageSquarePlus, X, Check, Pause, Play, Plus, List, Phone, MessageSquare } from 'lucide-react';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
 import { getUserPreferences } from '../utils/userPreferences';
+import { ImmediateDeviceActionPayload } from '../types';
+import { defaultDeviceActionLauncher } from '../utils/deviceActionLauncher';
 
 interface ThoughtInputProps {
   onSave: (text: string, subject?: string) => Promise<void>;
+  onImmediateAction?: (action: ImmediateDeviceActionPayload) => Promise<void> | void;
   isLoading: boolean;
   existingSubjects?: string[];
   activeSubject?: string | null;
@@ -16,6 +19,7 @@ interface ThoughtInputProps {
 
 export const ThoughtInput: React.FC<ThoughtInputProps> = ({
   onSave,
+  onImmediateAction,
   isLoading,
   existingSubjects = [],
   activeSubject: controlledActiveSubject,
@@ -25,7 +29,14 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
   inputRef: forwardedInputRef,
 }) => {
   const [thought, setThought] = useState('');
+  const thoughtRef = useRef('');
+  useEffect(() => {
+    thoughtRef.current = thought;
+  }, [thought]);
   const [showSaved, setShowSaved] = useState(false);
+  const [pendingDeviceAction, setPendingDeviceAction] = useState<ImmediateDeviceActionPayload | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [internalActiveSubject, setInternalActiveSubject] = useState<string | null>(null);
   const [internalIsSubjectPaused, setInternalIsSubjectPaused] = useState(false);
   const [isEnteringSubject, setIsEnteringSubject] = useState(false);
@@ -65,6 +76,12 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
       if (savedTimeoutRef.current) {
         clearTimeout(savedTimeoutRef.current);
       }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
     };
   }, []);
 
@@ -94,15 +111,66 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
     };
   }, [isEnteringSubject]);
 
+  // Non-mutating preview classification (runs against /api/interpret-preview, zero DB writes)
+  const runPreviewClassification = useCallback((textToClassify: string) => {
+    const trimmed = textToClassify.trim();
+    if (!trimmed) {
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+        previewAbortRef.current = null;
+      }
+      setPendingDeviceAction(null);
+      return;
+    }
+
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+
+    fetch('/api/interpret-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: trimmed,
+        clientNow: new Date().toISOString(),
+        clientTimeZone: prefs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney',
+        clientLanguage: prefs.language || 'en-AU',
+        clientRegion: prefs.region || 'AU',
+      }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (
+          data?.deviceAction &&
+          data.deviceAction.status === 'ready' &&
+          (data.deviceAction.action === 'call' || data.deviceAction.action === 'sms')
+        ) {
+          setPendingDeviceAction(data.deviceAction as ImmediateDeviceActionPayload);
+        } else {
+          setPendingDeviceAction(null);
+        }
+      })
+      .catch((err) => {
+        if (err.name !== 'AbortError') {
+          setPendingDeviceAction(null);
+        }
+      });
+  }, [prefs.timezone, prefs.language, prefs.region]);
+
   const handleAppendText = useCallback((phrase: string) => {
     setThought((prev) => {
       const trimmedBase = prev.trim();
-      if (!trimmedBase) {
-        return phrase;
-      }
-      return `${trimmedBase} ${phrase}`;
+      const nextText = trimmedBase ? `${trimmedBase} ${phrase}` : phrase;
+      thoughtRef.current = nextText;
+      // Immediately run preview classification for newly transcribed speech text
+      runPreviewClassification(nextText);
+      return nextText;
     });
-  }, []);
+  }, [runPreviewClassification]);
 
   const handleAppendSubjectDraft = useCallback((phrase: string) => {
     setSubjectDraft((prev) => {
@@ -116,6 +184,16 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
 
   const handleClear = () => {
     setThought('');
+    thoughtRef.current = '';
+    setPendingDeviceAction(null);
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+      previewAbortRef.current = null;
+    }
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     if (textareaRef.current) {
       textareaRef.current.style.height = '38px';
       textareaRef.current.focus();
@@ -178,6 +256,16 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
 
   const { isListening, speechNotice, toggleListening, stopListening } = useSpeechDictation({
     onAppendText: handleAppendText,
+    onStop: () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      const textToClassify = thoughtRef.current.trim();
+      if (textToClassify) {
+        runPreviewClassification(textToClassify);
+      }
+    },
     language: prefs.language,
   });
 
@@ -197,6 +285,52 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
     }
   }, [thought, textareaRef]);
 
+  // Debounced preview trigger when typing
+  useEffect(() => {
+    const trimmed = thought.trim();
+    if (!trimmed) {
+      setPendingDeviceAction(null);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+        previewAbortRef.current = null;
+      }
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      runPreviewClassification(trimmed);
+    }, 350);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [thought, runPreviewClassification]);
+
+  // Trigger preview classification immediately when speech dictation ends/settles
+  const prevListeningRef = useRef(false);
+  useEffect(() => {
+    if (prevListeningRef.current && !isListening) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      const textToClassify = thoughtRef.current.trim();
+      if (textToClassify) {
+        runPreviewClassification(textToClassify);
+      }
+    }
+    prevListeningRef.current = isListening;
+  }, [isListening, runPreviewClassification]);
+
   const handleSubmit = async () => {
     const trimmed = thought.trim();
     if (!trimmed || isLoading) return;
@@ -205,9 +339,37 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
       stopListening();
     }
 
+    // Immediate action branch (Call Now / Text Now) -> Zero persistence
+    if (pendingDeviceAction && (pendingDeviceAction.action === 'call' || pendingDeviceAction.action === 'sms')) {
+      const actionToExecute = pendingDeviceAction;
+      setThought('');
+      thoughtRef.current = '';
+      setPendingDeviceAction(null);
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+        previewAbortRef.current = null;
+      }
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '38px';
+      }
+
+      if (onImmediateAction) {
+        await onImmediateAction(actionToExecute);
+      } else if (actionToExecute.status === 'ready') {
+        await defaultDeviceActionLauncher.launch(actionToExecute);
+      }
+      return;
+    }
+
     try {
       await onSave(trimmed, effectiveSubject);
       setThought('');
+      thoughtRef.current = '';
+      setPendingDeviceAction(null);
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+        previewAbortRef.current = null;
+      }
       if (textareaRef.current) {
         textareaRef.current.style.height = '38px';
       }
@@ -532,14 +694,30 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
             type="button"
             onClick={handleSubmit}
             disabled={!thought.trim() || isLoading}
-            className="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-xs shrink-0 ml-auto sm:ml-0"
+            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 disabled:opacity-40 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-xs shrink-0 ml-auto sm:ml-0 ${
+              pendingDeviceAction?.action === 'call' || pendingDeviceAction?.action === 'sms'
+                ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+            }`}
           >
             {isLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : pendingDeviceAction?.action === 'call' ? (
+              <Phone className="w-3.5 h-3.5" />
+            ) : pendingDeviceAction?.action === 'sms' ? (
+              <MessageSquare className="w-3.5 h-3.5" />
             ) : (
               <Send className="w-3 h-3" />
             )}
-            <span>{isLoading ? 'Saving…' : 'Save ➤'}</span>
+            <span>
+              {isLoading
+                ? 'Saving…'
+                : pendingDeviceAction?.action === 'call'
+                ? 'Call Now'
+                : pendingDeviceAction?.action === 'sms'
+                ? 'Text Now'
+                : 'Save ➤'}
+            </span>
           </button>
         </div>
 
@@ -568,7 +746,10 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
             ref={textareaRef}
             id="thought-input"
             value={thought}
-            onChange={(e) => setThought(e.target.value)}
+            onChange={(e) => {
+              setThought(e.target.value);
+              thoughtRef.current = e.target.value;
+            }}
             onKeyDown={handleKeyDown}
             placeholder={effectiveSubject ? `Add item to ${effectiveSubject}…` : "What's on your mind?"}
             rows={1}

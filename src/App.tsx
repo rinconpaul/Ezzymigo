@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Header } from './components/Header';
 import { TodayTicker } from './components/TodayTicker';
 import { ThoughtInput } from './components/ThoughtInput';
@@ -130,6 +130,46 @@ export default function App() {
     };
   }, []);
 
+  // Handle immediate device action (tel: or sms:) without creating or persisting memories
+  const handleImmediateDeviceAction = useCallback(async (action: ImmediateDeviceActionPayload) => {
+    if (action.status === 'ready') {
+      await defaultDeviceActionLauncher.launch(action);
+      setClarificationFeedback(action.feedbackMessage);
+      setTimeout(() => {
+        setClarificationFeedback((prev) => (prev === action.feedbackMessage ? null : prev));
+      }, 6000);
+    } else if (action.status === 'missing_number') {
+      setClarification({
+        id: `missing_number_${Date.now()}`,
+        question: action.feedbackMessage,
+        entityName: action.recipientName || 'Contact',
+        entityType: 'phone_offer',
+        metadata: {
+          role: action.role,
+          isPhoneOffer: true,
+        },
+      });
+      setClarificationAnswer('');
+    } else if (action.status === 'ambiguous') {
+      setClarification({
+        id: `ambig_contact_${Date.now()}`,
+        question: action.feedbackMessage,
+        entityName: action.recipientName || 'Contact',
+        entityType: 'relationship',
+        candidateOptions: action.candidates?.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)),
+      });
+      setClarificationAnswer('');
+    } else if (action.status === 'unknown_person') {
+      setClarification({
+        id: `unknown_contact_${Date.now()}`,
+        question: action.feedbackMessage,
+        entityName: action.recipientName || 'Contact',
+        entityType: 'person',
+      });
+      setClarificationAnswer('');
+    }
+  }, []);
+
   // Save new thought
   const handleSaveThought = async (
     text: string,
@@ -165,43 +205,7 @@ export default function App() {
 
       // Handle immediate device action (tel: or sms:) without creating or persisting memories
       if (data.deviceAction) {
-        const action = data.deviceAction as ImmediateDeviceActionPayload;
-        if (action.status === 'ready') {
-          await defaultDeviceActionLauncher.launch(action);
-          setClarificationFeedback(action.feedbackMessage);
-          setTimeout(() => {
-            setClarificationFeedback((prev) => (prev === action.feedbackMessage ? null : prev));
-          }, 6000);
-        } else if (action.status === 'missing_number') {
-          setClarification({
-            id: `missing_number_${Date.now()}`,
-            question: action.feedbackMessage,
-            entityName: action.recipientName || 'Contact',
-            entityType: 'phone_offer',
-            metadata: {
-              role: action.role,
-              isPhoneOffer: true,
-            },
-          });
-          setClarificationAnswer('');
-        } else if (action.status === 'ambiguous') {
-          setClarification({
-            id: `ambig_contact_${Date.now()}`,
-            question: action.feedbackMessage,
-            entityName: action.recipientName || 'Contact',
-            entityType: 'relationship',
-            candidateOptions: action.candidates?.map((c) => (c.role ? `${c.name} (${c.role})` : c.name)),
-          });
-          setClarificationAnswer('');
-        } else if (action.status === 'unknown_person') {
-          setClarification({
-            id: `unknown_contact_${Date.now()}`,
-            question: action.feedbackMessage,
-            entityName: action.recipientName || 'Contact',
-            entityType: 'person',
-          });
-          setClarificationAnswer('');
-        }
+        await handleImmediateDeviceAction(data.deviceAction as ImmediateDeviceActionPayload);
         return;
       }
 
@@ -705,6 +709,7 @@ export default function App() {
           {/* Tell Ezzymigo */}
           <ThoughtInput
             onSave={handleSaveThought}
+            onImmediateAction={handleImmediateDeviceAction}
             isLoading={isLoading}
             existingSubjects={existingSubjects}
             activeSubject={activeSubject}
