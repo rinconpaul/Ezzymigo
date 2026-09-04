@@ -2,7 +2,7 @@ import { executeBunnySql } from './client';
 import { initBunnyDb } from './schema';
 import { parseReminderTriggerTime } from '../utils/time';
 import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
-import { saveRelationships, saveUserEntity, extractPhoneNumber, normalizeRoleName } from '../relationships/index';
+import { saveRelationships, saveUserEntity, extractPhoneNumber, normalizeRoleName, unsuppressUserEntity } from '../relationships/index';
 import { extractSearchDoc, getSearchSyncStatements, getSearchDeleteStatements } from './search_sync';
 import { buildMemoryDocumentString, syncMemoryVector, deleteMemoryVector } from '../retrieval/vector_service';
 
@@ -233,22 +233,25 @@ export async function insertMemories(
 
   for (const item of items) {
     const itemRelationships = Array.isArray(item.interpretation.relationships) ? item.interpretation.relationships : [];
+    const textToScan = item.originalText || item.interpretation?.content || '';
+    const { phoneNumber } = extractPhoneNumber(textToScan);
+    const people = Array.isArray(item.interpretation.people) ? item.interpretation.people : [];
+
     if (itemRelationships.length > 0) {
       relationshipsToSave.push(...itemRelationships);
 
       // Phase F3: If this relationship-declaring item contains a phone number, structurally save the user entity with phone metadata
-      const textToScan = item.originalText || item.interpretation?.content || '';
-      const { phoneNumber } = extractPhoneNumber(textToScan);
       if (phoneNumber) {
         for (const rel of itemRelationships) {
           if (rel && rel.person && rel.role && rel.is_active !== false) {
+            await unsuppressUserEntity(rel.person);
             await saveUserEntity({
               name: rel.person,
               entity_type: 'person',
               role: rel.role,
               normalized_role: normalizeRoleName(rel.role),
               metadata: { phone: phoneNumber },
-            });
+            }, { skipSuppressionCheck: true });
           }
         }
       } else if (!phoneOffer) {
@@ -257,6 +260,17 @@ export async function insertMemories(
         if (activeRel) {
           phoneOffer = { person: activeRel.person, role: activeRel.role };
         }
+      }
+    } else if (phoneNumber && people.length === 1) {
+      // Explicit contact phone teaching for a single person (e.g. "Fred's number is 0412...")
+      const singlePerson = (people[0] || '').trim();
+      if (singlePerson) {
+        await unsuppressUserEntity(singlePerson);
+        await saveUserEntity({
+          name: singlePerson,
+          entity_type: 'person',
+          metadata: { phone: phoneNumber },
+        }, { skipSuppressionCheck: true });
       }
     }
 
@@ -369,7 +383,12 @@ export async function insertMemories(
   }
 
   if (!options?.skipRelationshipSave && relationshipsToSave.length > 0) {
-    await saveRelationships(relationshipsToSave);
+    for (const rel of relationshipsToSave) {
+      if (rel && rel.person && rel.is_active !== false) {
+        await unsuppressUserEntity(rel.person);
+      }
+    }
+    await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true });
   }
 
   return { phoneOffer: phoneOffer || null };
@@ -595,20 +614,23 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   });
 
   let phoneOffer: { person: string; role: string } | null = null;
+  const textToScan = updatedOriginalText || updatedInterpretation?.content || '';
+  const { phoneNumber } = extractPhoneNumber(textToScan);
+  const people = Array.isArray(updatedInterpretation.people) ? updatedInterpretation.people : [];
+
   if (itemRelationships.length > 0) {
     // Phase F3: If this updated relationship-declaring item contains a phone number, structurally save the user entity with phone metadata
-    const textToScan = updatedOriginalText || updatedInterpretation?.content || '';
-    const { phoneNumber } = extractPhoneNumber(textToScan);
     if (phoneNumber) {
       for (const rel of itemRelationships) {
         if (rel && rel.person && rel.role && rel.is_active !== false) {
+          await unsuppressUserEntity(rel.person);
           await saveUserEntity({
             name: rel.person,
             entity_type: 'person',
             role: rel.role,
             normalized_role: normalizeRoleName(rel.role),
             metadata: { phone: phoneNumber },
-          });
+          }, { skipSuppressionCheck: true });
         }
       }
     } else {
@@ -618,7 +640,22 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
         phoneOffer = { person: activeRel.person, role: activeRel.role };
       }
     }
-    await saveRelationships(itemRelationships);
+    for (const rel of itemRelationships) {
+      if (rel && rel.person && rel.is_active !== false) {
+        await unsuppressUserEntity(rel.person);
+      }
+    }
+    await saveRelationships(itemRelationships, { skipSuppressionCheck: true });
+  } else if (phoneNumber && people.length === 1) {
+    const singlePerson = (people[0] || '').trim();
+    if (singlePerson) {
+      await unsuppressUserEntity(singlePerson);
+      await saveUserEntity({
+        name: singlePerson,
+        entity_type: 'person',
+        metadata: { phone: phoneNumber },
+      }, { skipSuppressionCheck: true });
+    }
   }
 
   return {

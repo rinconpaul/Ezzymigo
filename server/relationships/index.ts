@@ -137,16 +137,101 @@ export function extractPhoneNumber(text: string): { phoneNumber: string | null; 
   return { phoneNumber: rawPhone, cleanedText: cleaned };
 }
 
+// ==========================================
+// PERSON-LEVEL DURABLE SUPPRESSION ENGINE
+// ==========================================
+
+export async function getSuppressedEntities(): Promise<Set<string>> {
+  await initBunnyDb();
+  try {
+    const results = await executeBunnySql([
+      { sql: 'SELECT name FROM suppressed_entities;' }
+    ]);
+    const rows = results[0]?.rows || [];
+    return new Set(rows.map((r: any) => (r.name || '').trim().toLowerCase()));
+  } catch (err) {
+    console.error('[Suppressed Entities] Error reading suppressed entities:', err);
+    return new Set();
+  }
+}
+
+export async function isEntitySuppressed(person: string): Promise<boolean> {
+  const p = (person || '').trim().toLowerCase();
+  if (!p) return false;
+  await initBunnyDb();
+  try {
+    const results = await executeBunnySql([
+      {
+        sql: 'SELECT name FROM suppressed_entities WHERE LOWER(name) = LOWER(?) LIMIT 1;',
+        args: [p]
+      }
+    ]);
+    return (results[0]?.rows?.length || 0) > 0;
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error checking if "${p}" is suppressed:`, err);
+    return false;
+  }
+}
+
+export async function suppressUserEntity(person: string): Promise<void> {
+  const p = (person || '').trim();
+  if (!p) return;
+  const nowIso = new Date().toISOString();
+  await initBunnyDb();
+  try {
+    await executeBunnySql([
+      {
+        sql: `INSERT INTO suppressed_entities (name, suppressed_at)
+              VALUES (LOWER(?), ?)
+              ON CONFLICT(name) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, nowIso]
+      }
+    ]);
+    console.log(`[Suppressed Entities] Durably marked "${p}" as suppressed.`);
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error suppressing "${p}":`, err);
+  }
+}
+
+export async function unsuppressUserEntity(person: string): Promise<void> {
+  const p = (person || '').trim().toLowerCase();
+  if (!p) return;
+  await initBunnyDb();
+  try {
+    await executeBunnySql([
+      {
+        sql: 'DELETE FROM suppressed_entities WHERE LOWER(name) = LOWER(?);',
+        args: [p]
+      }
+    ]);
+    console.log(`[Suppressed Entities] Cleared durable suppression for explicitly re-taught entity "${p}".`);
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error unsuppressing entity "${p}":`, err);
+  }
+}
+
 // Save or update reusable user entity (supporting future metadata like phone, email, notes)
-export async function saveUserEntity(entity: {
-  name: string;
-  entity_type?: string;
-  role?: string;
-  normalized_role?: string;
-  metadata?: Record<string, any>;
-}): Promise<void> {
+export async function saveUserEntity(
+  entity: {
+    name: string;
+    entity_type?: string;
+    role?: string;
+    normalized_role?: string;
+    metadata?: Record<string, any>;
+  },
+  options?: { skipSuppressionCheck?: boolean }
+): Promise<void> {
   const name = (entity.name || '').trim();
   if (!name) return;
+
+  if (!options?.skipSuppressionCheck) {
+    const suppressed = await isEntitySuppressed(name);
+    if (suppressed) {
+      console.log(`[Entities] Skipping saveUserEntity for "${name}" because entity is durably suppressed.`);
+      return;
+    }
+  }
+
   const entityType = entity.entity_type || 'person';
   const role = entity.role || '';
   const normalizedRole = entity.normalized_role || normalizeRoleName(role);
@@ -371,9 +456,18 @@ export function mergeRelationshipsWithExtracted(
 }
 
 // Save or update relationships extracted from memories
-export async function saveRelationships(relationships: Array<{ person: string; role: string; is_active?: boolean }>): Promise<void> {
+export async function saveRelationships(
+  relationships: Array<{ person: string; role: string; is_active?: boolean }>,
+  options?: { skipSuppressionCheck?: boolean }
+): Promise<void> {
   if (!Array.isArray(relationships) || relationships.length === 0) return;
   await initBunnyDb();
+
+  let suppressedSet = new Set<string>();
+  if (!options?.skipSuppressionCheck) {
+    suppressedSet = await getSuppressedEntities();
+  }
+
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const nowIso = new Date().toISOString();
 
@@ -384,6 +478,11 @@ export async function saveRelationships(relationships: Array<{ person: string; r
     const isActive = rel.is_active !== false ? 1 : 0;
 
     if (!person || !normalizedRole) continue;
+
+    if (suppressedSet.has(person.toLowerCase())) {
+      console.log(`[Relationships] Skipping saveRelationships for "${person}" because entity is durably suppressed.`);
+      continue;
+    }
 
     const id = `rel_${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
@@ -416,7 +515,7 @@ export async function saveRelationships(relationships: Array<{ person: string; r
         entity_type: 'person',
         role: rawRole,
         normalized_role: normalizedRole,
-      }).catch(e => console.error('[Entities] Auto-save error:', e));
+      }, { skipSuppressionCheck: options?.skipSuppressionCheck }).catch(e => console.error('[Entities] Auto-save error:', e));
     } else {
       // Deactivating / superseding relationship (e.g. "Steve isn't my plumber anymore")
       stmts.push({
@@ -440,17 +539,25 @@ export async function saveRelationships(relationships: Array<{ person: string; r
 // Idempotently restore any relationships already present in stored memory records into user_relationships table
 export async function backfillStoredRelationships(): Promise<void> {
   try {
-    const allMemories = await readMemories();
+    const [allMemories, suppressedSet] = await Promise.all([
+      readMemories(),
+      getSuppressedEntities()
+    ]);
     const relationshipsToSave: Array<{ person: string; role: string; is_active?: boolean }> = [];
     for (const mem of allMemories) {
       const rels = mem.interpretation?.relationships;
       if (Array.isArray(rels) && rels.length > 0) {
-        relationshipsToSave.push(...rels);
+        for (const rel of rels) {
+          const pLower = (rel.person || '').trim().toLowerCase();
+          if (pLower && !suppressedSet.has(pLower)) {
+            relationshipsToSave.push(rel);
+          }
+        }
       }
     }
     if (relationshipsToSave.length > 0) {
-      await saveRelationships(relationshipsToSave);
-      console.log(`[Relationships] Idempotently synced ${relationshipsToSave.length} relationships from stored memories.`);
+      await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true });
+      console.log(`[Relationships] Idempotently synced ${relationshipsToSave.length} relationships from stored memories (suppressed entities excluded).`);
     }
   } catch (err) {
     console.error('[Relationships] Error backfilling relationships from memories:', err);
@@ -530,9 +637,15 @@ export async function forgetUserEntity(person: string): Promise<boolean> {
       {
         sql: 'DELETE FROM user_entities WHERE LOWER(name) = LOWER(?);',
         args: [p]
+      },
+      {
+        sql: `INSERT INTO suppressed_entities (name, suppressed_at)
+              VALUES (LOWER(?), ?)
+              ON CONFLICT(name) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, nowIso]
       }
     ]);
-    console.log(`[Entities] Successfully forgot entity "${p}" and deactivated all its relationships.`);
+    console.log(`[Entities] Successfully forgot entity "${p}", removed from user_entities, deactivated all relationships, and created durable suppression marker.`);
     return true;
   } catch (err) {
     console.error(`[Entities] Error forgetting entity "${p}":`, err);
@@ -547,10 +660,11 @@ export async function correctUserRelationship(person: string, oldRole: string, n
   const newR = (newRole || '').trim();
   if (!p || !newR) return;
 
+  await unsuppressUserEntity(p);
   if (oldR) {
     await deactivateUserRelationship(p, oldR);
   }
-  await saveRelationships([{ person: p, role: newR, is_active: true }]);
+  await saveRelationships([{ person: p, role: newR, is_active: true }], { skipSuppressionCheck: true });
 }
 
 // Forget / Correction Intent Engine for Ask Ezzymigo
@@ -755,8 +869,11 @@ export async function detectAmbiguityInSavedMemories(
     }
   }
 
-  // Retrieve existing stored memories to distinguish first-mention from established contextual entities
-  const allStored = preLoadedMemories !== undefined ? preLoadedMemories : await readMemories();
+  // Retrieve existing stored memories and suppressed entities to distinguish first-mention from established contextual entities
+  const [allStored, suppressedSet] = await Promise.all([
+    preLoadedMemories !== undefined ? preLoadedMemories : readMemories(),
+    getSuppressedEntities()
+  ]);
   const newIds = new Set(memories.map(m => m.id));
   const priorStored = allStored.filter(m => !newIds.has(m.id));
 
@@ -772,6 +889,11 @@ export async function detectAmbiguityInSavedMemories(
     for (const rawPerson of people) {
       const person = (rawPerson || '').trim();
       if (!person || person.length < 2) continue;
+
+      if (suppressedSet.has(person.toLowerCase())) {
+        // Person is forgotten/suppressed: do not auto-associate, prompt clarifiers, or resurrect
+        continue;
+      }
 
       // Search active relationships for this person
       const matches = activeRelationships.filter(r => r.person.toLowerCase() === person.toLowerCase());

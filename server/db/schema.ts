@@ -92,6 +92,12 @@ export async function initBunnyDb(): Promise<void> {
           );`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS suppressed_entities (
+            name TEXT PRIMARY KEY,
+            suppressed_at TEXT NOT NULL
+          );`
+        },
+        {
           sql: `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
             memory_id UNINDEXED,
             content,

@@ -61,6 +61,7 @@ import {
   mergeRelationshipsWithExtracted,
   resolveRelationshipsInQuery,
   getUserEntities,
+  unsuppressUserEntity,
 } from './server/relationships/index';
 import { routeUserIntent } from './server/intent/router';
 import { resolveContactAction, resolveContactQuery } from './server/contacts/resolver';
@@ -648,12 +649,15 @@ app.post('/api/clarifications/resolve', async (req, res) => {
 
     resolvedRole = normalizeRoleName(resolvedRole);
 
+    // Explicit user clarification response clears any durable suppression
+    await unsuppressUserEntity(resolvedPerson);
+
     // 1. Save relationship
     await saveRelationships([{
       person: resolvedPerson,
       role: resolvedRole,
       is_active: true,
-    }]);
+    }], { skipSuppressionCheck: true });
 
     // 2. Save user entity with structured metadata
     const entityMetadata: Record<string, any> = phoneToSave ? { phone: phoneToSave } : {};
@@ -663,7 +667,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       role: resolvedRole,
       normalized_role: normalizeRoleName(resolvedRole),
       metadata: entityMetadata,
-    });
+    }, { skipSuppressionCheck: true });
 
     const phoneSuffix = phoneToSave ? ` — ${phoneToSave}` : '';
 
