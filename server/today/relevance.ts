@@ -5,6 +5,7 @@ import { readActiveRelationships } from '../relationships/index';
 import { isDependentReminderClause } from '../ai/splitter';
 import { AnticipatoryMode } from '../../src/types';
 import { classifyAnticipatoryMode, isRecurringRoutineText } from '../anticipatory/classifier';
+import { buildAnticipatoryPrompt } from '../anticipatory/promptBuilder';
 
 export type LocalContextInfo = ReturnType<typeof formatLocalTimeContext>;
 
@@ -318,77 +319,19 @@ export function formatTopicToActionPhrase(phrase: string): string {
 
 export function generatePostEventReflectionPrompt(
   rawTitle: string,
-  prepMemories: any[] = []
+  prepMemories: any[] = [],
+  activeRelationships: any[] = []
 ): { prompt: string; isAnticipatory: boolean; cleanTitle: string } {
-  const title = (rawTitle || '').trim();
-  if (!title) {
-    return { prompt: 'How did your appointment go today? Anything you want to capture?', isAnticipatory: true, cleanTitle: 'Calendar Event' };
-  }
-
-  // Strip trailing time suffixes like " — 10:30", " - 10:30", " @ 10:30", " at 10:30am"
-  let cleanTitle = title
-    .replace(/\s*(?:—|-|@)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?\s*$/i, '')
-    .trim();
-  if (!cleanTitle) cleanTitle = title;
-
-  // Extract preparation phrases / topics from associated preparation memories
-  const prepPhrases = extractPreparationPhrases(prepMemories, cleanTitle);
-
-  // Check specific visit / see person pattern: "Visit Mum", "Visiting Mum", "Visit with Mum", "Seeing Mum", "See Mum"
-  const visitMatch = cleanTitle.match(/^(?:Visit|Visiting|See|Seeing)\s+(?:with\s+)?([A-Za-z0-9\s'-]+)/i);
-  if (visitMatch) {
-    const person = visitMatch[1].trim();
-    if (prepPhrases.length >= 1) {
-      const action = formatTopicToActionPhrase(prepPhrases[0]);
-      return {
-        prompt: `How did your visit with ${person} go? Need to follow up on ${action}?`,
-        isAnticipatory: true,
-        cleanTitle,
-      };
-    }
-    return {
-      prompt: `How did your visit with ${person} go? Anything you want to remember?`,
-      isAnticipatory: true,
-      cleanTitle,
-    };
-  }
-
-  // Determine subject formatting for the question "How did it go [with/at] [subject]?"
-  let subject = `with ${cleanTitle}`;
-  const drMatch = cleanTitle.match(/^(?:Dr\.?|Doctor)\s+([A-Za-z0-9\s'-]+)/i);
-  if (drMatch) {
-    subject = `with ${cleanTitle}`;
-  } else if (/^(?:Dentist|Physio|Physiotherapist|GP|Specialist|Therapist|Psychiatrist|Psychologist|Optometrist|Vet|Veterinarian|Chiropractor|Podiatrist)\b/i.test(cleanTitle)) {
-    subject = `at the ${cleanTitle.toLowerCase()}`;
-  } else if (/^(?:Meeting|Sync|Catch\s*up|Catchup|Call|Discussion|Lunch|Dinner|Coffee|Breakfast|Drinks)\s+with\s+([A-Za-z0-9\s'-]+)/i.test(cleanTitle)) {
-    const person = cleanTitle.replace(/^(?:Meeting|Sync|Catch\s*up|Catchup|Call|Discussion|Lunch|Dinner|Coffee|Breakfast|Drinks)\s+with\s+/i, '').trim();
-    subject = `with ${person}`;
-  }
-
-  const baseQuestion = `How did it go ${subject}?`;
-
-  if (prepPhrases.length >= 2) {
-    const action1 = formatTopicToActionPhrase(prepPhrases[0]);
-    const action2 = formatTopicToActionPhrase(prepPhrases[1]);
-    return {
-      prompt: `${baseQuestion} Need to follow up on ${action1} or ${action2}?`,
-      isAnticipatory: true,
-      cleanTitle,
-    };
-  } else if (prepPhrases.length === 1) {
-    const action = formatTopicToActionPhrase(prepPhrases[0]);
-    return {
-      prompt: `${baseQuestion} Need to follow up on ${action}?`,
-      isAnticipatory: true,
-      cleanTitle,
-    };
-  }
-
-  // If no preparation memories or extracted phrases, use generic deterministic prompt
+  const res = buildAnticipatoryPrompt({
+    stage: 'POST',
+    title: rawTitle,
+    memories: prepMemories,
+    activeRelationships,
+  });
   return {
-    prompt: `${baseQuestion} Anything worth remembering?`,
+    prompt: res.prompt,
     isAnticipatory: true,
-    cleanTitle,
+    cleanTitle: res.cleanTitle,
   };
 }
 
@@ -1272,49 +1215,32 @@ export function evaluateTodayRelevanceCandidates(
         if (eventAnticipatoryMode === 'PRE_AND_POST' && isOptedIn) {
           const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
           const prepItems = extractCleanPrepItems(prepMemories);
+          const prePromptRes = buildAnticipatoryPrompt({
+            stage: 'PRE',
+            title: ev.title,
+            temporalDesc: timeStr ? `at ${timeStr}` : 'today',
+            memories: prepMemories.length > 0 ? prepMemories : memories,
+            activeRelationships,
+            eventId: ev.id,
+          });
+          const prompt = prePromptRes.prompt;
 
-          if (prepItems.length > 0) {
-            const combinedDisplayText = `${timePrefix}${cleanTitle} — ${prepItems.join(' · ')}`;
-            const tickerHeadlines = [
-              `${timePrefix}${cleanTitle}`,
-              ...prepItems.map((p) => `Remember: ${p}`)
-            ];
-
-            candidateList.push({
-              source_type: 'calendar',
-              source_id: ev.id,
-              occurrence_id: occurrenceKey,
-              relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
-              display_text: combinedDisplayText,
-              priority: 2,
-              is_anticipatory: true,
-              anticipatory_stage: 'remind',
-              anticipatory_mode: eventAnticipatoryMode,
-              event_title: cleanTitle,
-              event_time: timeFormatted,
-              preparation_items: prepItems,
-              ticker_headlines: tickerHeadlines,
-              prep_memory_ids: prepMemories.map((m) => m.id),
-            });
-          } else {
-            const prompt = `${timePrefix}${cleanTitle} — Anything you want to remember to discuss?`;
-            candidateList.push({
-              source_type: 'calendar',
-              source_id: ev.id,
-              occurrence_id: occurrenceKey,
-              relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
-              display_text: prompt,
-              priority: 2,
-              is_anticipatory: true,
-              anticipatory_stage: 'prepare',
-              anticipatory_mode: eventAnticipatoryMode,
-              event_title: cleanTitle,
-              event_time: timeFormatted,
-              preparation_items: [],
-              ticker_headlines: [prompt],
-              prep_memory_ids: [],
-            });
-          }
+          candidateList.push({
+            source_type: 'calendar',
+            source_id: ev.id,
+            occurrence_id: occurrenceKey,
+            relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
+            display_text: prompt,
+            priority: 2,
+            is_anticipatory: true,
+            anticipatory_stage: 'prepare',
+            anticipatory_mode: eventAnticipatoryMode,
+            event_title: prePromptRes.cleanTitle || cleanTitle,
+            event_time: timeFormatted,
+            preparation_items: prepItems,
+            ticker_headlines: [prompt],
+            prep_memory_ids: prepMemories.map((m) => m.id),
+          });
         } else {
           // Regular scheduled event display (routine or not opted in)
           const locationSuffix = ev.location ? ` (${ev.location})` : '';
@@ -1369,7 +1295,11 @@ export function evaluateTodayRelevanceCandidates(
 
           if (!isDismissed && !hasCompletedResponse) {
             const prepItems = extractCleanPrepItems(prepMemories);
-            const { prompt, isAnticipatory, cleanTitle: promptTitle } = generatePostEventReflectionPrompt(ev.title, prepMemories);
+            const { prompt, isAnticipatory, cleanTitle: promptTitle } = generatePostEventReflectionPrompt(
+              ev.title,
+              prepMemories.length > 0 ? prepMemories : memories,
+              activeRelationships
+            );
             candidateList.push({
               source_type: 'calendar',
               source_id: ev.id,
@@ -1477,8 +1407,15 @@ export function evaluateTodayRelevanceCandidates(
 
       if (lifecycle.lifecycleStage === 'upcoming') {
         if (memMode === 'PRE_AND_POST' && memOptedIn) {
-          const timePrefix = lifecycle.startTimeFormatted ? `${lifecycle.startTimeFormatted} · ` : '';
-          const prompt = `${timePrefix}${lifecycle.cleanTitle} — Anything you want to remember to discuss?`;
+          const prePromptRes = buildAnticipatoryPrompt({
+            stage: 'PRE',
+            title: lifecycle.cleanTitle,
+            temporalDesc: lifecycle.startTimeFormatted ? `at ${lifecycle.startTimeFormatted}` : 'today',
+            memories,
+            activeRelationships,
+            eventId: m.id,
+          });
+          const prompt = prePromptRes.prompt;
           candidateList.push({
             source_type: 'memory',
             source_id: m.id,
@@ -1489,7 +1426,7 @@ export function evaluateTodayRelevanceCandidates(
             is_anticipatory: true,
             anticipatory_stage: 'prepare',
             anticipatory_mode: memMode,
-            event_title: lifecycle.cleanTitle,
+            event_title: prePromptRes.cleanTitle || lifecycle.cleanTitle,
             event_time: lifecycle.startTimeFormatted || undefined,
             ticker_headlines: [prompt],
           });
@@ -1541,7 +1478,7 @@ export function evaluateTodayRelevanceCandidates(
           );
 
           if (!isDismissed && !hasCompletedReflection) {
-            const { prompt, isAnticipatory } = generatePostEventReflectionPrompt(lifecycle.cleanTitle, []);
+            const { prompt, isAnticipatory, cleanTitle: promptTitle } = generatePostEventReflectionPrompt(lifecycle.cleanTitle, memories, activeRelationships);
             candidateList.push({
               source_type: 'memory',
               source_id: m.id,
@@ -1552,7 +1489,7 @@ export function evaluateTodayRelevanceCandidates(
               is_anticipatory: isAnticipatory,
               anticipatory_stage: 'reflect',
               anticipatory_mode: memMode,
-              event_title: lifecycle.cleanTitle,
+              event_title: promptTitle || lifecycle.cleanTitle,
               ticker_headlines: [prompt],
             });
           }

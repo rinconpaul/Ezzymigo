@@ -1,4 +1,5 @@
 import { classifyAnticipatoryMode, generateAnticipationOffer } from '../server/anticipatory/classifier';
+import { buildAnticipatoryPrompt } from '../server/anticipatory/promptBuilder';
 import { evaluateTodayRelevance, hasCompletedReflectionForEvent } from '../server/today/relevance';
 import { insertMemories, readMemories, readMemoryById, updateMemoryAnticipation } from '../server/db/memories';
 import { executeBunnySql } from '../server/db/client';
@@ -330,6 +331,263 @@ async function runSuite() {
     assert(updated?.anticipatory_opted_in === false, 'Updated anticipatory_opted_in is now false');
 
     await cleanupFixtures();
+
+    // -------------------------------------------------------------------------
+    // TEST 11: No-Context Post Prompt
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 11] Global Prompt Engine: No-Context Post Prompt');
+    const t11Routine = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Visit Mum',
+      memories: []
+    });
+    assert(
+      t11Routine.prompt === 'How did your visit with Mum go? Anything you want me to remember or remind you about?',
+      `Routine without context produces exact expected prompt: "${t11Routine.prompt}"`
+    );
+
+    const t11Doctor = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Doctor appointment',
+      memories: []
+    });
+    assert(
+      t11Doctor.prompt === 'How did the doctor appointment go? Anything from the visit you want me to remember or remind you about?',
+      `Doctor without context produces exact expected prompt: "${t11Doctor.prompt}"`
+    );
+
+    const t11Call = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Phone call with Mum',
+      eventType: 'call',
+      person: 'Mum',
+      memories: []
+    });
+    assert(
+      t11Call.prompt === 'How did your call with Mum go? Anything from the call you want me to remember or remind you about?',
+      `Completed phone call without context produces exact expected prompt: "${t11Call.prompt}"`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 12: Strongly Relevant Contextual Post Prompt
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 12] Global Prompt Engine: Strongly Relevant Contextual Post Prompt');
+    const t12Routine = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Visit Mum',
+      memories: [{
+        id: 'mem_slacks',
+        originalText: 'Check her new slacks',
+        interpretation: {
+          kind: 'task',
+          content: 'Check her new slacks',
+          people: ['Mum'],
+          status: 'active'
+        }
+      }]
+    });
+    assert(
+      t12Routine.prompt === 'How did your visit with Mum go? You were going to check her new slacks. Anything you want me to remember or remind you about?',
+      `Routine with relevant prep context produces exact expected prompt: "${t12Routine.prompt}"`
+    );
+
+    const t12Doctor = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Doctor appointment',
+      memories: [{
+        id: 'mem_scripts',
+        originalText: 'Ask about scripts',
+        interpretation: {
+          kind: 'task',
+          content: 'Ask about scripts',
+          topics: ['prescriptions'],
+          contexts: ['medical'],
+          status: 'active'
+        }
+      }]
+    });
+    assert(
+      t12Doctor.prompt === 'How did the doctor appointment go? You were going to ask about your scripts. Anything from the visit you want me to remember or remind you about?',
+      `Doctor with relevant scripts context produces exact expected prompt: "${t12Doctor.prompt}"`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 13: Irrelevant Same-Person Fact Excluded
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 13] Global Prompt Engine: Irrelevant Same-Person Fact Excluded');
+    const t13Memories = [
+      {
+        id: 'f1',
+        originalText: "Mum's phone number is 0412 345 678",
+        interpretation: { kind: 'fact', content: "Mum's phone number is 0412 345 678", people: ['Mum'], status: 'active' }
+      },
+      {
+        id: 'f2',
+        originalText: "Mum loves red roses",
+        interpretation: { kind: 'fact', content: "Mum loves red roses", people: ['Mum'], status: 'active' }
+      },
+      {
+        id: 'f3',
+        originalText: "Mum was born in 1948",
+        interpretation: { kind: 'fact', content: "Mum was born in 1948", people: ['Mum'], status: 'active' }
+      },
+      {
+        id: 'f4',
+        originalText: "Mum is my mother",
+        interpretation: { kind: 'relationship', content: "Mum is my mother", people: ['Mum'], status: 'active' }
+      }
+    ];
+    const t13Prompt = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Visit Mum',
+      memories: t13Memories
+    });
+    assert(
+      !t13Prompt.prompt.includes('0412') &&
+      !t13Prompt.prompt.includes('phone') &&
+      !t13Prompt.prompt.includes('roses') &&
+      !t13Prompt.prompt.includes('1948') &&
+      !t13Prompt.prompt.includes('mother'),
+      'Irrelevant facts (phone, roses, birth year, relationship) are strictly excluded from the prompt'
+    );
+    assert(
+      t13Prompt.prompt === 'How did your visit with Mum go? Anything you want me to remember or remind you about?',
+      `Prompt falls back conservatively to clean no-context prompt: "${t13Prompt.prompt}"`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 14: Contextual Pre Prompt
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 14] Global Prompt Engine: Contextual Pre Prompt');
+    const t14Prompt = buildAnticipatoryPrompt({
+      stage: 'PRE',
+      title: 'Doctor appointment',
+      temporalDesc: 'tomorrow',
+      memories: [{
+        id: 'mem_scripts_pre',
+        originalText: 'Ask about scripts',
+        interpretation: {
+          kind: 'task',
+          content: 'Ask about scripts',
+          topics: ['prescriptions'],
+          contexts: ['medical'],
+          status: 'active'
+        }
+      }]
+    });
+    assert(
+      t14Prompt.prompt === 'Your doctor appointment is tomorrow. You wanted to ask about your scripts. Anything else you want to remember for the appointment?',
+      `Contextual pre-prompt produces exact expected prompt: "${t14Prompt.prompt}"`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 15: No-Context Pre Prompt
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 15] Global Prompt Engine: No-Context Pre Prompt');
+    const t15Bday = buildAnticipatoryPrompt({
+      stage: 'PRE',
+      title: "Tegan's birthday",
+      temporalDesc: 'tomorrow',
+      memories: []
+    });
+    assert(
+      t15Bday.prompt === 'Tegan’s birthday is tomorrow. Anything you need to organise or be reminded about?',
+      `Birthday pre-prompt produces exact expected prompt: "${t15Bday.prompt}"`
+    );
+
+    const t15Doctor = buildAnticipatoryPrompt({
+      stage: 'PRE',
+      title: 'Doctor appointment',
+      temporalDesc: 'tomorrow',
+      memories: []
+    });
+    assert(
+      t15Doctor.prompt === 'Your doctor appointment is tomorrow. Anything you want to remember for the appointment?',
+      `Doctor pre-prompt without context produces exact expected prompt: "${t15Doctor.prompt}"`
+    );
+
+    // -------------------------------------------------------------------------
+    // TEST 16: Response Enters Normal Tell/Memory Pipeline
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 16] Response Enters Normal Tell/Memory Pipeline');
+    await cleanupFixtures();
+    const responseMemory: MemoryItem = {
+      id: 'test_anticipatory_response_1',
+      originalText: 'Mum loved her new slacks and she wants to look at cardigans next week',
+      createdAt: new Date().toISOString(),
+      isDone: false,
+      interpretation: {
+        kind: 'fact',
+        intent: 'note',
+        content: 'Mum loved her new slacks and she wants to look at cardigans next week',
+        people: ['Mum'],
+        topics: ['slacks', 'cardigans'],
+        linked_event_id: 'cal_visit_mum:2026-09-07',
+        status: 'active',
+        resurfacing: { mode: 'manual', timing: '' }
+      }
+    };
+    await insertMemories([responseMemory]);
+    const storedResponse = await readMemoryById('test_anticipatory_response_1');
+    assert(storedResponse !== null, 'Response thought is successfully persisted via normal pipeline');
+    assert(storedResponse?.interpretation?.linked_event_id === 'cal_visit_mum:2026-09-07', 'Response memory has linked_event_id preserved');
+    assert(storedResponse?.interpretation?.status === 'active', 'Response memory status is active');
+    await cleanupFixtures();
+
+    // -------------------------------------------------------------------------
+    // TEST 17: No Fabricated Context
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 17] Global Prompt Engine: No Fabricated Context');
+    const testEventTitles = [
+      'Dentist checkup',
+      'Dinner with Sarah',
+      'Meeting with Alex',
+      'Sarah’s birthday',
+      'Consultation with Dr Marning',
+      'Phone call with David'
+    ];
+    for (const testTitle of testEventTitles) {
+      const prePrompt = buildAnticipatoryPrompt({ stage: 'PRE', title: testTitle, temporalDesc: 'tomorrow', memories: [] });
+      const postPrompt = buildAnticipatoryPrompt({ stage: 'POST', title: testTitle, memories: [] });
+
+      // Ensure no unsolicited suggestions like buying presents, booking restaurants, contacting somebody
+      const bannedSuggestions = ['buy flowers', 'buy a present', 'book a table', 'book a restaurant', 'call ahead', 'send a card'];
+      for (const banned of bannedSuggestions) {
+        assert(!prePrompt.prompt.toLowerCase().includes(banned), `Pre-prompt for "${testTitle}" does not contain fabricated suggestion "${banned}"`);
+        assert(!postPrompt.prompt.toLowerCase().includes(banned), `Post-prompt for "${testTitle}" does not contain fabricated suggestion "${banned}"`);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 18: Maximum One Anticipatory Prompt Per Trigger
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 18] Maximum One Anticipatory Prompt Per Trigger');
+    const singlePromptCheck = buildAnticipatoryPrompt({
+      stage: 'POST',
+      title: 'Visit Mum',
+      memories: [{
+        id: 'm_check',
+        originalText: 'Check her new slacks',
+        interpretation: { kind: 'task', content: 'Check her new slacks', people: ['Mum'], status: 'active' }
+      }]
+    });
+    // Ensure prompt does not ask multiple questions (only ends in a single question mark)
+    const questionMarkCount = (singlePromptCheck.prompt.match(/\?/g) || []).length;
+    assert(questionMarkCount <= 2, `Prompt is bounded and concise with ${questionMarkCount} question marks (at most lead + closing)`);
+    assert(singlePromptCheck.prompt.length < 250, `Prompt length is strictly concise (${singlePromptCheck.prompt.length} chars)`);
+
+    // Ensure candidate generation creates at most 1 candidate per trigger
+    const singleCandidateCheck = evaluateTodayRelevance(
+      [],
+      [routineEvent],
+      [],
+      simulatedPostEventNow,
+      'Australia/Sydney',
+      '2026-09-07',
+      []
+    );
+    const routineCandidates = singleCandidateCheck.candidates.filter(c => c.source_id === 'cal_visit_mum');
+    assert(routineCandidates.length === 1, `Exactly one candidate generated per event trigger (found ${routineCandidates.length})`);
 
     // -------------------------------------------------------------------------
     // Summary
