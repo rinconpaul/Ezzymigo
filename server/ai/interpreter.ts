@@ -3,6 +3,7 @@ import { memoriesResponseSchema } from './schemas';
 import { splitCaptureIntoUnits } from './splitter';
 import { getYMDInTz, parseTimeStringToHM, parseReminderTriggerTime } from '../utils/time';
 import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
+import { classifyAnticipatoryMode } from '../anticipatory/classifier';
 
 // Extracts structured item entries from collection text if needed
 export function extractItemsFromText(content: string, originalText: string): string[] {
@@ -124,6 +125,19 @@ export function fallbackInterpretation(text: string, now: Date = new Date()) {
     },
     subject_resolved_date: null,
     suggested_action: fallbackAction,
+    anticipatory_mode: classifyAnticipatoryMode({
+      content: text,
+      originalText: text,
+      kind,
+      intent,
+      resurfacing: {
+        mode: triggerTime ? 'date_based' : 'contextual',
+        timing: triggerTime ? text : 'Contextual / On retrieval',
+      },
+      resolved_datetime: triggerTime,
+      reminder_datetime: triggerTime,
+    }, text),
+    anticipatory_opted_in: false,
   };
 }
 
@@ -510,6 +524,22 @@ function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
           query: item.suggested_action.query,
         }
       : null,
+    anticipatory_mode: classifyAnticipatoryMode({
+      content: item.content || unitText,
+      originalText: unitText,
+      kind: canonicalKind,
+      intent: canonicalIntent,
+      resurfacing: {
+        mode: item.resurfacing?.mode || (resolvedDatetime ? 'date_based' : 'contextual'),
+        timing: item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval',
+      },
+      resolved_datetime: resolvedDatetime,
+      event_datetime: eventDatetime,
+      reminder_datetime: reminderDatetime,
+      original_time_expression: cleanOriginalTime,
+      contexts,
+    }, unitText),
+    anticipatory_opted_in: false,
   };
 }
 

@@ -19,6 +19,8 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
   let prerequisite: any = null;
   let subject: string | null = null;
   let subject_resolved_date: string | null = null;
+  let anticipatory_mode: 'NONE' | 'POST_ONLY' | 'PRE_AND_POST' = 'NONE';
+  let anticipatory_opted_in: boolean = false;
 
   if (rawTopics) {
     try {
@@ -37,6 +39,13 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
         linked_event_id = parsed.linked_event_id || null;
         subject = typeof parsed.subject === 'string' && parsed.subject.trim() ? parsed.subject.trim() : null;
         subject_resolved_date = typeof parsed.subject_resolved_date === 'string' && parsed.subject_resolved_date.trim() ? parsed.subject_resolved_date.trim() : null;
+        if (parsed.anticipatory_mode && ['NONE', 'POST_ONLY', 'PRE_AND_POST'].includes(parsed.anticipatory_mode)) {
+          anticipatory_mode = parsed.anticipatory_mode;
+        }
+        if (parsed.anticipatory_opted_in !== undefined) {
+          anticipatory_opted_in = Boolean(parsed.anticipatory_opted_in);
+        }
+
         if (parsed.prerequisite && typeof parsed.prerequisite === 'object' && parsed.prerequisite.condition) {
           prerequisite = {
             condition: String(parsed.prerequisite.condition).trim(),
@@ -58,7 +67,7 @@ export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackK
     }
   }
 
-  return { topics, contexts, retrieval_cues, relationships, intent, suggested_action, linked_event_id, items, prerequisite, subject, subject_resolved_date };
+  return { topics, contexts, retrieval_cues, relationships, intent, suggested_action, linked_event_id, items, prerequisite, subject, subject_resolved_date, anticipatory_mode, anticipatory_opted_in };
 }
 
 // Helper to parse stored resurfacing timing and absolute dates
@@ -134,6 +143,8 @@ export async function readMemories(): Promise<any[]> {
         originalText: row.originalText || '',
         createdAt: row.createdAt,
         isDone: Boolean(Number(row.isDone)),
+        anticipatory_mode: meta.anticipatory_mode,
+        anticipatory_opted_in: meta.anticipatory_opted_in,
         interpretation: {
           content: row.content,
           kind: row.kind,
@@ -155,8 +166,11 @@ export async function readMemories(): Promise<any[]> {
           reminder_datetime: timeMeta.reminder_datetime,
           resurfacing: timeMeta.resurfacing,
           suggested_action: meta.suggested_action || null,
+          linked_event_id: meta.linked_event_id || null,
           subject: meta.subject || null,
           subject_resolved_date: meta.subject_resolved_date || null,
+          anticipatory_mode: meta.anticipatory_mode,
+          anticipatory_opted_in: meta.anticipatory_opted_in,
         },
       };
     });
@@ -188,6 +202,8 @@ export async function readMemoryById(id: string): Promise<any | null> {
       originalText: row.originalText || '',
       createdAt: row.createdAt,
       isDone: Boolean(Number(row.isDone)),
+      anticipatory_mode: meta.anticipatory_mode,
+      anticipatory_opted_in: meta.anticipatory_opted_in,
       interpretation: {
         content: row.content,
         kind: row.kind,
@@ -212,6 +228,8 @@ export async function readMemoryById(id: string): Promise<any | null> {
         linked_event_id: meta.linked_event_id || null,
         subject: meta.subject || null,
         subject_resolved_date: meta.subject_resolved_date || null,
+        anticipatory_mode: meta.anticipatory_mode,
+        anticipatory_opted_in: meta.anticipatory_opted_in,
       },
     };
   } catch (err) {
@@ -286,6 +304,8 @@ export async function insertMemories(
       linked_event_id: item.interpretation.linked_event_id || null,
       subject: item.interpretation.subject || null,
       subject_resolved_date: item.interpretation.subject_resolved_date || null,
+      anticipatory_mode: item.interpretation.anticipatory_mode || item.anticipatory_mode || 'NONE',
+      anticipatory_opted_in: item.interpretation.anticipatory_opted_in !== undefined ? Boolean(item.interpretation.anticipatory_opted_in) : Boolean(item.anticipatory_opted_in),
     };
 
     const metaTimingObj = {
@@ -309,7 +329,7 @@ export async function insertMemories(
         item.isDone ? 1 : 0,
         item.interpretation.content,
         item.interpretation.kind,
-        item.interpretation.status,
+        item.interpretation.status || 'active',
         JSON.stringify(item.interpretation.people || []),
         JSON.stringify(item.interpretation.places || []),
         JSON.stringify(metaTopicsObj),
@@ -429,6 +449,8 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
     originalText: row.originalText,
     createdAt: row.createdAt,
     isDone: Boolean(newIsDone),
+    anticipatory_mode: meta.anticipatory_mode,
+    anticipatory_opted_in: meta.anticipatory_opted_in,
     interpretation: {
       content: row.content,
       kind: row.kind,
@@ -453,6 +475,8 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
       linked_event_id: meta.linked_event_id || null,
       subject: meta.subject || null,
       subject_resolved_date: meta.subject_resolved_date || null,
+      anticipatory_mode: meta.anticipatory_mode,
+      anticipatory_opted_in: meta.anticipatory_opted_in,
     },
   };
 }
@@ -487,6 +511,8 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     linked_event_id: updatedInterpretation.linked_event_id || null,
     subject: updatedInterpretation.subject || null,
     subject_resolved_date: updatedInterpretation.subject_resolved_date || null,
+    anticipatory_mode: updatedInterpretation.anticipatory_mode || 'NONE',
+    anticipatory_opted_in: updatedInterpretation.anticipatory_opted_in !== undefined ? Boolean(updatedInterpretation.anticipatory_opted_in) : false,
   };
 
   const metaTimingObj = {
@@ -689,8 +715,50 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
       },
       suggested_action: updatedInterpretation.suggested_action || null,
       subject: metaTopicsObj.subject || null,
+      anticipatory_mode: metaTopicsObj.anticipatory_mode,
+      anticipatory_opted_in: metaTopicsObj.anticipatory_opted_in,
     },
+    anticipatory_mode: metaTopicsObj.anticipatory_mode,
+    anticipatory_opted_in: metaTopicsObj.anticipatory_opted_in,
   };
+}
+
+// Update memory anticipatory preference in Bunny Database
+export async function updateMemoryAnticipation(
+  id: string,
+  mode: 'NONE' | 'POST_ONLY' | 'PRE_AND_POST',
+  optedIn: boolean
+): Promise<any | null> {
+  await initBunnyDb();
+  const list = await executeBunnySql([{
+    sql: 'SELECT * FROM memories WHERE id = ?;',
+    args: [id]
+  }]);
+
+  if (!list[0] || !list[0].rows || list[0].rows.length === 0) {
+    return null;
+  }
+
+  const row = list[0].rows[0];
+  let metaTopics: any = {};
+  try {
+    metaTopics = JSON.parse(row.topics || '{}');
+    if (Array.isArray(metaTopics)) {
+      metaTopics = { topics: metaTopics };
+    }
+  } catch {
+    metaTopics = {};
+  }
+
+  metaTopics.anticipatory_mode = mode;
+  metaTopics.anticipatory_opted_in = optedIn;
+
+  await executeBunnySql([{
+    sql: 'UPDATE memories SET topics = ? WHERE id = ?;',
+    args: [JSON.stringify(metaTopics), id]
+  }]);
+
+  return readMemoryById(id);
 }
 
 // Delete memory from Bunny Database

@@ -90,6 +90,16 @@ export interface ClarificationPrompt {
   metadata?: Record<string, any>;
 }
 
+export type AnticipatoryMode = 'NONE' | 'POST_ONLY' | 'PRE_AND_POST';
+
+export interface AnticipationOffer {
+  memoryId: string;
+  mode: AnticipatoryMode;
+  question: string;
+  eventTitle?: string;
+  person?: string;
+}
+
 export interface RelationshipEntity {
   person: string;
   role: string;
@@ -127,6 +137,8 @@ export interface StructuredInterpretation {
   resurfacing: ResurfacingInfo;
   suggested_action?: SuggestedAction | null;
   linked_event_id?: string | null;
+  anticipatory_mode?: AnticipatoryMode;
+  anticipatory_opted_in?: boolean;
 }
 
 export interface MemoryItem {
@@ -135,6 +147,8 @@ export interface MemoryItem {
   createdAt: string;
   isDone: boolean;
   interpretation: StructuredInterpretation;
+  anticipatory_mode?: AnticipatoryMode;
+  anticipatory_opted_in?: boolean;
 }
 
 export interface CalendarEvent {
@@ -150,6 +164,8 @@ export interface CalendarEvent {
   is_all_day: boolean;
   status: 'confirmed' | 'cancelled' | string;
   updated_at: string;
+  anticipatory_mode?: AnticipatoryMode;
+  anticipatory_opted_in?: boolean;
 }
 
 export interface AskResponse {
@@ -166,6 +182,7 @@ export interface AskResponse {
 export interface TodayRelevanceCandidate {
   source_type: 'memory' | 'calendar';
   source_id: string;
+  occurrence_id?: string;
   relevance_reason: string;
   display_text: string;
   priority: number;
@@ -176,6 +193,7 @@ export interface TodayRelevanceCandidate {
   preparation_items?: string[];
   ticker_headlines?: string[];
   prep_memory_ids?: string[];
+  anticipatory_mode?: AnticipatoryMode;
 }
 
 export interface TodayRelevanceResponse {

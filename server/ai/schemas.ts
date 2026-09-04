@@ -156,6 +156,11 @@ export const memoryItemSchema = {
       items: { type: Type.STRING },
       description: 'Optional array of structured item strings if the memory represents a collection, list, recipe ingredients, shopping list, packing list, or multi-item group under a single intention.',
     },
+    anticipatory_mode: {
+      type: Type.STRING,
+      enum: ['NONE', 'POST_ONLY', 'PRE_AND_POST'],
+      description: 'Anticipatory class: "NONE" for undated/perpetual reminders and tasks (e.g. "Sharpen the knives", "Trim the hedge") and general facts/notes; "POST_ONLY" for recurring routines (e.g. "Visit Mum every Monday, Wednesday and Friday 9–11am"); "PRE_AND_POST" for one-off dated appointments/events (e.g. doctor, dentist, birthday, dinner, meeting, appointment).',
+    },
   },
   required: ['content', 'kind', 'intent', 'status', 'people', 'places', 'topics', 'contexts', 'retrieval_cues', 'resurfacing'],
 };

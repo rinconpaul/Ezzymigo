@@ -3,6 +3,8 @@ import { readMemories } from '../db/memories';
 import { readCalendarEvents } from '../calendar/store';
 import { readActiveRelationships } from '../relationships/index';
 import { isDependentReminderClause } from '../ai/splitter';
+import { AnticipatoryMode } from '../../src/types';
+import { classifyAnticipatoryMode, isRecurringRoutineText } from '../anticipatory/classifier';
 
 export type LocalContextInfo = ReturnType<typeof formatLocalTimeContext>;
 
@@ -479,6 +481,9 @@ export function hasCompletedReflectionForEvent(
     words.forEach((w) => prepKeywords.add(w));
   }
 
+  const baseId = String(ev.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
+  const occurrenceKey = `${baseId}:${occurrenceYMD}`;
+
   for (const m of memories) {
     if (!m.createdAt) continue;
     const memDate = new Date(m.createdAt);
@@ -490,16 +495,30 @@ export function hasCompletedReflectionForEvent(
     const memYMD = getYMDInTz(memDate, timeZone);
     if (memYMD !== occurrenceYMD) continue;
 
-    // 1. Explicit link to event (saved from reflection tray or with linkedEventId)
-    if (
-      m.interpretation?.linked_event_id &&
-      (String(m.interpretation.linked_event_id) === String(ev.id) ||
-        String(m.interpretation.linked_event_id) === String(ev.source_event_id) ||
-        String(m.interpretation.linked_event_id).startsWith(`${ev.id}:`))
-    ) {
-      if (memTime >= evStartTime - 15 * 60 * 1000) {
-        return true;
+    // 1. Explicit link to event occurrence (saved from reflection tray or with linkedEventId)
+    if (m.interpretation?.linked_event_id) {
+      const linked = String(m.interpretation.linked_event_id);
+      if (
+        linked === occurrenceKey ||
+        linked === String(ev.id) ||
+        linked === String(ev.source_event_id) ||
+        linked.startsWith(`${baseId}:${occurrenceYMD}`)
+      ) {
+        if (memTime >= evStartTime - 30 * 60 * 1000) {
+          return true;
+        }
       }
+    }
+
+    // Invariant: Unrelated facts, profiles, preferences, contacts, and relationship memories
+    // mentioning the person MUST NEVER count as completion of an event/visit reflection.
+    const kind = (m.interpretation?.kind || '').toLowerCase();
+    const intent = (m.interpretation?.intent || '').toLowerCase();
+    if (
+      ['fact', 'profile', 'preference', 'contact', 'relationship'].includes(kind) ||
+      ['fact', 'profile', 'preference', 'contact', 'relationship'].includes(intent)
+    ) {
+      continue;
     }
 
     // Temporal check: memory must be created at or after the event start time
@@ -509,13 +528,19 @@ export function hasCompletedReflectionForEvent(
     const orig = (m.originalText || '').toLowerCase();
     const people = (m.interpretation?.people || []).map((p: string) => p.toLowerCase());
 
-    // 2. Mentions the event person / doctor
+    // Check for explicit visit outcome/report language
+    const hasVisitOutcomeLanguage =
+      /\b(?:went\s+well|visited|saw|had\s+(?:a\s+)?(?:good|great|nice|lovely|hard|rough|quiet)\s+(?:time|visit|chat|catchup)|talked\s+about|chatted\s+with|spoke\s+to|caught\s+up\s+with|feeling\s+(?:better|worse|good|well))\b/i.test(content) ||
+      /\b(?:went\s+well|visited|saw|had\s+(?:a\s+)?(?:good|great|nice|lovely|hard|rough|quiet)\s+(?:time|visit|chat|catchup)|talked\s+about|chatted\s+with|spoke\s+to|caught\s+up\s+with|feeling\s+(?:better|worse|good|well))\b/i.test(orig);
+
+    // 2. Mentions the event person with explicit visit outcome language
     if (
       eventPerson &&
       eventPerson.length >= 2 &&
       (people.includes(eventPerson.toLowerCase()) ||
         content.includes(eventPerson.toLowerCase()) ||
-        orig.includes(eventPerson.toLowerCase()))
+        orig.includes(eventPerson.toLowerCase())) &&
+      hasVisitOutcomeLanguage
     ) {
       return true;
     }
@@ -529,15 +554,14 @@ export function hasCompletedReflectionForEvent(
         }
       }
       const hasOutcomeOrMedicalTerm =
-        /(?:doctor|gp|physio|dentist|script|prescription|blood\s*test|pathology|referral|scan|x-ray|ordered|prescribed|got|picked\s*up|saw|went\s*to)/i.test(
+        /(?:script|prescription|blood\s*test|pathology|referral|scan|x-ray|ordered|prescribed|got|picked\s*up|saw\s+the\s+dr|went\s+to\s+the\s+doctor|appointment\s+went)/i.test(
           content
         ) ||
-        /(?:doctor|gp|physio|dentist|script|prescription|blood\s*test|pathology|referral|scan|x-ray|ordered|prescribed|got|picked\s*up|saw|went\s*to)/i.test(
+        /(?:script|prescription|blood\s*test|pathology|referral|scan|x-ray|ordered|prescribed|got|picked\s*up|saw\s+the\s+dr|went\s+to\s+the\s+doctor|appointment\s+went)/i.test(
           orig
-        ) ||
-        (m.interpretation?.contexts || []).includes('appointment');
+        );
 
-      if (matchCount >= 1 && hasOutcomeOrMedicalTerm) {
+      if ((matchCount >= 1 && hasOutcomeOrMedicalTerm) || (hasOutcomeOrMedicalTerm && (m.interpretation?.contexts || []).includes('appointment'))) {
         return true;
       }
     }
@@ -787,6 +811,18 @@ export function isUndatedActionableTaskMemory(
 export function isMemoryEligibleForReflection(m: any): boolean {
   if (!m || !m.interpretation) return false;
   const interp = m.interpretation;
+
+  // 0. Check explicit anticipatory mode if present
+  const mode: AnticipatoryMode | undefined = interp.anticipatory_mode || m.anticipatory_mode;
+  if (mode === 'NONE') return false;
+
+  const isOptedIn = interp.anticipatory_opted_in !== undefined
+    ? Boolean(interp.anticipatory_opted_in)
+    : (m.anticipatory_opted_in !== undefined ? Boolean(m.anticipatory_opted_in) : false);
+
+  if (mode === 'POST_ONLY' || mode === 'PRE_AND_POST') {
+    return isOptedIn;
+  }
 
   // 1. Facts, notes, observations, media, and reference knowledge are NEVER appointments requiring reflection
   if (
@@ -1040,24 +1076,13 @@ export function evaluateMemoryTodayLifecycle(
   };
 }
 
-export async function computeTodayRelevance(
-  clientNow?: string,
-  clientTimeZone?: string,
-  clientLanguage?: string,
-  clientRegion?: string,
+export function evaluateTodayRelevanceCandidates(
+  memories: any[],
+  calendarEvents: any[],
+  activeRelationships: any[],
+  localContext: LocalContextInfo,
   dismissedReflectionIds: string[] = []
 ) {
-  const t0 = Date.now();
-  const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
-  
-  // Parallel fetch memories, calendar events, and active relationships
-  const [memories, calendarEvents, activeRelationships] = await Promise.all([
-    readMemories(),
-    readCalendarEvents(),
-    readActiveRelationships(),
-  ]);
-  const tDb = Date.now();
-
   const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
   const nowMs = localContext.referenceDate.getTime();
 
@@ -1078,11 +1103,13 @@ export async function computeTodayRelevance(
   const candidateList: Array<{
     source_type: 'memory' | 'calendar';
     source_id: string;
+    occurrence_id?: string;
     relevance_reason: string;
     display_text: string;
     priority: number;
     is_anticipatory?: boolean;
     anticipatory_stage?: 'prepare' | 'remind' | 'reflect';
+    anticipatory_mode?: AnticipatoryMode;
     event_title?: string;
     event_time?: string;
     preparation_items?: string[];
@@ -1224,47 +1251,86 @@ export async function computeTodayRelevance(
       const endTimeFormatted = endTimeStr ? endTimeStr.replace(/\s+/g, ' ').trim().toLowerCase() : '';
       const timePrefix = timeFormatted ? `${timeFormatted} · ` : '';
 
+      // Determine anticipatory mode for this calendar event:
+      let eventAnticipatoryMode: AnticipatoryMode = (ev.anticipatory_mode as AnticipatoryMode);
+      if (!eventAnticipatoryMode) {
+        if (ev.is_recurring || isRecurringRoutineText(ev.title || '')) {
+          eventAnticipatoryMode = 'POST_ONLY';
+        } else if (isSuitableAppointment) {
+          eventAnticipatoryMode = 'PRE_AND_POST';
+        } else {
+          eventAnticipatoryMode = 'NONE';
+        }
+      }
+
+      const isOptedIn = ev.anticipatory_opted_in !== undefined ? Boolean(ev.anticipatory_opted_in) : true;
+      const baseEventId = String(ev.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
+      const occurrenceKey = `${baseEventId}:${clientTodayYMD}`;
+
       // Stage 1: Upcoming Event (now < startMs)
       if (nowMs < startMs && isSuitableAppointment) {
-        const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
-        const prepItems = extractCleanPrepItems(prepMemories);
+        if (eventAnticipatoryMode === 'PRE_AND_POST' && isOptedIn) {
+          const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
+          const prepItems = extractCleanPrepItems(prepMemories);
 
-        if (prepItems.length > 0) {
-          const combinedDisplayText = `${timePrefix}${cleanTitle} — ${prepItems.join(' · ')}`;
-          const tickerHeadlines = [
-            `${timePrefix}${cleanTitle}`,
-            ...prepItems.map((p) => `Remember: ${p}`)
-          ];
+          if (prepItems.length > 0) {
+            const combinedDisplayText = `${timePrefix}${cleanTitle} — ${prepItems.join(' · ')}`;
+            const tickerHeadlines = [
+              `${timePrefix}${cleanTitle}`,
+              ...prepItems.map((p) => `Remember: ${p}`)
+            ];
 
-          candidateList.push({
-            source_type: 'calendar',
-            source_id: ev.id,
-            relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
-            display_text: combinedDisplayText,
-            priority: 2,
-            is_anticipatory: true,
-            anticipatory_stage: 'remind',
-            event_title: cleanTitle,
-            event_time: timeFormatted,
-            preparation_items: prepItems,
-            ticker_headlines: tickerHeadlines,
-            prep_memory_ids: prepMemories.map((m) => m.id),
-          });
+            candidateList.push({
+              source_type: 'calendar',
+              source_id: ev.id,
+              occurrence_id: occurrenceKey,
+              relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
+              display_text: combinedDisplayText,
+              priority: 2,
+              is_anticipatory: true,
+              anticipatory_stage: 'remind',
+              anticipatory_mode: eventAnticipatoryMode,
+              event_title: cleanTitle,
+              event_time: timeFormatted,
+              preparation_items: prepItems,
+              ticker_headlines: tickerHeadlines,
+              prep_memory_ids: prepMemories.map((m) => m.id),
+            });
+          } else {
+            const prompt = `${timePrefix}${cleanTitle} — Anything you want to remember to discuss?`;
+            candidateList.push({
+              source_type: 'calendar',
+              source_id: ev.id,
+              occurrence_id: occurrenceKey,
+              relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
+              display_text: prompt,
+              priority: 2,
+              is_anticipatory: true,
+              anticipatory_stage: 'prepare',
+              anticipatory_mode: eventAnticipatoryMode,
+              event_title: cleanTitle,
+              event_time: timeFormatted,
+              preparation_items: [],
+              ticker_headlines: [prompt],
+              prep_memory_ids: [],
+            });
+          }
         } else {
-          const prompt = `${timePrefix}${cleanTitle} — Anything you want to remember to discuss?`;
+          // Regular scheduled event display (routine or not opted in)
+          const locationSuffix = ev.location ? ` (${ev.location})` : '';
+          const displayText = `${timePrefix}${cleanTitle}${locationSuffix}`;
           candidateList.push({
             source_type: 'calendar',
             source_id: ev.id,
-            relevance_reason: timeStr ? `Upcoming appointment at ${timeStr}` : 'Upcoming appointment today',
-            display_text: prompt,
+            occurrence_id: occurrenceKey,
+            relevance_reason: timeStr ? `Calendar event at ${timeStr}` : 'Calendar event today',
+            display_text: displayText,
             priority: 2,
-            is_anticipatory: true,
-            anticipatory_stage: 'prepare',
+            is_anticipatory: false,
+            anticipatory_mode: eventAnticipatoryMode,
             event_title: cleanTitle,
-            event_time: timeFormatted,
-            preparation_items: [],
-            ticker_headlines: [prompt],
-            prep_memory_ids: [],
+            event_time: timeStr || undefined,
+            ticker_headlines: [displayText],
           });
         }
       }
@@ -1274,10 +1340,12 @@ export async function computeTodayRelevance(
         candidateList.push({
           source_type: 'calendar',
           source_id: ev.id,
+          occurrence_id: occurrenceKey,
           relevance_reason: `Happening now (${timeFormatted} – ${endTimeFormatted})`,
           display_text: currentDisplayText,
           priority: 2,
           is_anticipatory: false,
+          anticipatory_mode: eventAnticipatoryMode,
           event_title: cleanTitle,
           event_time: timeFormatted,
           ticker_headlines: [currentDisplayText],
@@ -1285,38 +1353,41 @@ export async function computeTodayRelevance(
       }
       // Stage 3: Post-Event Reflection (nowMs > endMs)
       else if (nowMs > endMs && isSuitableAppointment) {
-        const occurrenceKey = `${ev.id}:${clientTodayYMD}`;
-        const isDismissed =
-          Array.isArray(dismissedReflectionIds) &&
-          (dismissedReflectionIds.includes(occurrenceKey) || dismissedReflectionIds.includes(ev.id));
-        const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
-        const hasCompletedResponse = hasCompletedReflectionForEvent(
-          ev,
-          memories,
-          activeRelationships,
-          prepMemories,
-          localContext.timeZone,
-          clientTodayYMD
-        );
+        if ((eventAnticipatoryMode === 'PRE_AND_POST' || eventAnticipatoryMode === 'POST_ONLY') && isOptedIn) {
+          const isDismissed =
+            Array.isArray(dismissedReflectionIds) &&
+            dismissedReflectionIds.includes(occurrenceKey);
+          const prepMemories = findPreparationMemoriesForEvent(ev, memories, activeRelationships);
+          const hasCompletedResponse = hasCompletedReflectionForEvent(
+            ev,
+            memories,
+            activeRelationships,
+            prepMemories,
+            localContext.timeZone,
+            clientTodayYMD
+          );
 
-        if (!isDismissed && !hasCompletedResponse) {
-          const prepItems = extractCleanPrepItems(prepMemories);
-          const { prompt, isAnticipatory, cleanTitle: promptTitle } = generatePostEventReflectionPrompt(ev.title, prepMemories);
-          candidateList.push({
-            source_type: 'calendar',
-            source_id: ev.id,
-            relevance_reason: 'Post-event reflection',
-            display_text: prompt,
-            priority: 2,
-            is_anticipatory: isAnticipatory,
-            anticipatory_stage: 'reflect',
-            event_title: promptTitle || cleanTitle,
-            preparation_items: prepItems,
-            ticker_headlines: [prompt],
-            prep_memory_ids: prepMemories.map((m) => m.id),
-          });
+          if (!isDismissed && !hasCompletedResponse) {
+            const prepItems = extractCleanPrepItems(prepMemories);
+            const { prompt, isAnticipatory, cleanTitle: promptTitle } = generatePostEventReflectionPrompt(ev.title, prepMemories);
+            candidateList.push({
+              source_type: 'calendar',
+              source_id: ev.id,
+              occurrence_id: occurrenceKey,
+              relevance_reason: 'Post-event reflection',
+              display_text: prompt,
+              priority: 2,
+              is_anticipatory: isAnticipatory,
+              anticipatory_stage: 'reflect',
+              anticipatory_mode: eventAnticipatoryMode,
+              event_title: promptTitle || cleanTitle,
+              preparation_items: prepItems,
+              ticker_headlines: [prompt],
+              prep_memory_ids: prepMemories.map((m) => m.id),
+            });
+          }
         }
-        // If dismissed or completed, show nothing further for this occurrence (Rule 2 & 3)
+        // If not eligible, dismissed, or completed, show nothing further for this occurrence
       } else {
         const locationSuffix = ev.location ? ` (${ev.location})` : '';
         let displayText = `${cleanTitle}${locationSuffix}`;
@@ -1396,35 +1467,65 @@ export async function computeTodayRelevance(
     if (lifecycle && lifecycle.isScheduledToday) {
       seenSourceIds.add(m.id);
 
+      const memMode: AnticipatoryMode = m.interpretation?.anticipatory_mode || m.anticipatory_mode || classifyAnticipatoryMode(m.interpretation || {}, m.originalText);
+      const memOptedIn: boolean = m.interpretation?.anticipatory_opted_in !== undefined
+        ? Boolean(m.interpretation.anticipatory_opted_in)
+        : (m.anticipatory_opted_in !== undefined ? Boolean(m.anticipatory_opted_in) : false);
+
+      const baseMemoryId = String(m.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
+      const occurrenceKey = `${baseMemoryId}:${clientTodayYMD}`;
+
       if (lifecycle.lifecycleStage === 'upcoming') {
-        const timePrefix = lifecycle.startTimeFormatted ? `${lifecycle.startTimeFormatted} · ` : '';
-        const displayText = `${timePrefix}${lifecycle.cleanTitle}`;
-        candidateList.push({
-          source_type: 'memory',
-          source_id: m.id,
-          relevance_reason: lifecycle.startTimeFormatted ? `Scheduled for today at ${lifecycle.startTimeFormatted}` : 'Scheduled for today',
-          display_text: displayText,
-          priority: 4,
-          ticker_headlines: [displayText],
-        });
+        if (memMode === 'PRE_AND_POST' && memOptedIn) {
+          const timePrefix = lifecycle.startTimeFormatted ? `${lifecycle.startTimeFormatted} · ` : '';
+          const prompt = `${timePrefix}${lifecycle.cleanTitle} — Anything you want to remember to discuss?`;
+          candidateList.push({
+            source_type: 'memory',
+            source_id: m.id,
+            occurrence_id: occurrenceKey,
+            relevance_reason: lifecycle.startTimeFormatted ? `Upcoming appointment at ${lifecycle.startTimeFormatted}` : 'Upcoming appointment today',
+            display_text: prompt,
+            priority: 4,
+            is_anticipatory: true,
+            anticipatory_stage: 'prepare',
+            anticipatory_mode: memMode,
+            event_title: lifecycle.cleanTitle,
+            event_time: lifecycle.startTimeFormatted || undefined,
+            ticker_headlines: [prompt],
+          });
+        } else {
+          const timePrefix = lifecycle.startTimeFormatted ? `${lifecycle.startTimeFormatted} · ` : '';
+          const displayText = `${timePrefix}${lifecycle.cleanTitle}`;
+          candidateList.push({
+            source_type: 'memory',
+            source_id: m.id,
+            occurrence_id: occurrenceKey,
+            relevance_reason: lifecycle.startTimeFormatted ? `Scheduled for today at ${lifecycle.startTimeFormatted}` : 'Scheduled for today',
+            display_text: displayText,
+            priority: 4,
+            is_anticipatory: false,
+            anticipatory_mode: memMode,
+            ticker_headlines: [displayText],
+          });
+        }
       } else if (lifecycle.lifecycleStage === 'current') {
         const currentDisplayText = lifecycle.endTimeFormatted ? `${lifecycle.cleanTitle} (until ${lifecycle.endTimeFormatted})` : lifecycle.cleanTitle;
         candidateList.push({
           source_type: 'memory',
           source_id: m.id,
+          occurrence_id: occurrenceKey,
           relevance_reason: `Happening now (${lifecycle.startTimeFormatted} – ${lifecycle.endTimeFormatted})`,
           display_text: currentDisplayText,
           priority: 4,
+          is_anticipatory: false,
+          anticipatory_mode: memMode,
           ticker_headlines: [currentDisplayText],
         });
       } else if (lifecycle.lifecycleStage === 'post_event') {
-        // Strict invariant: Only memories with semantic evidence of being an appointment/meeting
-        // are eligible for post-event reflection. Passive facts and tasks are excluded.
-        if (isMemoryEligibleForReflection(m)) {
-          const occurrenceKey = `${m.id}:${clientTodayYMD}`;
+        if ((memMode === 'PRE_AND_POST' || memMode === 'POST_ONLY') && memOptedIn && isMemoryEligibleForReflection(m)) {
           const isDismissed =
             Array.isArray(dismissedReflectionIds) &&
-            (dismissedReflectionIds.includes(occurrenceKey) || dismissedReflectionIds.includes(m.id));
+            dismissedReflectionIds.includes(occurrenceKey);
           const pseudoEvent = {
             id: m.id,
             title: lifecycle.cleanTitle,
@@ -1444,11 +1545,13 @@ export async function computeTodayRelevance(
             candidateList.push({
               source_type: 'memory',
               source_id: m.id,
+              occurrence_id: occurrenceKey,
               relevance_reason: 'Post-event reflection',
               display_text: prompt,
               priority: 4,
               is_anticipatory: isAnticipatory,
               anticipatory_stage: 'reflect',
+              anticipatory_mode: memMode,
               event_title: lifecycle.cleanTitle,
               ticker_headlines: [prompt],
             });
@@ -1495,6 +1598,35 @@ export async function computeTodayRelevance(
     c.priority = idx + 1;
   });
 
+  return candidates;
+}
+
+export async function computeTodayRelevance(
+  clientNow?: string,
+  clientTimeZone?: string,
+  clientLanguage?: string,
+  clientRegion?: string,
+  dismissedReflectionIds: string[] = []
+) {
+  const t0 = Date.now();
+  const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
+
+  // Parallel fetch memories, calendar events, and active relationships
+  const [memories, calendarEvents, activeRelationships] = await Promise.all([
+    readMemories(),
+    readCalendarEvents(),
+    readActiveRelationships(),
+  ]);
+  const tDb = Date.now();
+
+  const candidates = evaluateTodayRelevanceCandidates(
+    memories,
+    calendarEvents,
+    activeRelationships,
+    localContext,
+    dismissedReflectionIds
+  );
+
   const tEnd = Date.now();
   const dbMs = tDb - t0;
   const rankMs = tEnd - tDb;
@@ -1512,5 +1644,30 @@ export async function computeTodayRelevance(
       rank_ms: rankMs,
       total_ms: totalMs,
     },
+  };
+}
+
+export function evaluateTodayRelevance(
+  memories: any[],
+  calendarEvents: any[],
+  activeRelationships: any[],
+  referenceDate: Date,
+  timeZone: string,
+  clientTodayYMD: string,
+  dismissedReflectionIds: string[] = []
+) {
+  const localContext = formatLocalTimeContext(referenceDate.toISOString(), timeZone);
+  const candidates = evaluateTodayRelevanceCandidates(
+    memories,
+    calendarEvents,
+    activeRelationships,
+    localContext,
+    dismissedReflectionIds
+  );
+  return {
+    candidates,
+    reference_time: localContext.localDateTimeStr,
+    timezone: localContext.timeZone,
+    count: candidates.length,
   };
 }

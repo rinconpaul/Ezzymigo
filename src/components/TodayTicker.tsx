@@ -38,10 +38,14 @@ const getDismissedReflections = (): string[] => {
   }
 };
 
-const markReflectionDismissed = (eventId: string) => {
+const markReflectionDismissed = (eventId: string, occurrenceId?: string) => {
   try {
     const todayYMD = getClientTodayYMD();
-    const occurrenceKey = eventId.includes(':') ? eventId : `${eventId}:${todayYMD}`;
+    let occurrenceKey = occurrenceId;
+    if (!occurrenceKey) {
+      const baseId = eventId.replace(/:\d{4}-\d{2}-\d{2}$/, '');
+      occurrenceKey = `${baseId}:${todayYMD}`;
+    }
     const list = getDismissedReflections();
     if (!list.includes(occurrenceKey)) {
       list.push(occurrenceKey);
@@ -86,9 +90,14 @@ const AnticipatoryPreparationTray: React.FC<{
     inputRef.current?.focus();
   }, []);
 
+  const getOccurrenceId = useCallback(() => {
+    return candidate.occurrence_id || `${candidate.source_id.replace(/:\d{4}-\d{2}-\d{2}$/, '')}:${getClientTodayYMD()}`;
+  }, [candidate]);
+
   const handleDismiss = () => {
     if (isReflection) {
-      markReflectionDismissed(candidate.source_id);
+      const occId = getOccurrenceId();
+      markReflectionDismissed(candidate.source_id, occId);
       if (onRemoveCandidate) {
         onRemoveCandidate(candidate.source_id);
       }
@@ -106,12 +115,13 @@ const AnticipatoryPreparationTray: React.FC<{
 
     setIsSaving(true);
     try {
+      const occId = getOccurrenceId();
       await onSaveThought(trimmed, {
-        linkedEventId: candidate.source_id,
+        linkedEventId: occId,
         eventTitle: candidate.event_title || candidate.display_text,
       });
       if (isReflection) {
-        markReflectionDismissed(candidate.source_id);
+        markReflectionDismissed(candidate.source_id, occId);
         if (onRemoveCandidate) {
           onRemoveCandidate(candidate.source_id);
         }
