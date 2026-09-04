@@ -12,7 +12,8 @@ import { findAssociatedRelationships } from './utils/relationshipAssociation';
 import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
 import { defaultDeviceActionLauncher } from './utils/deviceActionLauncher';
-import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship, ImmediateDeviceActionPayload } from './types';
+import { ephemeralCallBridge } from './utils/ephemeralCallBridge';
+import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship, ImmediateDeviceActionPayload, TodayRelevanceCandidate } from './types';
 
 import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check, Contact } from 'lucide-react';
 
@@ -91,6 +92,9 @@ export default function App() {
   const [clarificationAnswer, setClarificationAnswer] = useState('');
   const [isResolvingClarification, setIsResolvingClarification] = useState(false);
   const [clarificationFeedback, setClarificationFeedback] = useState<string | null>(null);
+  const [ephemeralCandidate, setEphemeralCandidate] = useState<TodayRelevanceCandidate | null>(() =>
+    ephemeralCallBridge.getCandidate()
+  );
   const [deleteKnowledgePrompt, setDeleteKnowledgePrompt] = useState<LearnedKnowledgeDeletePrompt | null>(null);
   const [isDeletingKnowledge, setIsDeletingKnowledge] = useState(false);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
@@ -132,10 +136,49 @@ export default function App() {
     };
   }, []);
 
+  // Foreground/background lifecycle listener for ephemeral post-call bridge
+  useEffect(() => {
+    const handleBackground = () => {
+      ephemeralCallBridge.handleAppBackground();
+    };
+
+    const handleForeground = () => {
+      const candidate = ephemeralCallBridge.handleAppForeground();
+      if (candidate) {
+        setEphemeralCandidate(candidate);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleBackground();
+      } else if (document.visibilityState === 'visible') {
+        handleForeground();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBackground);
+    window.addEventListener('focus', handleForeground);
+    window.addEventListener('pagehide', handleBackground);
+    window.addEventListener('pageshow', handleForeground);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBackground);
+      window.removeEventListener('focus', handleForeground);
+      window.removeEventListener('pagehide', handleBackground);
+      window.removeEventListener('pageshow', handleForeground);
+    };
+  }, []);
+
   // Handle immediate device action (tel: or sms:) without creating or persisting memories
   const handleImmediateDeviceAction = useCallback(async (action: ImmediateDeviceActionPayload) => {
     if (action.status === 'ready') {
-      await defaultDeviceActionLauncher.launch(action);
+      const launchResult = await defaultDeviceActionLauncher.launch(action);
+      if (launchResult.success && action.action === 'call') {
+        ephemeralCallBridge.recordCallLaunch(action.recipientName || 'Contact', action.role);
+      }
       setClarificationFeedback(action.feedbackMessage);
       setTimeout(() => {
         setClarificationFeedback((prev) => (prev === action.feedbackMessage ? null : prev));
@@ -247,6 +290,11 @@ export default function App() {
         setClarificationAnswer('');
       } else {
         setClarification(null);
+      }
+
+      if (ephemeralCandidate) {
+        ephemeralCallBridge.dismissCandidate();
+        setEphemeralCandidate(null);
       }
     } catch (err: any) {
       console.error('Save error:', err);
@@ -704,6 +752,11 @@ export default function App() {
           onDelete={handleDelete}
           onEdit={handleEditMemory}
           onSaveThought={handleSaveThought}
+          ephemeralCandidate={ephemeralCandidate}
+          onDismissEphemeral={() => {
+            ephemeralCallBridge.dismissCandidate();
+            setEphemeralCandidate(null);
+          }}
         />
 
         {/* PRIMARY INTERFACE: COMPACT TELL & ASK EZZYMIGO ENGINE */}

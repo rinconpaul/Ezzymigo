@@ -10,7 +10,9 @@ interface TodayTickerProps {
   onToggleDone?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onEdit?: (id: string, newText: string) => Promise<void>;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string }) => Promise<void>;
+  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<void>;
+  ephemeralCandidate?: TodayRelevanceCandidate | null;
+  onDismissEphemeral?: () => void;
 }
 
 // Helper for reflection dismissals in localStorage (scoped by occurrence date: sourceId:YYYY-MM-DD)
@@ -39,6 +41,10 @@ export const getDismissedReflections = (): string[] => {
 };
 
 export const markOccurrenceDismissed = (candidate: TodayRelevanceCandidate) => {
+  if (candidate.source_id?.startsWith('ephemeral_call:')) {
+    // Ephemeral call candidates are strictly in-memory and never persisted to localStorage
+    return;
+  }
   try {
     const todayYMD = getClientTodayYMD();
     const occurrenceKey =
@@ -195,6 +201,9 @@ const AnticipatoryPreparationTray: React.FC<{
       await onSaveThought(trimmed, {
         linkedEventId: occId,
         eventTitle: candidate.event_title || candidate.display_text,
+        subject: candidate.source_id?.startsWith('ephemeral_call:')
+          ? candidate.event_title
+          : ((candidate as any).subject || (candidate.event_title ? candidate.event_title : undefined)),
       });
       if (isReflection) {
         markOccurrenceDismissed(candidate);
@@ -441,6 +450,9 @@ const AnticipatoryReminderTray: React.FC<{
       await onSaveThought(trimmed, {
         linkedEventId: candidate.occurrence_id || candidate.source_id,
         eventTitle: candidate.event_title || candidate.display_text,
+        subject: candidate.source_id?.startsWith('ephemeral_call:')
+          ? candidate.event_title
+          : ((candidate as any).subject || (candidate.event_title ? candidate.event_title : undefined)),
       });
 
       const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -687,6 +699,8 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
   onDelete,
   onEdit,
   onSaveThought,
+  ephemeralCandidate,
+  onDismissEphemeral,
 }) => {
   const [candidates, setCandidates] = useState<TodayRelevanceCandidate[]>([]);
   const [candidateIndex, setCandidateIndex] = useState(0);
@@ -696,6 +710,21 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
   const [selectedCalendarItem, setSelectedCalendarItem] = useState<TodayRelevanceCandidate | null>(null);
 
   const hasFetchedRef = useRef(false);
+
+  // Combine server candidates with any active ephemeral post-call candidate
+  const allCandidates = React.useMemo(() => {
+    if (!ephemeralCandidate) return candidates;
+    const filtered = candidates.filter((c) => c.source_id !== ephemeralCandidate.source_id);
+    return [ephemeralCandidate, ...filtered];
+  }, [candidates, ephemeralCandidate]);
+
+  useEffect(() => {
+    if (ephemeralCandidate) {
+      setIsVisible(true);
+      setCandidateIndex(0);
+      setHeadlineIndex(0);
+    }
+  }, [ephemeralCandidate]);
 
   const fetchRelevance = useCallback(async () => {
     try {
@@ -723,7 +752,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
       if (data && Array.isArray(data.candidates)) {
         const validCandidates = data.candidates;
         setCandidates(validCandidates);
-        if (validCandidates.length > 0) {
+        if (validCandidates.length > 0 || ephemeralCandidate) {
           setIsVisible(true);
           setCandidateIndex(0);
           setHeadlineIndex(0);
@@ -734,7 +763,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
     } catch (err: any) {
       console.warn('[Today Ticker] Failed to load today relevance:', err);
     }
-  }, []);
+  }, [ephemeralCandidate]);
 
   useEffect(() => {
     fetchRelevance();
@@ -756,7 +785,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
   }, [fetchRelevance]);
 
   // Current candidate and headline
-  const currentCandidate = candidates[candidateIndex];
+  const currentCandidate = allCandidates[candidateIndex] || allCandidates[0];
   const headlines = currentCandidate?.ticker_headlines && currentCandidate.ticker_headlines.length > 0
     ? currentCandidate.ticker_headlines
     : currentCandidate
@@ -767,7 +796,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
 
   // Client-side live ticker cycling timer (Paced dynamically to ensure users have ample time to read auto-scrolling text)
   useEffect(() => {
-    if (!isVisible || candidates.length === 0 || selectedCalendarItem !== null || surfacedMemoryId !== null) return;
+    if (!isVisible || allCandidates.length === 0 || selectedCalendarItem !== null || surfacedMemoryId !== null) return;
 
     const textLen = (currentHeadline || '').length;
     const cycleIntervalMs = Math.max(4500, Math.min(9000, 3500 + textLen * 60));
@@ -775,20 +804,20 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
     const timeout = setTimeout(() => {
       setHeadlineIndex((prevHIndex) => {
         const currentCandidateHeadlines =
-          candidates[candidateIndex]?.ticker_headlines || [candidates[candidateIndex]?.display_text || ''];
+          allCandidates[candidateIndex]?.ticker_headlines || [allCandidates[candidateIndex]?.display_text || ''];
         
         if (prevHIndex + 1 < currentCandidateHeadlines.length) {
           return prevHIndex + 1;
         } else {
           // Wrapped around headlines for current candidate -> advance candidate
-          setCandidateIndex((prevCIndex) => (prevCIndex + 1) % candidates.length);
+          setCandidateIndex((prevCIndex) => (prevCIndex + 1) % allCandidates.length);
           return 0;
         }
       });
     }, cycleIntervalMs);
 
     return () => clearTimeout(timeout);
-  }, [isVisible, candidates, candidateIndex, headlineIndex, currentHeadline, selectedCalendarItem, surfacedMemoryId]);
+  }, [isVisible, allCandidates, candidateIndex, headlineIndex, currentHeadline, selectedCalendarItem, surfacedMemoryId]);
 
   // Find underlying memory if surfaced
   const surfacedMemory = surfacedMemoryId
@@ -798,7 +827,7 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
   const handleCandidateClick = (candidate: TodayRelevanceCandidate) => {
     if (!candidate) return;
 
-    const idx = candidates.findIndex((c) =>
+    const idx = allCandidates.findIndex((c) =>
       candidate.occurrence_id && c.occurrence_id
         ? c.occurrence_id === candidate.occurrence_id
         : c.source_id === candidate.source_id
@@ -821,6 +850,11 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
   };
 
   const handleDismissCandidate = useCallback((candidate: TodayRelevanceCandidate) => {
+    if (candidate.source_id?.startsWith('ephemeral_call:')) {
+      if (onDismissEphemeral) {
+        onDismissEphemeral();
+      }
+    }
     setCandidates((prev) => {
       const newCandidates = prev.filter((c) => {
         if (candidate.occurrence_id && c.occurrence_id) {
@@ -828,32 +862,39 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
         }
         return c.source_id !== candidate.source_id;
       });
-      if (newCandidates.length === 0) {
+      if (newCandidates.length === 0 && !ephemeralCandidate) {
         setIsVisible(false);
         setCandidateIndex(0);
         setHeadlineIndex(0);
       } else {
-        setCandidateIndex((prevIndex) => (prevIndex >= newCandidates.length ? 0 : prevIndex));
+        const totalLen = ephemeralCandidate ? newCandidates.length + 1 : newCandidates.length;
+        setCandidateIndex((prevIndex) => (prevIndex >= totalLen ? 0 : prevIndex));
         setHeadlineIndex(0);
       }
       return newCandidates;
     });
-  }, []);
+  }, [onDismissEphemeral, ephemeralCandidate]);
 
   const handleRemoveCandidate = useCallback((candidateSourceId: string) => {
+    if (candidateSourceId.startsWith('ephemeral_call:')) {
+      if (onDismissEphemeral) {
+        onDismissEphemeral();
+      }
+    }
     setCandidates((prev) => {
       const newCandidates = prev.filter((c) => c.source_id !== candidateSourceId);
-      if (newCandidates.length === 0) {
+      if (newCandidates.length === 0 && !ephemeralCandidate) {
         setIsVisible(false);
         setCandidateIndex(0);
         setHeadlineIndex(0);
       } else {
-        setCandidateIndex((prevIndex) => (prevIndex >= newCandidates.length ? 0 : prevIndex));
+        const totalLen = ephemeralCandidate ? newCandidates.length + 1 : newCandidates.length;
+        setCandidateIndex((prevIndex) => (prevIndex >= totalLen ? 0 : prevIndex));
         setHeadlineIndex(0);
       }
       return newCandidates;
     });
-  }, []);
+  }, [onDismissEphemeral, ephemeralCandidate]);
 
   const handleItemAddedToCandidate = (newItem: string) => {
     if (!selectedCalendarItem) return;
@@ -961,6 +1002,21 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
               <span className="text-[10px] text-zinc-400 font-mono">
                 {headlineIndex + 1}/{headlines.length}
               </span>
+            )}
+            {currentCandidate.source_id?.startsWith('ephemeral_call:') && (
+              <button
+                id="dismiss-ephemeral-call-btn"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDismissEphemeral?.();
+                }}
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
+                title="Dismiss prompt"
+                aria-label="Dismiss post-call prompt"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
         </div>
