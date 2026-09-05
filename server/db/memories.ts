@@ -5,6 +5,7 @@ import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
 import { saveRelationships, saveUserEntity, extractPhoneNumber, normalizeRoleName, unsuppressUserEntity } from '../relationships/index';
 import { extractSearchDoc, getSearchSyncStatements, getSearchDeleteStatements } from './search_sync';
 import { buildMemoryDocumentString, syncMemoryVector, deleteMemoryVector } from '../retrieval/vector_service';
+import { linkMemoryEntities, unlinkMemory, resolvePersonToEntityId } from './memory_entities';
 
 // Helper to parse stored topics and retrieval metadata
 export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackKind: string) {
@@ -238,6 +239,83 @@ export async function readMemoryById(id: string): Promise<any | null> {
   }
 }
 
+// Read multiple memories bounded by a specific list of IDs from Bunny DB
+export async function readMemoriesByIds(ids: string[]): Promise<any[]> {
+  const uniqueIds = Array.from(new Set(ids.map(id => (id || '').trim()).filter(Boolean)));
+  if (uniqueIds.length === 0) return [];
+
+  try {
+    await initBunnyDb();
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    const list = await executeBunnySql([{
+      sql: `SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories WHERE id IN (${placeholders}) ORDER BY createdAt DESC;`,
+      args: uniqueIds
+    }]);
+
+    if (!list[0] || !list[0].rows) return [];
+
+    return list[0].rows.map((row: any) => {
+      const meta = parseStoredTopicsAndMetadata(row.topics, row.kind);
+      const timeMeta = parseStoredResurfacing(row.resurfacingTiming, row.resurfacingMode);
+
+      let parsedPeople: string[] = [];
+      try {
+        parsedPeople = typeof row.people === 'string' ? JSON.parse(row.people) : (row.people || []);
+        if (!Array.isArray(parsedPeople)) parsedPeople = [];
+      } catch {
+        parsedPeople = [];
+      }
+
+      let parsedPlaces: string[] = [];
+      try {
+        parsedPlaces = typeof row.places === 'string' ? JSON.parse(row.places) : (row.places || []);
+        if (!Array.isArray(parsedPlaces)) parsedPlaces = [];
+      } catch {
+        parsedPlaces = [];
+      }
+
+      return {
+        id: row.id,
+        originalText: row.originalText || '',
+        createdAt: row.createdAt,
+        isDone: Boolean(Number(row.isDone)),
+        anticipatory_mode: meta.anticipatory_mode,
+        anticipatory_opted_in: meta.anticipatory_opted_in,
+        interpretation: {
+          content: row.content,
+          kind: row.kind,
+          intent: meta.intent,
+          status: row.status,
+          people: parsedPeople,
+          places: parsedPlaces,
+          topics: meta.topics,
+          contexts: meta.contexts,
+          retrieval_cues: meta.retrieval_cues,
+          items: meta.items || [],
+          relationships: meta.relationships || [],
+          prerequisite: meta.prerequisite || null,
+          original_time_expression: timeMeta.original_time_expression,
+          resolved_datetime: timeMeta.resolved_datetime,
+          event_time_expression: timeMeta.event_time_expression,
+          event_datetime: timeMeta.event_datetime,
+          reminder_time_expression: timeMeta.reminder_time_expression,
+          reminder_datetime: timeMeta.reminder_datetime,
+          resurfacing: timeMeta.resurfacing,
+          suggested_action: meta.suggested_action || null,
+          linked_event_id: meta.linked_event_id || null,
+          subject: meta.subject || null,
+          subject_resolved_date: meta.subject_resolved_date || null,
+          anticipatory_mode: meta.anticipatory_mode,
+          anticipatory_opted_in: meta.anticipatory_opted_in,
+        },
+      };
+    });
+  } catch (err) {
+    console.error('[Bunny DB] Error reading memories by IDs from database:', err);
+    return [];
+  }
+}
+
 // Insert memory records into Bunny Database and schedule reminders if timed
 export async function insertMemories(
   items: any[],
@@ -409,6 +487,29 @@ export async function insertMemories(
       }
     }
     await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true });
+  }
+
+  // Link memories to canonical user entities structurally in memory_entities
+  for (const item of items) {
+    const people = Array.isArray(item.interpretation?.people) ? item.interpretation.people : [];
+    const itemRelationships = Array.isArray(item.interpretation?.relationships) ? item.interpretation.relationships : [];
+    const candidatePersons = Array.from(new Set([
+      ...people,
+      ...itemRelationships.map((r: any) => r?.person).filter(Boolean)
+    ]));
+
+    if (candidatePersons.length > 0) {
+      const entityIds: string[] = [];
+      for (const p of candidatePersons) {
+        const entId = await resolvePersonToEntityId(p);
+        if (entId) {
+          entityIds.push(entId);
+        }
+      }
+      if (entityIds.length > 0) {
+        await linkMemoryEntities(item.id, entityIds, item.createdAt);
+      }
+    }
   }
 
   return { phoneOffer: phoneOffer || null };
@@ -684,6 +785,26 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     }
   }
 
+  // Re-sync memory_entities links
+  await unlinkMemory(row.id);
+  const updatedPeople = Array.isArray(updatedInterpretation.people) ? updatedInterpretation.people : [];
+  const updatedCandidatePersons = Array.from(new Set([
+    ...updatedPeople,
+    ...itemRelationships.map((r: any) => r?.person).filter(Boolean)
+  ]));
+  if (updatedCandidatePersons.length > 0) {
+    const entityIds: string[] = [];
+    for (const p of updatedCandidatePersons) {
+      const entId = await resolvePersonToEntityId(p);
+      if (entId) {
+        entityIds.push(entId);
+      }
+    }
+    if (entityIds.length > 0) {
+      await linkMemoryEntities(row.id, entityIds, row.createdAt);
+    }
+  }
+
   return {
     id: row.id,
     originalText: row.originalText, // Preserved original capture text
@@ -767,6 +888,10 @@ export async function deleteMemoryFromDb(id: string): Promise<void> {
   await executeBunnySql([
     {
       sql: 'DELETE FROM memories WHERE id = ?;',
+      args: [id]
+    },
+    {
+      sql: 'DELETE FROM memory_entities WHERE memory_id = ?;',
       args: [id]
     },
     {

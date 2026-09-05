@@ -78,6 +78,8 @@ import {
 } from './server/retrieval/dcr';
 import { executeNativeRetrievalPipeline } from './server/retrieval/native_search';
 import { executeArchitectureDRetrieval } from './server/retrieval/architecture_d';
+import { retrieveBoundedMemoryCandidates } from './server/retrieval/bounded_retrieval';
+import { backfillMemoryEntities } from './server/db/memory_entities';
 import {
   initVapidKeys,
   dispatchDueReminders,
@@ -1375,10 +1377,9 @@ app.post('/api/ask', async (req, res) => {
     const trimmedQuestion = question.trim();
     console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
-    // Phase A: Concurrent database retrieval for relationships, memories, and calendar events
-    const [activeRelationships, memories, calendarEvents, userEntities] = await Promise.all([
+    // Phase A: Concurrent database retrieval for relationships, calendar events, and user entities
+    const [activeRelationships, calendarEvents, userEntities] = await Promise.all([
       readActiveRelationships(),
-      readMemories(),
       readCalendarEvents(),
       getUserEntities(),
     ]);
@@ -1408,17 +1409,27 @@ app.post('/api/ask', async (req, res) => {
 
     const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
 
-    // Run Context Builder Stage (DYNAMIC CONTEXT RETRIEVAL v1)
+    // Phase B: Bounded Memory Candidate Retrieval (Entity Links + Exact Subject + FTS BM25 + Recency)
+    // Ask never executes an unbounded SELECT * across the entire memories table.
+    const boundedRetrieval = await retrieveBoundedMemoryCandidates({
+      question: trimmedQuestion,
+      localContext,
+      activeRelationships,
+      userEntities,
+    });
+    const boundedMemories = boundedRetrieval.candidateMemories;
+
+    // Run Context Builder Stage (DYNAMIC CONTEXT RETRIEVAL v1) on bounded candidate pool
     const dynamicRetrieval = buildDynamicRetrievalContext(
       trimmedQuestion,
-      memories,
+      boundedMemories,
       calendarEvents,
       activeRelationships,
       localContext
     );
 
     const { candidateMemories, candidateCalendarEvents, retrievalMetadata } = dynamicRetrieval;
-    console.log(`[Dynamic Retrieval v1] Built focused candidate set: ${candidateMemories.length}/${memories.length} memories, ${candidateCalendarEvents.length}/${calendarEvents.length} calendar events. Anchors: people=[${retrievalMetadata.resolvedPeople.join(', ')}], roles=[${retrievalMetadata.resolvedRoles.join(', ')}], places=[${retrievalMetadata.detectedPlaces.join(', ')}], topics=[${retrievalMetadata.topicsAndKeywords.join(', ')}], temporal=[${retrievalMetadata.temporalAnchors.months.concat(retrievalMetadata.temporalAnchors.relativeExpressions).join(', ')}]`);
+    console.log(`[Dynamic Retrieval v1] Built focused candidate set: ${candidateMemories.length}/${boundedMemories.length} candidates, ${candidateCalendarEvents.length}/${calendarEvents.length} calendar events. Anchors: people=[${retrievalMetadata.resolvedPeople.join(', ')}], roles=[${retrievalMetadata.resolvedRoles.join(', ')}], places=[${retrievalMetadata.detectedPlaces.join(', ')}], topics=[${retrievalMetadata.topicsAndKeywords.join(', ')}], temporal=[${retrievalMetadata.temporalAnchors.months.concat(retrievalMetadata.temporalAnchors.relativeExpressions).join(', ')}]`);
 
     // -------------------------------------------------------------
     // SHADOW ARCHITECTURE D & NATIVE RETRIEVAL (Step 2.2B)
@@ -1687,7 +1698,7 @@ Please answer the user's question accurately and concisely based strictly on the
         is_out_of_scope = true;
       }
 
-      const validMemoryMap = new Map(memories.map(m => [m.id, m]));
+      const validMemoryMap = new Map(candidateMemories.map(m => [m.id, m]));
       const validEventMap = new Map(calendarEvents.map(e => [e.id, e]));
 
       if (Array.isArray(parsed.memory_ids)) {
@@ -1698,8 +1709,8 @@ Please answer the user's question accurately and concisely based strictly on the
           } else {
             // Handle numeric index or partial ID returned by model
             const numIndex = parseInt(strId.replace(/\D/g, ''), 10);
-            if (!isNaN(numIndex) && memories[numIndex]) {
-              const matchedId = memories[numIndex].id;
+            if (!isNaN(numIndex) && candidateMemories[numIndex]) {
+              const matchedId = candidateMemories[numIndex].id;
               if (!memory_ids.includes(matchedId)) memory_ids.push(matchedId);
             }
           }
@@ -1819,6 +1830,9 @@ async function setupServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Ezzymigo server running on port ${PORT}`);
+    backfillMemoryEntities().catch(err => {
+      console.warn('[MemoryEntities Backfill] Startup non-fatal error:', err);
+    });
   });
 }
 

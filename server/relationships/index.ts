@@ -626,6 +626,7 @@ export async function forgetUserEntity(person: string): Promise<boolean> {
   const p = (person || '').trim();
   if (!p) return false;
   const nowIso = new Date().toISOString();
+  const canonicalId = `ent_person_${p.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
   await initBunnyDb();
   try {
@@ -637,6 +638,10 @@ export async function forgetUserEntity(person: string): Promise<boolean> {
       {
         sql: 'DELETE FROM user_entities WHERE LOWER(name) = LOWER(?);',
         args: [p]
+      },
+      {
+        sql: 'DELETE FROM memory_entities WHERE entity_id = ?;',
+        args: [canonicalId]
       },
       {
         sql: `INSERT INTO suppressed_entities (name, suppressed_at)
