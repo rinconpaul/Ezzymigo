@@ -320,10 +320,15 @@ export async function readMemoriesByIds(ids: string[]): Promise<any[]> {
 export async function insertMemories(
   items: any[],
   options?: { skipRelationshipSave?: boolean }
-): Promise<{ phoneOffer?: { person: string; role: string } | null }> {
+): Promise<{
+  phoneOffer?: { person: string; role: string } | null;
+  scheduledReminders?: Array<{ memoryId: string; remindAt: string }>;
+  linkedEntities?: Array<{ memoryId: string; entityId: string; entityName?: string }>;
+}> {
   await initBunnyDb();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const reminderStmts: Array<{ sql: string; args: any[] }> = [];
+  const scheduledReminders: Array<{ memoryId: string; remindAt: string }> = [];
   const relationshipsToSave: Array<{ person: string; role: string; is_active?: boolean }> = [];
   let phoneOffer: { person: string; role: string } | null = null;
 
@@ -454,6 +459,7 @@ export async function insertMemories(
 
     if (remindAt) {
       console.log(`[Scheduler] Scheduling reminder for "${item.interpretation.content}" at ${remindAt}`);
+      scheduledReminders.push({ memoryId: item.id, remindAt });
       reminderStmts.push({
         sql: `INSERT INTO scheduled_reminders (id, memoryId, title, body, remindAt, notified, createdAt)
               VALUES (?, ?, ?, ?, ?, ?, ?);`,
@@ -490,6 +496,7 @@ export async function insertMemories(
   }
 
   // Link memories to canonical user entities structurally in memory_entities
+  const linkedEntities: Array<{ memoryId: string; entityId: string; entityName?: string }> = [];
   for (const item of items) {
     const people = Array.isArray(item.interpretation?.people) ? item.interpretation.people : [];
     const itemRelationships = Array.isArray(item.interpretation?.relationships) ? item.interpretation.relationships : [];
@@ -504,6 +511,7 @@ export async function insertMemories(
         const entId = await resolvePersonToEntityId(p);
         if (entId) {
           entityIds.push(entId);
+          linkedEntities.push({ memoryId: item.id, entityId: entId, entityName: p });
         }
       }
       if (entityIds.length > 0) {
@@ -512,7 +520,11 @@ export async function insertMemories(
     }
   }
 
-  return { phoneOffer: phoneOffer || null };
+  return {
+    phoneOffer: phoneOffer || null,
+    scheduledReminders,
+    linkedEntities,
+  };
 }
 
 // Toggle memory Done status in Bunny Database

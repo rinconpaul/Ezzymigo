@@ -225,6 +225,7 @@ export default function App() {
     const prefs = getUserPreferences();
     const subjectParam = typeof contextOrSubject === 'string' ? contextOrSubject : contextOrSubject?.subject;
     const linkedEventIdParam = typeof contextOrSubject === 'object' ? contextOrSubject?.linkedEventId : undefined;
+    const eventTitleParam = typeof contextOrSubject === 'object' ? contextOrSubject?.eventTitle : undefined;
     try {
       const res = await fetch('/api/memories', {
         method: 'POST',
@@ -237,6 +238,7 @@ export default function App() {
           clientRegion: prefs.region || 'AU',
           clientCurrency: prefs.currency || 'AUD',
           linkedEventId: linkedEventIdParam || undefined,
+          eventTitle: eventTitleParam || undefined,
           subject: subjectParam || undefined,
         }),
       });
@@ -251,7 +253,7 @@ export default function App() {
       // Handle immediate device action (tel: or sms:) without creating or persisting memories
       if (data.deviceAction) {
         await handleImmediateDeviceAction(data.deviceAction as ImmediateDeviceActionPayload);
-        return;
+        return data;
       }
 
       const newItems: MemoryItem[] = Array.isArray(data.memories)
@@ -296,6 +298,8 @@ export default function App() {
         ephemeralCallBridge.dismissCandidate();
         setEphemeralCandidate(null);
       }
+
+      return data;
     } catch (err: any) {
       console.error('Save error:', err);
       setError(err?.message || 'Failed to interpret and save thought.');

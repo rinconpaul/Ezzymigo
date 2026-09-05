@@ -24,7 +24,13 @@ import {
 import {
   resolveAmbiguousTimeToIso,
   formatTimingWithResolvedMeridiem,
+  detectClockTimeAmbiguity,
 } from './server/utils/timeAmbiguity';
+import {
+  evaluateMemoryAcknowledgement,
+  compositeAcknowledgement,
+  MemoryProcessingEvidence,
+} from './server/ai/acknowledgementPolicy';
 import {
   splitterResponseSchema,
   memoryItemSchema,
@@ -335,6 +341,9 @@ app.post('/api/memories', async (req, res) => {
         memory: null,
         clarification: null,
         phoneOffer: null,
+        ack_level: 3,
+        ack_evidence: ['device_action_created'],
+        ack_label: 'Action ready',
       });
     }
 
@@ -405,12 +414,14 @@ app.post('/api/memories', async (req, res) => {
     const activeRelationships = mergeRelationshipsWithExtracted(currentActiveRelationships, extractedRelationships);
 
     // Synchronous Ambiguity Detection with pre-loaded historical memories (0 ms DB wait):
+    const enrichedRelationships: Array<{ memoryId: string; person: string; role: string }> = [];
     const clarification = await detectAmbiguityInSavedMemories(
       newMemories,
       activeRelationships,
       trimmedText,
       ai,
-      historicalMemories
+      historicalMemories,
+      enrichedRelationships
     );
 
     // Prioritise resolving who the person is first: if ambiguity clarification exists, suppress phone offer
@@ -418,11 +429,129 @@ app.post('/api/memories', async (req, res) => {
       phoneOffer = null;
     }
 
+    // Determine calendar context if linkedEventId is passed or present on memory
+    let candidateCalendarEvent: { id: string; title?: string; isUpcoming: boolean } | null = null;
+    const effectiveLinkedEventId = linkedEventId || newMemories[0]?.interpretation?.linked_event_id;
+    if (effectiveLinkedEventId) {
+      try {
+        const allCalendarEvents = await readCalendarEvents();
+        const matchedEvt = allCalendarEvents.find(
+          (e: any) => e.id === effectiveLinkedEventId || e.source_event_id === effectiveLinkedEventId
+        );
+        if (matchedEvt) {
+          const startMs = Date.parse(matchedEvt.start_datetime);
+          const isUpcoming = !isNaN(startMs) && startMs >= Date.now();
+          candidateCalendarEvent = {
+            id: matchedEvt.id,
+            title: matchedEvt.title,
+            isUpcoming,
+          };
+        } else if (req.body?.eventTitle) {
+          const isUpcoming = req.body?.isUpcoming ?? true;
+          candidateCalendarEvent = {
+            id: effectiveLinkedEventId,
+            title: req.body.eventTitle,
+            isUpcoming,
+          };
+        }
+      } catch (err) {
+        console.warn('[Calendar Context] Error checking calendar event context:', err);
+      }
+    }
+
+    // Deterministic Acknowledgement Evaluation:
+    // Evaluate acknowledgement level and truthful evidence for each memory
+    const memoryAckResults = newMemories.map(m => {
+      // Find scheduled reminder for this specific memory
+      const memoryReminder = insertResult?.scheduledReminders?.find(r => r.memoryId === m.id);
+      const scheduledRemindAt = memoryReminder?.remindAt || null;
+      const isReminderScheduled = Boolean(scheduledRemindAt && Date.parse(scheduledRemindAt) > Date.now());
+
+      // Find canonical entity links created for this memory
+      const memoryEntities = insertResult?.linkedEntities?.filter(e => e.memoryId === m.id) || [];
+      const linkedEntityIds = memoryEntities.map(e => e.entityId);
+      const usedEntityNames = memoryEntities.map(e => e.entityName).filter(Boolean) as string[];
+
+      // Check if an existing relationship was materially used
+      const memoryEnrichedRel = enrichedRelationships.find(r => r.memoryId === m.id);
+      const wasExistingRelationshipUsed = Boolean(memoryEnrichedRel);
+      const usedRelationshipDescription = memoryEnrichedRel
+        ? `${memoryEnrichedRel.person} (${memoryEnrichedRel.role})`
+        : null;
+
+      // Check if matched pre-existing Same Subject cluster
+      const targetSubject = (m.interpretation?.subject || subject || '').trim();
+      let matchedExistingSubjectCluster: string | null = null;
+      if (targetSubject) {
+        const hasPrior = historicalMemories.some(
+          (h: any) => h.id !== m.id &&
+               h.interpretation?.subject &&
+               h.interpretation.subject.toLowerCase() === targetSubject.toLowerCase()
+        );
+        if (hasPrior) {
+          matchedExistingSubjectCluster = targetSubject;
+        }
+      }
+
+      // Check temporal ambiguity (e.g. bare "at 4" without am/pm)
+      const clockAmbiguity = detectClockTimeAmbiguity(
+        m.originalText,
+        m.interpretation?.resurfacing?.timing || m.interpretation?.original_time_expression
+      );
+      const isAmbiguousClockTime = clockAmbiguity.isAmbiguous;
+
+      // Extracted structure (Level 1)
+      const resolvedDatetime = m.interpretation?.resolved_datetime || m.interpretation?.reminder_datetime || m.interpretation?.event_datetime || null;
+      const hasTemporalMeaning = Boolean(resolvedDatetime || m.interpretation?.original_time_expression);
+      const recognisedPeopleMentions = Array.isArray(m.interpretation?.people) ? m.interpretation.people : [];
+      const recognisedRelationships = Array.isArray(m.interpretation?.relationships) ? m.interpretation.relationships : [];
+      const extractedItems = Array.isArray(m.interpretation?.items) ? m.interpretation.items : [];
+      const hasPrerequisite = Boolean(m.interpretation?.prerequisite);
+      const hasSuggestedAction = Boolean(m.interpretation?.suggested_action);
+      const structuredIntent = m.interpretation?.intent || null;
+
+      const evidence: MemoryProcessingEvidence = {
+        memoryId: m.id,
+        stored: true,
+        isReminderScheduled,
+        scheduledRemindAt,
+        isLinkedToUpcomingEvent: Boolean(candidateCalendarEvent?.isUpcoming),
+        upcomingEventTitle: candidateCalendarEvent?.isUpcoming ? candidateCalendarEvent.title : null,
+        linkedEntityIds,
+        wasExistingEntityUsed: linkedEntityIds.length > 0,
+        usedEntityNames,
+        wasExistingRelationshipUsed,
+        usedRelationshipDescription,
+        matchedExistingSubjectCluster,
+        contributedCalendarEvent: candidateCalendarEvent,
+        resolvedDatetime,
+        hasTemporalMeaning,
+        recognisedPeopleMentions,
+        recognisedRelationships,
+        extractedItems,
+        hasPrerequisite,
+        hasSuggestedAction,
+        structuredIntent,
+        isAmbiguousClockTime,
+      };
+
+      const ackResult = evaluateMemoryAcknowledgement(evidence);
+      m.ack_level = ackResult.ack_level;
+      m.ack_evidence = ackResult.ack_evidence;
+      return ackResult;
+    });
+
+    const compositeAck = compositeAcknowledgement(memoryAckResults);
+
     return res.status(201).json({
       memory: newMemories[0],
       memories: newMemories,
       clarification: clarification || null,
       phoneOffer: phoneOffer || null,
+      ack_level: compositeAck.ack_level,
+      ack_evidence: compositeAck.ack_evidence,
+      ack_label: compositeAck.ack_label,
+      ack_detail: compositeAck.ack_detail,
     });
   } catch (err: any) {
     console.error('Error in capture & save pipeline:', err);

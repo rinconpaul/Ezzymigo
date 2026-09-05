@@ -5,7 +5,7 @@ import { getUserPreferences } from '../utils/userPreferences';
 import { ImmediateDeviceActionPayload } from '../types';
 
 interface ThoughtInputProps {
-  onSave: (text: string, subject?: string) => Promise<void>;
+  onSave: (text: string, subject?: string) => Promise<any>;
   onImmediateAction?: (action: ImmediateDeviceActionPayload) => Promise<void> | void;
   isLoading: boolean;
   existingSubjects?: string[];
@@ -32,7 +32,12 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
   useEffect(() => {
     thoughtRef.current = thought;
   }, [thought]);
-  const [showSaved, setShowSaved] = useState(false);
+  const [savedAck, setSavedAck] = useState<{
+    ack_level: 0 | 1 | 2 | 3;
+    ack_evidence: string[];
+    ack_label: string;
+    ack_detail?: string;
+  } | null>(null);
   const [internalActiveSubject, setInternalActiveSubject] = useState<string | null>(null);
   const [internalIsSubjectPaused, setInternalIsSubjectPaused] = useState(false);
   const [isEnteringSubject, setIsEnteringSubject] = useState(false);
@@ -210,20 +215,34 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
     if (!textToSubmit || isLoading) return;
 
     try {
-      await onSave(textToSubmit, effectiveSubject);
+      const saveResult = await onSave(textToSubmit, effectiveSubject);
       setThought('');
       thoughtRef.current = '';
       if (textareaRef.current) {
         textareaRef.current.style.height = '38px';
       }
 
-      setShowSaved(true);
+      if (saveResult && saveResult.ack_level !== undefined) {
+        setSavedAck({
+          ack_level: saveResult.ack_level,
+          ack_evidence: saveResult.ack_evidence || [],
+          ack_label: saveResult.ack_label || 'Saved',
+          ack_detail: saveResult.ack_detail,
+        });
+      } else {
+        setSavedAck({
+          ack_level: 0,
+          ack_evidence: ['stored_only'],
+          ack_label: 'Saved',
+        });
+      }
+
       if (savedTimeoutRef.current) {
         clearTimeout(savedTimeoutRef.current);
       }
       savedTimeoutRef.current = setTimeout(() => {
-        setShowSaved(false);
-      }, 1500);
+        setSavedAck(null);
+      }, 2000);
     } catch {
       // On save failure, do not show saved confirmation or clear text
     }
@@ -289,13 +308,23 @@ export const ThoughtInput: React.FC<ThoughtInputProps> = ({
                 Listening…
               </span>
             )}
-            {showSaved && (
+            {savedAck && (
               <span
                 id="tell-saved-indicator"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md transition-all animate-in fade-in duration-150"
+                data-ack-level={savedAck.ack_level}
+                data-ack-evidence={savedAck.ack_evidence.join(';')}
+                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md transition-all animate-in fade-in duration-150 ${
+                  savedAck.ack_level === 3
+                    ? 'text-amber-800 bg-amber-50 border border-amber-300'
+                    : savedAck.ack_level === 2
+                    ? 'text-blue-800 bg-blue-50 border border-blue-200'
+                    : savedAck.ack_level === 1
+                    ? 'text-emerald-800 bg-emerald-50 border border-emerald-300'
+                    : 'text-zinc-700 bg-zinc-100 border border-zinc-200'
+                }`}
               >
-                <Check className="w-3 h-3 text-emerald-600" />
-                Saved ✓
+                <Check className="w-3 h-3 text-current shrink-0" />
+                <span>{savedAck.ack_label}</span>
               </span>
             )}
           </div>

@@ -219,6 +219,15 @@ export interface StructuredInterpretation {
   anticipatory_opted_in?: boolean;
 }
 
+export type AcknowledgementLevel = 0 | 1 | 2 | 3;
+
+export interface AcknowledgementPayload {
+  ack_level: AcknowledgementLevel;
+  ack_evidence: string[];
+  ack_label: string;
+  ack_detail?: string;
+}
+
 export interface MemoryItem {
   id: string;
   originalText: string;
@@ -227,6 +236,8 @@ export interface MemoryItem {
   interpretation: StructuredInterpretation;
   anticipatory_mode?: AnticipatoryMode;
   anticipatory_opted_in?: boolean;
+  ack_level?: AcknowledgementLevel;
+  ack_evidence?: string[];
 }
 
 export interface CalendarEvent {

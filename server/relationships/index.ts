@@ -833,7 +833,8 @@ export async function detectAmbiguityInSavedMemories(
   activeRelationships: Array<{ person: string; role: string; normalized_role: string }>,
   originalText: string,
   ai: GoogleGenAI | null,
-  preLoadedMemories?: any[]
+  preLoadedMemories?: any[],
+  enrichedOut?: Array<{ memoryId: string; person: string; role: string }>
 ): Promise<{
   id: string;
   question: string;
@@ -907,6 +908,9 @@ export async function detectAmbiguityInSavedMemories(
         // 1 Confident Match: Silently associate!
         console.log(`[Ambiguity Rule] Confidently matched "${person}" to known role "${matches[0].role}". Silently associating without asking.`);
         await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role);
+        if (enrichedOut) {
+          enrichedOut.push({ memoryId: memory.id, person: matches[0].person, role: matches[0].role });
+        }
         continue;
       } else if (matches.length > 1) {
         // Multiple known matches: Disambiguate! (e.g. "Which Peter? Peter — brother, Peter — plumber")
@@ -968,6 +972,9 @@ export async function detectAmbiguityInSavedMemories(
           if (matches.length === 1) {
             console.log(`[Ambiguity Rule] Silently resolving role "my ${matchedRole}" to known person "${matches[0].person}".`);
             await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role);
+            if (enrichedOut) {
+              enrichedOut.push({ memoryId: memory.id, person: matches[0].person, role: matches[0].role });
+            }
           } else if (matches.length > 1) {
             console.log(`[Ambiguity Rule] Multiple candidates for role "${matchedRole}". Asking disambiguation question.`);
             return {

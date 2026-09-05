@@ -10,7 +10,7 @@ interface TodayTickerProps {
   onToggleDone?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onEdit?: (id: string, newText: string) => Promise<void>;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<void>;
+  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
   ephemeralCandidate?: TodayRelevanceCandidate | null;
   onDismissEphemeral?: () => void;
 }
@@ -86,13 +86,17 @@ export const markReflectionDismissed = (eventId: string, occurrenceId?: string) 
 const AnticipatoryPreparationTray: React.FC<{
   candidate: TodayRelevanceCandidate;
   onClose: () => void;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string }) => Promise<void>;
+  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
   onItemAdded?: (newItem: string) => void;
   onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
 }> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
   const [text, setText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState<{
+    ack_level: 0 | 1 | 2 | 3;
+    ack_evidence: string[];
+    ack_label: string;
+  } | null>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const touchStartY = useRef<number | null>(null);
@@ -198,7 +202,7 @@ const AnticipatoryPreparationTray: React.FC<{
     setIsSaving(true);
     try {
       const occId = getOccurrenceId();
-      await onSaveThought(trimmed, {
+      const saveRes = await onSaveThought(trimmed, {
         linkedEventId: occId,
         eventTitle: candidate.event_title || candidate.display_text,
         subject: candidate.source_id?.startsWith('ephemeral_call:')
@@ -215,10 +219,14 @@ const AnticipatoryPreparationTray: React.FC<{
           onItemAdded(trimmed);
         }
       }
-      setSavedSuccess(true);
+      setSavedSuccess({
+        ack_level: saveRes?.ack_level ?? (isReflection ? 2 : 3),
+        ack_evidence: saveRes?.ack_evidence ?? [],
+        ack_label: saveRes?.ack_label || (isReflection ? 'Follow-through recorded' : 'Linked to upcoming event'),
+      });
       setTimeout(() => {
         onClose();
-      }, 900);
+      }, 1000);
     } catch (err) {
       console.error('[Anticipatory Tray] Error saving intention or outcome:', err);
     } finally {
@@ -269,9 +277,14 @@ const AnticipatoryPreparationTray: React.FC<{
       </div>
 
       {savedSuccess ? (
-        <div className="flex items-center gap-2 py-2 px-3 bg-emerald-950/60 border border-emerald-700/50 rounded-lg text-emerald-300 text-xs font-medium animate-in fade-in">
+        <div
+          id="anticipatory-prep-saved-indicator"
+          data-ack-level={savedSuccess.ack_level}
+          data-ack-evidence={savedSuccess.ack_evidence.join(';')}
+          className="flex items-center gap-2 py-2 px-3 bg-emerald-950/60 border border-emerald-700/50 rounded-lg text-emerald-300 text-xs font-medium animate-in fade-in"
+        >
           <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Saved to your Ezzymigo memories!</span>
+          <span>{savedSuccess.ack_label}</span>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -348,7 +361,7 @@ const AnticipatoryPreparationTray: React.FC<{
 const AnticipatoryReminderTray: React.FC<{
   candidate: TodayRelevanceCandidate;
   onClose: () => void;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string }) => Promise<void>;
+  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
   onItemAdded?: (newItem: string) => void;
   onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
 }> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
