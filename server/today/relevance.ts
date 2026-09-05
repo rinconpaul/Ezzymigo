@@ -8,6 +8,7 @@ import { classifyAnticipatoryMode, isRecurringRoutineText } from '../anticipator
 import { buildAnticipatoryPrompt } from '../anticipatory/promptBuilder';
 import { getActiveUserOccasionOccurrences } from '../occasions/manager';
 import { daysBetween } from '../occasions/dateResolver';
+import { assertEzzyAccess, DEFAULT_EZZY_ID } from '../instances/entitlements';
 
 export function getOccasionTemporalDescription(targetYMD: string, todayYMD: string, timeZone = 'Australia/Sydney'): string {
   const diff = daysBetween(todayYMD, targetYMD);
@@ -1702,17 +1703,23 @@ export async function computeTodayRelevance(
   clientTimeZone?: string,
   clientLanguage?: string,
   clientRegion?: string,
-  dismissedReflectionIds: string[] = []
+  dismissedReflectionIds: string[] = [],
+  ezzyId?: string,
+  userId?: string
 ) {
   const t0 = Date.now();
+  const eid = (ezzyId || DEFAULT_EZZY_ID).trim();
+  if (userId) {
+    await assertEzzyAccess(eid, userId, 'read');
+  }
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
 
   // Parallel fetch memories, calendar events, active relationships, and resolved occasions
   const [memories, calendarEvents, activeRelationships, occasionOccurrences] = await Promise.all([
-    readMemories(),
-    readCalendarEvents(),
-    readActiveRelationships(),
-    getActiveUserOccasionOccurrences(localContext.referenceDate, localContext.timeZone),
+    readMemories(eid),
+    readCalendarEvents(undefined, eid),
+    readActiveRelationships(eid),
+    getActiveUserOccasionOccurrences(localContext.referenceDate, localContext.timeZone, 14, 60, eid),
   ]);
   const tDb = Date.now();
 

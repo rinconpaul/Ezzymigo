@@ -12,6 +12,7 @@ export interface BoundedRetrievalOptions {
   userEntities?: any[];
   status?: string;
   maxCandidates?: number;
+  ezzyId?: string;
 }
 
 export interface BoundedRetrievalResult {
@@ -48,6 +49,7 @@ export async function retrieveBoundedMemoryCandidates(
     userEntities = [],
     status = 'active',
     maxCandidates = 100,
+    ezzyId,
   } = options;
 
   const qTrimmed = (question || '').trim();
@@ -133,18 +135,20 @@ export async function retrieveBoundedMemoryCandidates(
     ftsResultsRaw,
     recencyResRaw
   ] = await Promise.all([
-    activeMatchedEntityIds.length > 0 ? getMemoryIdsForEntities(activeMatchedEntityIds) : Promise.resolve([]),
-    retrieveStageAExactSubject(qTrimmed, status).catch(subjErr => {
+    activeMatchedEntityIds.length > 0 ? getMemoryIdsForEntities(activeMatchedEntityIds, ezzyId) : Promise.resolve([]),
+    retrieveStageAExactSubject(qTrimmed, status, ezzyId).catch(subjErr => {
       console.warn('[Bounded Retrieval] Non-fatal error in subject retrieval lane:', subjErr);
       return [] as string[];
     }),
-    retrieveStageBFts(qTrimmed, 40).catch(ftsErr => {
+    retrieveStageBFts(qTrimmed, 40, ezzyId).catch(ftsErr => {
       console.warn('[Bounded Retrieval] Non-fatal error in FTS retrieval lane:', ftsErr);
       return [] as Array<{ memory_id: string; score: number; content: string }>;
     }),
     executeBunnySql([{
-      sql: `SELECT memory_id FROM memory_search_projection WHERE status = ? ORDER BY createdAt DESC LIMIT 15;`,
-      args: [status],
+      sql: ezzyId
+        ? `SELECT memory_id FROM memory_search_projection WHERE status = ? AND ezzy_id = ? ORDER BY createdAt DESC LIMIT 15;`
+        : `SELECT memory_id FROM memory_search_projection WHERE status = ? ORDER BY createdAt DESC LIMIT 15;`,
+      args: ezzyId ? [status, ezzyId] : [status],
     }]).catch(recErr => {
       console.warn('[Bounded Retrieval] Non-fatal error in recency retrieval lane:', recErr);
       return [] as any[];
@@ -205,7 +209,7 @@ export async function retrieveBoundedMemoryCandidates(
   const finalCandidateIds = prioritizedIds.slice(0, Math.max(maxCandidates, exactSubjectIds.length));
 
   // Hydrate only the bounded candidates from database
-  const candidateMemories = await readMemoriesByIds(finalCandidateIds);
+  const candidateMemories = await readMemoriesByIds(finalCandidateIds, ezzyId);
 
   console.log(`[Bounded Retrieval] Query: "${qTrimmed}" -> Candidates: ${candidateMemories.length} (EntitiesMatched: [${activeMatchedEntityIds.join(', ')}], EntityLane: ${entityLaneIds.length}, SubjectLane: ${exactSubjectIds.length}, FtsLane: ${ftsIds.length}, RecencyLane: ${recencyIds.length})`);
 

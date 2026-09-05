@@ -126,11 +126,14 @@ export function parseStoredResurfacing(rawTiming: string | null, rawMode: string
 }
 
 // Read memories from Bunny Database (durable source of truth)
-export async function readMemories(): Promise<any[]> {
+export async function readMemories(ezzyId?: string): Promise<any[]> {
   try {
     await initBunnyDb();
+    const ezzyClause = ezzyId ? ` WHERE ezzy_id = ?` : ``;
+    const ezzyArgs = ezzyId ? [ezzyId] : [];
     const results = await executeBunnySql([{
-      sql: 'SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories ORDER BY createdAt DESC;'
+      sql: `SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories${ezzyClause} ORDER BY createdAt DESC;`,
+      args: ezzyArgs,
     }]);
 
     if (!results[0] || !results[0].rows) return [];
@@ -182,12 +185,14 @@ export async function readMemories(): Promise<any[]> {
 }
 
 // Read a single memory by ID from Bunny DB
-export async function readMemoryById(id: string): Promise<any | null> {
+export async function readMemoryById(id: string, ezzyId?: string): Promise<any | null> {
   try {
     await initBunnyDb();
+    const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+    const ezzyArgs = ezzyId ? [id, ezzyId] : [id];
     const list = await executeBunnySql([{
-      sql: 'SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories WHERE id = ?;',
-      args: [id]
+      sql: `SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories WHERE id = ?${ezzyClause};`,
+      args: ezzyArgs
     }]);
 
     if (!list[0] || !list[0].rows || list[0].rows.length === 0) {
@@ -240,16 +245,18 @@ export async function readMemoryById(id: string): Promise<any | null> {
 }
 
 // Read multiple memories bounded by a specific list of IDs from Bunny DB
-export async function readMemoriesByIds(ids: string[]): Promise<any[]> {
+export async function readMemoriesByIds(ids: string[], ezzyId?: string): Promise<any[]> {
   const uniqueIds = Array.from(new Set(ids.map(id => (id || '').trim()).filter(Boolean)));
   if (uniqueIds.length === 0) return [];
 
   try {
     await initBunnyDb();
     const placeholders = uniqueIds.map(() => '?').join(', ');
+    const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+    const ezzyArgs = ezzyId ? [...uniqueIds, ezzyId] : uniqueIds;
     const list = await executeBunnySql([{
-      sql: `SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories WHERE id IN (${placeholders}) ORDER BY createdAt DESC;`,
-      args: uniqueIds
+      sql: `SELECT id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming FROM memories WHERE id IN (${placeholders})${ezzyClause} ORDER BY createdAt DESC;`,
+      args: ezzyArgs
     }]);
 
     if (!list[0] || !list[0].rows) return [];
@@ -319,13 +326,15 @@ export async function readMemoriesByIds(ids: string[]): Promise<any[]> {
 // Insert memory records into Bunny Database and schedule reminders if timed
 export async function insertMemories(
   items: any[],
-  options?: { skipRelationshipSave?: boolean }
+  options?: { skipRelationshipSave?: boolean },
+  ezzyId: string = 'ezzy_default'
 ): Promise<{
   phoneOffer?: { person: string; role: string } | null;
   scheduledReminders?: Array<{ memoryId: string; remindAt: string }>;
   linkedEntities?: Array<{ memoryId: string; entityId: string; entityName?: string }>;
 }> {
   await initBunnyDb();
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const reminderStmts: Array<{ sql: string; args: any[] }> = [];
   const scheduledReminders: Array<{ memoryId: string; remindAt: string }> = [];
@@ -352,7 +361,7 @@ export async function insertMemories(
               role: rel.role,
               normalized_role: normalizeRoleName(rel.role),
               metadata: { phone: phoneNumber },
-            }, { skipSuppressionCheck: true });
+            }, { skipSuppressionCheck: true }, scopeEzzyId);
           }
         }
       } else if (!phoneOffer) {
@@ -371,7 +380,7 @@ export async function insertMemories(
           name: singlePerson,
           entity_type: 'person',
           metadata: { phone: phoneNumber },
-        }, { skipSuppressionCheck: true });
+        }, { skipSuppressionCheck: true }, scopeEzzyId);
       }
     }
 
@@ -403,8 +412,8 @@ export async function insertMemories(
     };
 
     stmts.push({
-      sql: `INSERT INTO memories (id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      sql: `INSERT INTO memories (id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming, ezzy_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       args: [
         item.id,
         item.originalText,
@@ -418,12 +427,13 @@ export async function insertMemories(
         JSON.stringify(metaTopicsObj),
         item.interpretation.resurfacing?.mode || 'none',
         JSON.stringify(metaTimingObj),
+        scopeEzzyId,
       ]
     });
 
     // Synchronize derived search structures (memories_fts & memory_search_projection)
     const searchDoc = extractSearchDoc(item);
-    stmts.push(...getSearchSyncStatements(searchDoc));
+    stmts.push(...getSearchSyncStatements(searchDoc, scopeEzzyId));
 
     // Check if memory has a scheduled reminder timestamp (Action's own timing ONLY)
     let remindAt: string | null = null;
@@ -458,14 +468,15 @@ export async function insertMemories(
     }
 
     if (remindAt) {
-      console.log(`[Scheduler] Scheduling reminder for "${item.interpretation.content}" at ${remindAt}`);
+      console.log(`[Scheduler] Scheduling reminder for "${item.interpretation.content}" at ${remindAt} in ezzy ${scopeEzzyId}`);
       scheduledReminders.push({ memoryId: item.id, remindAt });
       reminderStmts.push({
-        sql: `INSERT INTO scheduled_reminders (id, memoryId, title, body, remindAt, notified, createdAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?);`,
+        sql: `INSERT INTO scheduled_reminders (id, memoryId, ezzy_id, title, body, remindAt, notified, createdAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
         args: [
           `remind_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           item.id,
+          scopeEzzyId,
           'Ezzymigo Reminder',
           item.interpretation.content,
           remindAt,
@@ -492,7 +503,7 @@ export async function insertMemories(
         await unsuppressUserEntity(rel.person);
       }
     }
-    await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true });
+    await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true }, scopeEzzyId);
   }
 
   // Link memories to canonical user entities structurally in memory_entities
@@ -508,14 +519,14 @@ export async function insertMemories(
     if (candidatePersons.length > 0) {
       const entityIds: string[] = [];
       for (const p of candidatePersons) {
-        const entId = await resolvePersonToEntityId(p);
+        const entId = await resolvePersonToEntityId(p, undefined, scopeEzzyId);
         if (entId) {
           entityIds.push(entId);
           linkedEntities.push({ memoryId: item.id, entityId: entId, entityName: p });
         }
       }
       if (entityIds.length > 0) {
-        await linkMemoryEntities(item.id, entityIds, item.createdAt);
+        await linkMemoryEntities(item.id, entityIds, item.createdAt, scopeEzzyId);
       }
     }
   }
@@ -528,11 +539,13 @@ export async function insertMemories(
 }
 
 // Toggle memory Done status in Bunny Database
-export async function toggleMemoryInDb(id: string): Promise<any | null> {
+export async function toggleMemoryInDb(id: string, ezzyId?: string): Promise<any | null> {
   await initBunnyDb();
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [id, ezzyId] : [id];
   const list = await executeBunnySql([{
-    sql: 'SELECT * FROM memories WHERE id = ?;',
-    args: [id]
+    sql: `SELECT * FROM memories WHERE id = ?${ezzyClause};`,
+    args: ezzyArgs
   }]);
 
   if (!list[0] || !list[0].rows || list[0].rows.length === 0) {
@@ -545,12 +558,12 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
 
   await executeBunnySql([
     {
-      sql: 'UPDATE memories SET isDone = ?, status = ? WHERE id = ?;',
-      args: [newIsDone, newStatus, id]
+      sql: `UPDATE memories SET isDone = ?, status = ? WHERE id = ?${ezzyClause};`,
+      args: [newIsDone, newStatus, ...ezzyArgs]
     },
     {
-      sql: 'UPDATE memory_search_projection SET status = ? WHERE memory_id = ?;',
-      args: [newStatus, id]
+      sql: `UPDATE memory_search_projection SET status = ? WHERE memory_id = ?${ezzyClause};`,
+      args: [newStatus, ...ezzyArgs]
     }
   ]);
 
@@ -595,11 +608,13 @@ export async function toggleMemoryInDb(id: string): Promise<any | null> {
 }
 
 // Update memory in Bunny Database with newly re-interpreted metadata
-export async function updateMemoryInDb(id: string, updatedInterpretation: any, newOriginalText?: string): Promise<any | null> {
+export async function updateMemoryInDb(id: string, updatedInterpretation: any, newOriginalText?: string, ezzyId?: string): Promise<any | null> {
   await initBunnyDb();
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [id, ezzyId] : [id];
   const list = await executeBunnySql([{
-    sql: 'SELECT * FROM memories WHERE id = ?;',
-    args: [id]
+    sql: `SELECT * FROM memories WHERE id = ?${ezzyClause};`,
+    args: ezzyArgs
   }]);
 
   if (!list[0] || !list[0].rows || list[0].rows.length === 0) {
@@ -607,6 +622,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   }
 
   const row = list[0].rows[0];
+  const scopeEzzyId = ezzyId || row.ezzy_id || 'ezzy_default';
   const itemRelationships = Array.isArray(updatedInterpretation.relationships) ? updatedInterpretation.relationships : [];
   const updatedOriginalText = (newOriginalText && typeof newOriginalText === 'string' && newOriginalText.trim())
     ? newOriginalText.trim()
@@ -653,7 +669,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
               topics = ?,
               resurfacingMode = ?,
               resurfacingTiming = ?
-            WHERE id = ?;`,
+            WHERE id = ?${ezzyClause};`,
       args: [
         updatedOriginalText,
         updatedInterpretation.content,
@@ -664,13 +680,13 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
         JSON.stringify(metaTopicsObj),
         updatedInterpretation.resurfacing?.mode || 'none',
         JSON.stringify(metaTimingObj),
-        id
+        ...ezzyArgs
       ]
     },
     // Clear old reminders for this memory before adding updated one if applicable
     {
-      sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ?;',
-      args: [id]
+      sql: `DELETE FROM scheduled_reminders WHERE memoryId = ?${ezzyClause};`,
+      args: ezzyArgs
     },
     // Synchronize derived search structures (memories_fts & memory_search_projection)
     ...getSearchSyncStatements(extractSearchDoc({
@@ -678,6 +694,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
       originalText: updatedOriginalText,
       createdAt: row.createdAt,
       isDone: row.isDone,
+      ezzy_id: scopeEzzyId,
       interpretation: {
         content: updatedInterpretation.content,
         kind: updatedInterpretation.kind,
@@ -689,7 +706,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
         items: metaTopicsObj.items,
         subject: metaTopicsObj.subject,
       }
-    }))
+    }), scopeEzzyId)
   ];
 
   // Re-schedule reminder if new interpretation has a reminder timestamp (Action's own timing ONLY)
@@ -721,13 +738,14 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   }
 
   if (remindAt) {
-    console.log(`[Scheduler] Re-scheduling reminder for edited memory "${updatedInterpretation.content}" at ${remindAt}`);
+    console.log(`[Scheduler] Re-scheduling reminder for edited memory "${updatedInterpretation.content}" at ${remindAt} in ezzy ${scopeEzzyId}`);
     stmts.push({
-      sql: `INSERT INTO scheduled_reminders (id, memoryId, title, body, remindAt, notified, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?);`,
+      sql: `INSERT INTO scheduled_reminders (id, memoryId, ezzy_id, title, body, remindAt, notified, createdAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
       args: [
         `remind_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         id,
+        scopeEzzyId,
         'Ezzymigo Reminder',
         updatedInterpretation.content,
         remindAt,
@@ -769,7 +787,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
             role: rel.role,
             normalized_role: normalizeRoleName(rel.role),
             metadata: { phone: phoneNumber },
-          }, { skipSuppressionCheck: true });
+          }, { skipSuppressionCheck: true }, scopeEzzyId);
         }
       }
     } else {
@@ -784,7 +802,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
         await unsuppressUserEntity(rel.person);
       }
     }
-    await saveRelationships(itemRelationships, { skipSuppressionCheck: true });
+    await saveRelationships(itemRelationships, { skipSuppressionCheck: true }, scopeEzzyId);
   } else if (phoneNumber && people.length === 1) {
     const singlePerson = (people[0] || '').trim();
     if (singlePerson) {
@@ -793,7 +811,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
         name: singlePerson,
         entity_type: 'person',
         metadata: { phone: phoneNumber },
-      }, { skipSuppressionCheck: true });
+      }, { skipSuppressionCheck: true }, scopeEzzyId);
     }
   }
 
@@ -807,13 +825,13 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
   if (updatedCandidatePersons.length > 0) {
     const entityIds: string[] = [];
     for (const p of updatedCandidatePersons) {
-      const entId = await resolvePersonToEntityId(p);
+      const entId = await resolvePersonToEntityId(p, undefined, scopeEzzyId);
       if (entId) {
         entityIds.push(entId);
       }
     }
     if (entityIds.length > 0) {
-      await linkMemoryEntities(row.id, entityIds, row.createdAt);
+      await linkMemoryEntities(row.id, entityIds, row.createdAt, scopeEzzyId);
     }
   }
 
@@ -860,12 +878,15 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
 export async function updateMemoryAnticipation(
   id: string,
   mode: 'NONE' | 'PRE_ONLY' | 'POST_ONLY' | 'PRE_AND_POST',
-  optedIn: boolean
+  optedIn: boolean,
+  ezzyId?: string
 ): Promise<any | null> {
   await initBunnyDb();
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [id, ezzyId] : [id];
   const list = await executeBunnySql([{
-    sql: 'SELECT * FROM memories WHERE id = ?;',
-    args: [id]
+    sql: `SELECT * FROM memories WHERE id = ?${ezzyClause};`,
+    args: ezzyArgs
   }]);
 
   if (!list[0] || !list[0].rows || list[0].rows.length === 0) {
@@ -887,28 +908,30 @@ export async function updateMemoryAnticipation(
   metaTopics.anticipatory_opted_in = optedIn;
 
   await executeBunnySql([{
-    sql: 'UPDATE memories SET topics = ? WHERE id = ?;',
-    args: [JSON.stringify(metaTopics), id]
+    sql: `UPDATE memories SET topics = ? WHERE id = ?${ezzyClause};`,
+    args: [JSON.stringify(metaTopics), ...ezzyArgs]
   }]);
 
-  return readMemoryById(id);
+  return readMemoryById(id, ezzyId);
 }
 
 // Delete memory from Bunny Database
-export async function deleteMemoryFromDb(id: string): Promise<void> {
+export async function deleteMemoryFromDb(id: string, ezzyId?: string): Promise<void> {
   await initBunnyDb();
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [id, ezzyId] : [id];
   await executeBunnySql([
     {
-      sql: 'DELETE FROM memories WHERE id = ?;',
-      args: [id]
+      sql: `DELETE FROM memories WHERE id = ?${ezzyClause};`,
+      args: ezzyArgs
     },
     {
-      sql: 'DELETE FROM memory_entities WHERE memory_id = ?;',
-      args: [id]
+      sql: `DELETE FROM memory_entities WHERE memory_id = ?${ezzyClause};`,
+      args: ezzyArgs
     },
     {
-      sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ?;',
-      args: [id]
+      sql: `DELETE FROM scheduled_reminders WHERE memoryId = ?${ezzyClause};`,
+      args: ezzyArgs
     },
     ...getSearchDeleteStatements(id)
   ]);

@@ -17,7 +17,8 @@ export interface BackfillResult {
 export async function linkMemoryEntities(
   memoryId: string,
   entityIds: string[],
-  createdAt?: string
+  createdAt?: string,
+  ezzyId: string = 'ezzy_default'
 ): Promise<void> {
   const mId = (memoryId || '').trim();
   if (!mId || !Array.isArray(entityIds) || entityIds.length === 0) return;
@@ -29,16 +30,17 @@ export async function linkMemoryEntities(
 
   await initBunnyDb();
   const nowIso = createdAt || new Date().toISOString();
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
 
   const stmts = validEntityIds.map(entId => ({
-    sql: `INSERT OR IGNORE INTO memory_entities (memory_id, entity_id, created_at)
-          VALUES (?, ?, ?);`,
-    args: [mId, entId, nowIso],
+    sql: `INSERT OR IGNORE INTO memory_entities (memory_id, entity_id, ezzy_id, created_at)
+          VALUES (?, ?, ?, ?);`,
+    args: [mId, entId, scopeEzzyId, nowIso],
   }));
 
   try {
     await executeBunnySql(stmts);
-    console.log(`[MemoryEntities] Linked memory "${mId}" to ${validEntityIds.length} entities: [${validEntityIds.join(', ')}]`);
+    console.log(`[MemoryEntities] Linked memory "${mId}" to ${validEntityIds.length} entities in ezzy "${scopeEzzyId}": [${validEntityIds.join(', ')}]`);
   } catch (err) {
     console.error(`[MemoryEntities] Error linking memory "${mId}":`, err);
   }
@@ -105,16 +107,18 @@ export async function getMemoryIdsForEntity(entityId: string): Promise<string[]>
 /**
  * Retrieves all memory IDs linked to any of the provided entity IDs.
  */
-export async function getMemoryIdsForEntities(entityIds: string[]): Promise<string[]> {
+export async function getMemoryIdsForEntities(entityIds: string[], ezzyId?: string): Promise<string[]> {
   const validIds = Array.from(new Set(entityIds.map(e => (e || '').trim()).filter(Boolean)));
   if (validIds.length === 0) return [];
 
   await initBunnyDb();
   try {
     const placeholders = validIds.map(() => '?').join(', ');
+    const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+    const ezzyArgs = ezzyId ? [ezzyId] : [];
     const results = await executeBunnySql([{
-      sql: `SELECT DISTINCT memory_id FROM memory_entities WHERE entity_id IN (${placeholders}) ORDER BY created_at DESC;`,
-      args: validIds,
+      sql: `SELECT DISTINCT memory_id FROM memory_entities WHERE entity_id IN (${placeholders})${ezzyClause} ORDER BY created_at DESC;`,
+      args: [...validIds, ...ezzyArgs],
     }]);
     if (!results[0]?.rows) return [];
     return results[0].rows.map((r: any) => r.memory_id).filter(Boolean);
@@ -152,7 +156,8 @@ export async function getLinkedEntityIdsForMemory(memoryId: string): Promise<str
  */
 export async function resolvePersonToEntityId(
   personName: string,
-  options?: { checkSuppression?: boolean }
+  options?: { checkSuppression?: boolean },
+  ezzyId?: string
 ): Promise<string | null> {
   const raw = (personName || '').trim();
   if (!raw) return null;
@@ -171,10 +176,13 @@ export async function resolvePersonToEntityId(
     }
   }
 
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [ezzyId] : [];
+
   // 2. Direct match on user_entities by name
   const entRes = await executeBunnySql([{
-    sql: 'SELECT id, name FROM user_entities WHERE LOWER(name) = ? ORDER BY updated_at DESC;',
-    args: [pLower],
+    sql: `SELECT id, name FROM user_entities WHERE LOWER(name) = ?${ezzyClause} ORDER BY updated_at DESC;`,
+    args: [pLower, ...ezzyArgs],
   }]);
   if (entRes[0]?.rows && entRes[0].rows.length > 0) {
     return entRes[0].rows[0].id;
@@ -184,8 +192,8 @@ export async function resolvePersonToEntityId(
   const normRole = normalizeRoleName(pLower);
   if (normRole) {
     const roleEntRes = await executeBunnySql([{
-      sql: 'SELECT id, name FROM user_entities WHERE normalized_role = ? ORDER BY updated_at DESC;',
-      args: [normRole],
+      sql: `SELECT id, name FROM user_entities WHERE normalized_role = ?${ezzyClause} ORDER BY updated_at DESC;`,
+      args: [normRole, ...ezzyArgs],
     }]);
     if (roleEntRes[0]?.rows && roleEntRes[0].rows.length === 1) {
       return roleEntRes[0].rows[0].id;
@@ -194,8 +202,8 @@ export async function resolvePersonToEntityId(
 
   // 4. Match on user_relationships (active relationships)
   const relRes = await executeBunnySql([{
-    sql: 'SELECT id, person, role, normalized_role FROM user_relationships WHERE LOWER(person) = ? AND is_active = 1 ORDER BY updated_at DESC;',
-    args: [pLower],
+    sql: `SELECT id, person, role, normalized_role FROM user_relationships WHERE LOWER(person) = ? AND is_active = 1${ezzyClause} ORDER BY updated_at DESC;`,
+    args: [pLower, ...ezzyArgs],
   }]);
   if (relRes[0]?.rows && relRes[0].rows.length > 0) {
     const personNameMatched = relRes[0].rows[0].person;

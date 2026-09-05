@@ -6,13 +6,20 @@ import { initBunnyDb } from '../db/schema';
 // -------------------------------------------------------------
 
 // Read calendar events from Bunny Database (optionally filtered by date range or search)
-export async function readCalendarEvents(options: { startAfter?: string; startBefore?: string; limit?: number } = {}): Promise<any[]> {
+export async function readCalendarEvents(
+  options: { startAfter?: string; startBefore?: string; limit?: number } = {},
+  ezzyId?: string
+): Promise<any[]> {
   try {
     await initBunnyDb();
     let sql = 'SELECT id, source, sourceEventId, title, description, location, attendees, startDatetime, endDatetime, isAllDay, status, updatedAt FROM calendar_events';
     const conditions: string[] = [];
     const args: any[] = [];
 
+    if (ezzyId) {
+      conditions.push('ezzy_id = ?');
+      args.push(ezzyId);
+    }
     if (options.startAfter) {
       conditions.push('startDatetime >= ?');
       args.push(options.startAfter);
@@ -64,13 +71,20 @@ export interface QueryCalendarEventsOptions {
 }
 
 // Targeted query function for Calendar events (parameterized SQL, zero schema changes)
-export async function queryCalendarEvents(options: QueryCalendarEventsOptions = {}): Promise<any[]> {
+export async function queryCalendarEvents(
+  options: QueryCalendarEventsOptions = {},
+  ezzyId?: string
+): Promise<any[]> {
   try {
     await initBunnyDb();
     let sql = 'SELECT id, source, sourceEventId, title, description, location, attendees, startDatetime, endDatetime, isAllDay, status, updatedAt FROM calendar_events';
     const conditions: string[] = [];
     const args: any[] = [];
 
+    if (ezzyId) {
+      conditions.push('ezzy_id = ?');
+      args.push(ezzyId);
+    }
     if (options.minDate) {
       conditions.push('startDatetime >= ?');
       args.push(options.minDate);
@@ -127,14 +141,17 @@ export interface RetrieveCalendarContextParams {
   activeRelationships?: Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean }>;
 }
 
-export async function retrieveTargetedCalendarEvents(params: RetrieveCalendarContextParams): Promise<{
+export async function retrieveTargetedCalendarEvents(
+  params: RetrieveCalendarContextParams,
+  ezzyId?: string
+): Promise<{
   events: any[];
   usedTargetedPath: boolean;
   queryStrategy: string;
 }> {
   // Temporary rollback / kill-switch flag
   if (process.env.DISABLE_TARGETED_CALENDAR_RETRIEVAL === 'true') {
-    const events = await readCalendarEvents();
+    const events = await readCalendarEvents({}, ezzyId);
     return { events, usedTargetedPath: false, queryStrategy: 'fallback_full_table' };
   }
 
@@ -188,7 +205,7 @@ export async function retrieveTargetedCalendarEvents(params: RetrieveCalendarCon
       textMatch: targetName,
       limit: 25,
       direction: isHistorical ? 'desc' : 'asc',
-    });
+    }, ezzyId);
     if (events.length > 0 || !isGenericSchedule) {
       return { events, usedTargetedPath: true, queryStrategy: `targeted_name_match:${targetName}` };
     }
@@ -201,7 +218,7 @@ export async function retrieveTargetedCalendarEvents(params: RetrieveCalendarCon
       minDate: startOfTodayIso,
       limit: 30,
       direction: 'asc',
-    });
+    }, ezzyId);
     return { events, usedTargetedPath: true, queryStrategy: 'targeted_upcoming_range' };
   }
 
@@ -231,7 +248,7 @@ export async function retrieveTargetedCalendarEvents(params: RetrieveCalendarCon
       maxDate,
       limit: 50,
       direction: 'desc',
-    });
+    }, ezzyId);
     return { events, usedTargetedPath: true, queryStrategy: 'targeted_historical_range' };
   }
 
@@ -243,7 +260,7 @@ export async function retrieveTargetedCalendarEvents(params: RetrieveCalendarCon
     maxDate: defaultMax,
     limit: 50,
     direction: 'asc',
-  });
+  }, ezzyId);
 
   return { events, usedTargetedPath: true, queryStrategy: 'bounded_rolling_window' };
 }
@@ -291,12 +308,13 @@ export function canonicalizeCalendarEvent(ev: any): { id: string; source: string
 }
 
 // Upsert calendar events into Bunny Database (keyed by deterministic canonical id)
-export async function upsertCalendarEvents(events: any[]): Promise<void> {
+export async function upsertCalendarEvents(events: any[], ezzyId: string = 'ezzy_default'): Promise<void> {
   if (!events || events.length === 0) return;
   await initBunnyDb();
 
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const nowIso = new Date().toISOString();
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
 
   for (const ev of events) {
     const { id, source, sourceEventId } = canonicalizeCalendarEvent(ev);
@@ -308,8 +326,8 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
       endVal = String(endVal).slice(0, 10);
     }
     stmts.push({
-      sql: `INSERT INTO calendar_events (id, source, sourceEventId, title, description, location, attendees, startDatetime, endDatetime, isAllDay, status, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO calendar_events (id, source, sourceEventId, title, description, location, attendees, startDatetime, endDatetime, isAllDay, status, updatedAt, ezzy_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               source = excluded.source,
               sourceEventId = excluded.sourceEventId,
@@ -321,7 +339,8 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
               endDatetime = excluded.endDatetime,
               isAllDay = excluded.isAllDay,
               status = excluded.status,
-              updatedAt = excluded.updatedAt;`,
+              updatedAt = excluded.updatedAt,
+              ezzy_id = excluded.ezzy_id;`,
       args: [
         id,
         source,
@@ -335,6 +354,7 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
         isAllDay ? 1 : 0,
         ev.status || 'confirmed',
         ev.updated_at || ev.updatedAt || nowIso,
+        scopeEzzyId,
       ]
     });
   }
@@ -343,10 +363,11 @@ export async function upsertCalendarEvents(events: any[]): Promise<void> {
 }
 
 // Delete calendar events by ID
-export async function deleteCalendarEventFromDb(id: string): Promise<void> {
+export async function deleteCalendarEventFromDb(id: string, ezzyId?: string): Promise<void> {
   await initBunnyDb();
-  await executeBunnySql([{
-    sql: 'DELETE FROM calendar_events WHERE id = ?;',
-    args: [id]
-  }]);
+  const sql = ezzyId
+    ? 'DELETE FROM calendar_events WHERE id = ? AND ezzy_id = ?;'
+    : 'DELETE FROM calendar_events WHERE id = ?;';
+  const args = ezzyId ? [id, ezzyId] : [id];
+  await executeBunnySql([{ sql, args }]);
 }

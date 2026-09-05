@@ -33,11 +33,12 @@ export function normalizeRoleName(role: string): string {
 }
 
 // Read all active user relationships
-export async function readActiveRelationships(): Promise<Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }>> {
+export async function readActiveRelationships(ezzyId: string = 'ezzy_default'): Promise<Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }>> {
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE is_active = 1 ORDER BY updated_at DESC;'
+      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC;',
+      args: [ezzyId]
     }]);
 
     if (!results[0] || !results[0].rows) return [];
@@ -57,14 +58,14 @@ export async function readActiveRelationships(): Promise<Array<{ id: string; per
 }
 
 // Targeted query to look up a specific active relationship by normalized role
-export async function getActiveRelationshipByRole(role: string): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
+export async function getActiveRelationshipByRole(role: string, ezzyId: string = 'ezzy_default'): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
   const norm = normalizeRoleName(role);
   if (!norm) return null;
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND is_active = 1 ORDER BY updated_at DESC LIMIT 1;',
-      args: [norm]
+      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm, ezzyId]
     }]);
     if (!results[0]?.rows?.[0]) return null;
     const row = results[0].rows[0];
@@ -83,14 +84,14 @@ export async function getActiveRelationshipByRole(role: string): Promise<{ id: s
 }
 
 // Targeted query to look up a specific active relationship by person name
-export async function getActiveRelationshipByPerson(person: string): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
+export async function getActiveRelationshipByPerson(person: string, ezzyId: string = 'ezzy_default'): Promise<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string } | null> {
   const p = (person || '').trim();
   if (!p) return null;
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 ORDER BY updated_at DESC LIMIT 1;',
-      args: [p]
+      sql: 'SELECT id, person, role, normalized_role, is_active, updated_at FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [p, ezzyId]
     }]);
     if (!results[0]?.rows?.[0]) return null;
     const row = results[0].rows[0];
@@ -219,7 +220,8 @@ export async function saveUserEntity(
     normalized_role?: string;
     metadata?: Record<string, any>;
   },
-  options?: { skipSuppressionCheck?: boolean }
+  options?: { skipSuppressionCheck?: boolean },
+  ezzyId: string = 'ezzy_default'
 ): Promise<void> {
   const name = (entity.name || '').trim();
   if (!name) return;
@@ -232,34 +234,36 @@ export async function saveUserEntity(
     }
   }
 
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const entityType = entity.entity_type || 'person';
   const role = entity.role || '';
   const normalizedRole = entity.normalized_role || normalizeRoleName(role);
   const metadataStr = JSON.stringify(entity.metadata || {});
   const nowIso = new Date().toISOString();
-  const id = `ent_${entityType}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const id = `ent_${scopeEzzyId}_${entityType}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
   try {
     await initBunnyDb();
     await executeBunnySql([{
-      sql: `INSERT INTO user_entities (id, name, entity_type, role, normalized_role, metadata, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO user_entities (id, name, entity_type, role, normalized_role, metadata, updated_at, ezzy_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               entity_type = excluded.entity_type,
               role = excluded.role,
               normalized_role = excluded.normalized_role,
               metadata = CASE WHEN excluded.metadata != '{}' THEN excluded.metadata ELSE user_entities.metadata END,
-              updated_at = excluded.updated_at;`,
-      args: [id, name, entityType, role, normalizedRole, metadataStr, nowIso]
+              updated_at = excluded.updated_at,
+              ezzy_id = excluded.ezzy_id;`,
+      args: [id, name, entityType, role, normalizedRole, metadataStr, nowIso, scopeEzzyId]
     }]);
-    console.log(`[Entities] Successfully saved user entity "${name}" (${entityType}) with metadata:`, metadataStr);
+    console.log(`[Entities] Successfully saved user entity "${name}" (${entityType}) in ezzy "${scopeEzzyId}" with metadata:`, metadataStr);
   } catch (err) {
     console.error('[Entities] Error saving user entity:', err);
   }
 }
 
-export async function getUserEntity(name: string): Promise<{
+export async function getUserEntity(name: string, ezzyId: string = 'ezzy_default'): Promise<{
   id: string;
   name: string;
   entity_type: string;
@@ -273,8 +277,8 @@ export async function getUserEntity(name: string): Promise<{
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE LOWER(name) = LOWER(?) ORDER BY updated_at DESC LIMIT 1;',
-      args: [n]
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [n, ezzyId]
     }]);
     if (!results[0]?.rows?.[0]) return null;
     const row = results[0].rows[0];
@@ -299,7 +303,7 @@ export async function getUserEntity(name: string): Promise<{
   }
 }
 
-export async function getUserEntities(): Promise<Array<{
+export async function getUserEntities(ezzyId: string = 'ezzy_default'): Promise<Array<{
   id: string;
   name: string;
   entity_type: string;
@@ -311,7 +315,8 @@ export async function getUserEntities(): Promise<Array<{
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities ORDER BY updated_at DESC;'
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE ezzy_id = ? ORDER BY updated_at DESC;',
+      args: [ezzyId]
     }]);
     if (!results[0]?.rows) return [];
     return results[0].rows.map((row: any) => {
@@ -337,7 +342,7 @@ export async function getUserEntities(): Promise<Array<{
   }
 }
 
-export async function getUserEntityByRole(role: string): Promise<{
+export async function getUserEntityByRole(role: string, ezzyId: string = 'ezzy_default'): Promise<{
   id: string;
   name: string;
   entity_type: string;
@@ -351,8 +356,8 @@ export async function getUserEntityByRole(role: string): Promise<{
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE normalized_role = ? ORDER BY updated_at DESC LIMIT 1;',
-      args: [norm]
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE normalized_role = ? AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm, ezzyId]
     }]);
     if (!results[0]?.rows?.[0]) return null;
     const row = results[0].rows[0];
@@ -458,7 +463,8 @@ export function mergeRelationshipsWithExtracted(
 // Save or update relationships extracted from memories
 export async function saveRelationships(
   relationships: Array<{ person: string; role: string; is_active?: boolean }>,
-  options?: { skipSuppressionCheck?: boolean }
+  options?: { skipSuppressionCheck?: boolean },
+  ezzyId: string = 'ezzy_default'
 ): Promise<void> {
   if (!Array.isArray(relationships) || relationships.length === 0) return;
   await initBunnyDb();
@@ -468,6 +474,7 @@ export async function saveRelationships(
     suppressedSet = await getSuppressedEntities();
   }
 
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const nowIso = new Date().toISOString();
 
@@ -484,7 +491,7 @@ export async function saveRelationships(
       continue;
     }
 
-    const id = `rel_${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    const id = `rel_${scopeEzzyId}_${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
     if (isActive === 1) {
       // Singular / exclusive roles (e.g. wife, husband, spouse, partner, plumber, etc.)
@@ -492,21 +499,22 @@ export async function saveRelationships(
       const singularRoles = ['wife', 'husband', 'spouse', 'partner', 'plumber', 'electrician', 'mechanic', 'accountant', 'lawyer', 'boss', 'gp', 'primary doctor'];
       if (singularRoles.includes(normalizedRole)) {
         stmts.push({
-          sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE normalized_role = ? AND LOWER(person) != LOWER(?);',
-          args: [nowIso, normalizedRole, person]
+          sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE normalized_role = ? AND LOWER(person) != LOWER(?) AND ezzy_id = ?;',
+          args: [nowIso, normalizedRole, person, scopeEzzyId]
         });
       }
 
       stmts.push({
-        sql: `INSERT INTO user_relationships (id, person, role, normalized_role, is_active, updated_at)
-              VALUES (?, ?, ?, ?, 1, ?)
+        sql: `INSERT INTO user_relationships (id, person, role, normalized_role, is_active, updated_at, ezzy_id)
+              VALUES (?, ?, ?, ?, 1, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 person = excluded.person,
                 role = excluded.role,
                 normalized_role = excluded.normalized_role,
                 is_active = 1,
-                updated_at = excluded.updated_at;`,
-        args: [id, person, rawRole, normalizedRole, nowIso]
+                updated_at = excluded.updated_at,
+                ezzy_id = excluded.ezzy_id;`,
+        args: [id, person, rawRole, normalizedRole, nowIso, scopeEzzyId]
       });
 
       // Also persist to reusable user_entities
@@ -515,13 +523,13 @@ export async function saveRelationships(
         entity_type: 'person',
         role: rawRole,
         normalized_role: normalizedRole,
-      }, { skipSuppressionCheck: options?.skipSuppressionCheck }).catch(e => console.error('[Entities] Auto-save error:', e));
+      }, { skipSuppressionCheck: options?.skipSuppressionCheck }, scopeEzzyId).catch(e => console.error('[Entities] Auto-save error:', e));
     } else {
       // Deactivating / superseding relationship (e.g. "Steve isn't my plumber anymore")
       stmts.push({
         sql: `UPDATE user_relationships SET is_active = 0, updated_at = ?
-              WHERE id = ? OR (normalized_role = ? AND LOWER(person) = LOWER(?));`,
-        args: [nowIso, id, normalizedRole, person]
+              WHERE (id = ? OR (normalized_role = ? AND LOWER(person) = LOWER(?))) AND ezzy_id = ?;`,
+        args: [nowIso, id, normalizedRole, person, scopeEzzyId]
       });
     }
   }
@@ -529,7 +537,7 @@ export async function saveRelationships(
   if (stmts.length > 0) {
     try {
       await executeBunnySql(stmts);
-      console.log('[Relationships] Successfully persisted relationship updates:', relationships);
+      console.log(`[Relationships] Successfully persisted relationship updates in ezzy "${scopeEzzyId}":`, relationships);
     } catch (dbErr) {
       console.error('[Relationships] Error persisting relationships:', dbErr);
     }
@@ -565,7 +573,7 @@ export async function backfillStoredRelationships(): Promise<void> {
 }
 
 // Deactivate a specific relationship or all relationships for a person without deleting memories
-export async function deactivateUserRelationship(person: string, role?: string): Promise<{ deactivated: boolean; remainingRoles: string[] }> {
+export async function deactivateUserRelationship(person: string, role?: string, ezzyId: string = 'ezzy_default'): Promise<{ deactivated: boolean; remainingRoles: string[] }> {
   const p = (person || '').trim();
   if (!p) return { deactivated: false, remainingRoles: [] };
   const r = (role || '').trim();
@@ -577,24 +585,24 @@ export async function deactivateUserRelationship(person: string, role?: string):
 
   if (normalizedRole) {
     stmts.push({
-      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND (normalized_role = ? OR LOWER(role) = LOWER(?));',
-      args: [nowIso, p, normalizedRole, r.toLowerCase()]
+      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND (normalized_role = ? OR LOWER(role) = LOWER(?)) AND ezzy_id = ?;',
+      args: [nowIso, p, normalizedRole, r.toLowerCase(), ezzyId]
     });
   } else {
     stmts.push({
-      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?);',
-      args: [nowIso, p]
+      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND ezzy_id = ?;',
+      args: [nowIso, p, ezzyId]
     });
   }
 
   try {
     await executeBunnySql(stmts);
-    console.log(`[Relationships] Deactivated relationship for person="${p}", role="${r || 'all'}"`);
+    console.log(`[Relationships] Deactivated relationship for person="${p}", role="${r || 'all'}" in ezzy "${ezzyId}"`);
 
     // Check remaining active relationships for this person
     const remResults = await executeBunnySql([{
-      sql: 'SELECT role, normalized_role FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1;',
-      args: [p]
+      sql: 'SELECT role, normalized_role FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 AND ezzy_id = ?;',
+      args: [p, ezzyId]
     }]);
 
     const remainingRows = remResults[0]?.rows || [];
@@ -604,13 +612,13 @@ export async function deactivateUserRelationship(person: string, role?: string):
       const topRole = remainingRows[0].role;
       const topNorm = remainingRows[0].normalized_role;
       await executeBunnySql([{
-        sql: 'UPDATE user_entities SET role = ?, normalized_role = ?, updated_at = ? WHERE LOWER(name) = LOWER(?);',
-        args: [topRole, topNorm, nowIso, p]
+        sql: 'UPDATE user_entities SET role = ?, normalized_role = ?, updated_at = ? WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [topRole, topNorm, nowIso, p, ezzyId]
       }]);
     } else {
       await executeBunnySql([{
-        sql: 'UPDATE user_entities SET role = NULL, normalized_role = NULL, updated_at = ? WHERE LOWER(name) = LOWER(?);',
-        args: [nowIso, p]
+        sql: 'UPDATE user_entities SET role = NULL, normalized_role = NULL, updated_at = ? WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [nowIso, p, ezzyId]
       }]);
     }
 
@@ -622,26 +630,26 @@ export async function deactivateUserRelationship(person: string, role?: string):
 }
 
 // Forget entire entity and all its relationships after user confirmation
-export async function forgetUserEntity(person: string): Promise<boolean> {
+export async function forgetUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<boolean> {
   const p = (person || '').trim();
   if (!p) return false;
   const nowIso = new Date().toISOString();
-  const canonicalId = `ent_person_${p.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const canonicalId = `ent_${ezzyId}_person_${p.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
   await initBunnyDb();
   try {
     await executeBunnySql([
       {
-        sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?);',
-        args: [nowIso, p]
+        sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND ezzy_id = ?;',
+        args: [nowIso, p, ezzyId]
       },
       {
-        sql: 'DELETE FROM user_entities WHERE LOWER(name) = LOWER(?);',
-        args: [p]
+        sql: 'DELETE FROM user_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [p, ezzyId]
       },
       {
-        sql: 'DELETE FROM memory_entities WHERE entity_id = ?;',
-        args: [canonicalId]
+        sql: 'DELETE FROM memory_entities WHERE (entity_id = ? OR entity_id LIKE ?) AND ezzy_id = ?;',
+        args: [canonicalId, `%_${p.toLowerCase()}%`, ezzyId]
       },
       {
         sql: `INSERT INTO suppressed_entities (name, suppressed_at)
@@ -650,7 +658,7 @@ export async function forgetUserEntity(person: string): Promise<boolean> {
         args: [p, nowIso]
       }
     ]);
-    console.log(`[Entities] Successfully forgot entity "${p}", removed from user_entities, deactivated all relationships, and created durable suppression marker.`);
+    console.log(`[Entities] Successfully forgot entity "${p}" in ezzy "${ezzyId}", removed from user_entities, deactivated all relationships, and created durable suppression marker.`);
     return true;
   } catch (err) {
     console.error(`[Entities] Error forgetting entity "${p}":`, err);
@@ -659,7 +667,7 @@ export async function forgetUserEntity(person: string): Promise<boolean> {
 }
 
 // Correct a relationship (deactivates old role and learns new role without contradictory duplicates)
-export async function correctUserRelationship(person: string, oldRole: string, newRole: string): Promise<void> {
+export async function correctUserRelationship(person: string, oldRole: string, newRole: string, ezzyId: string = 'ezzy_default'): Promise<void> {
   const p = (person || '').trim();
   const oldR = (oldRole || '').trim();
   const newR = (newRole || '').trim();
@@ -667,9 +675,9 @@ export async function correctUserRelationship(person: string, oldRole: string, n
 
   await unsuppressUserEntity(p);
   if (oldR) {
-    await deactivateUserRelationship(p, oldR);
+    await deactivateUserRelationship(p, oldR, ezzyId);
   }
-  await saveRelationships([{ person: p, role: newR, is_active: true }], { skipSuppressionCheck: true });
+  await saveRelationships([{ person: p, role: newR, is_active: true }], { skipSuppressionCheck: true }, ezzyId);
 }
 
 // Forget / Correction Intent Engine for Ask Ezzymigo
@@ -677,7 +685,8 @@ export async function evaluateKnowledgeModification(
   query: string,
   activeRelationships: Array<{ person: string; role: string; normalized_role: string }>,
   confirmed: boolean = false,
-  ai: GoogleGenAI | null = null
+  ai: GoogleGenAI | null = null,
+  ezzyId: string = 'ezzy_default'
 ): Promise<{
   handled: boolean;
   answer?: string;
@@ -692,7 +701,7 @@ export async function evaluateKnowledgeModification(
   if (confirmMatch || (confirmed && q.match(/^(?:please\s+)?(?:forget|delete|remove)\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?([A-Za-z0-9\s]+?)[.!]?$/i))) {
     const rawTarget = confirmMatch ? confirmMatch[1].trim() : q.replace(/^(?:please\s+)?(?:forget|delete|remove)\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?/i, '').replace(/[.!]?$/, '').trim();
     if (rawTarget && !rawTarget.toLowerCase().startsWith('that ')) {
-      await forgetUserEntity(rawTarget);
+      await forgetUserEntity(rawTarget, ezzyId);
       return {
         handled: true,
         answer: `I've forgotten all saved knowledge about ${rawTarget}.`,
@@ -707,7 +716,7 @@ export async function evaluateKnowledgeModification(
     const person = corrMatch1[1].trim();
     const oldRole = corrMatch1[2].trim();
     const newRole = corrMatch1[3].trim();
-    await correctUserRelationship(person, oldRole, newRole);
+    await correctUserRelationship(person, oldRole, newRole, ezzyId);
     return {
       handled: true,
       answer: `I've updated my knowledge: ${person} is your ${newRole} (and no longer listed as your ${oldRole}).`,
@@ -720,7 +729,7 @@ export async function evaluateKnowledgeModification(
     const person = corrMatch2[1].trim();
     const newRole = corrMatch2[2].trim();
     const oldRole = corrMatch2[3].trim();
-    await correctUserRelationship(person, oldRole, newRole);
+    await correctUserRelationship(person, oldRole, newRole, ezzyId);
     return {
       handled: true,
       answer: `I've updated my knowledge: ${person} is your ${newRole} (and no longer listed as your ${oldRole}).`,
@@ -733,7 +742,7 @@ export async function evaluateKnowledgeModification(
   if (relForgetMatch1) {
     const person = relForgetMatch1[1].trim();
     const role = relForgetMatch1[2].trim();
-    await deactivateUserRelationship(person, role);
+    await deactivateUserRelationship(person, role, ezzyId);
     return {
       handled: true,
       answer: `I've forgotten that ${person} is your ${role}.`,
@@ -745,7 +754,7 @@ export async function evaluateKnowledgeModification(
   if (relForgetMatch2) {
     const person = relForgetMatch2[1].trim();
     const role = relForgetMatch2[2].trim();
-    await deactivateUserRelationship(person, role);
+    await deactivateUserRelationship(person, role, ezzyId);
     return {
       handled: true,
       answer: `I've forgotten that ${person} is your ${role}.`,
@@ -757,7 +766,7 @@ export async function evaluateKnowledgeModification(
   if (relForgetMatch3) {
     const person = relForgetMatch3[1].trim();
     const role = relForgetMatch3[2].trim();
-    await deactivateUserRelationship(person, role);
+    await deactivateUserRelationship(person, role, ezzyId);
     return {
       handled: true,
       answer: `I've forgotten that ${person} is your ${role}.`,
@@ -786,9 +795,9 @@ export async function evaluateKnowledgeModification(
 }
 
 // Enrich a newly saved memory with a learned or resolved relationship without altering past memories
-export async function enrichMemoryWithRelationship(memoryId: string, person: string, role: string): Promise<void> {
+export async function enrichMemoryWithRelationship(memoryId: string, person: string, role: string, ezzyId: string = 'ezzy_default'): Promise<void> {
   try {
-    const memory = await readMemoryById(memoryId);
+    const memory = await readMemoryById(memoryId, ezzyId);
     if (!memory || !memory.interpretation) return;
 
     const interp = memory.interpretation;
@@ -819,8 +828,8 @@ export async function enrichMemoryWithRelationship(memoryId: string, person: str
       }
     }
 
-    await updateMemoryInDb(memoryId, interp);
-    console.log(`[Ambiguity Rule] Successfully enriched memory ${memoryId} with relationship: ${person} <-> ${role}`);
+    await updateMemoryInDb(memoryId, interp, undefined, ezzyId);
+    console.log(`[Ambiguity Rule] Successfully enriched memory ${memoryId} with relationship: ${person} <-> ${role} in ezzy "${ezzyId}"`);
   } catch (err) {
     console.error(`[Ambiguity Rule] Error enriching memory ${memoryId}:`, err);
   }
@@ -834,7 +843,8 @@ export async function detectAmbiguityInSavedMemories(
   originalText: string,
   ai: GoogleGenAI | null,
   preLoadedMemories?: any[],
-  enrichedOut?: Array<{ memoryId: string; person: string; role: string }>
+  enrichedOut?: Array<{ memoryId: string; person: string; role: string }>,
+  ezzyId: string = 'ezzy_default'
 ): Promise<{
   id: string;
   question: string;
@@ -971,7 +981,7 @@ export async function detectAmbiguityInSavedMemories(
 
           if (matches.length === 1) {
             console.log(`[Ambiguity Rule] Silently resolving role "my ${matchedRole}" to known person "${matches[0].person}".`);
-            await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role);
+            await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role, ezzyId);
             if (enrichedOut) {
               enrichedOut.push({ memoryId: memory.id, person: matches[0].person, role: matches[0].role });
             }

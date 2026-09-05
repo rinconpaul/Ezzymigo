@@ -302,15 +302,19 @@ export function buildFtsQueryExpression(query: string, operator: 'OR' | 'AND' = 
  */
 export async function retrieveStageAExactSubject(
   query: string,
-  status: string = 'active'
+  status: string = 'active',
+  ezzyId?: string
 ): Promise<string[]> {
   const normQuery = normalizeSubject(query);
   if (!normQuery) return [];
 
+  const ezzyClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+  const ezzyArgs = ezzyId ? [ezzyId] : [];
+
   // 1. Direct match on subject_normalized in memory_search_projection
   const directRows = await querySql(
-    `SELECT memory_id FROM memory_search_projection WHERE subject_normalized = ? AND status = ? ORDER BY createdAt ASC;`,
-    [normQuery, status]
+    `SELECT memory_id FROM memory_search_projection WHERE subject_normalized = ? AND status = ?${ezzyClause} ORDER BY createdAt ASC;`,
+    [normQuery, status, ...ezzyArgs]
   );
   if (directRows && directRows.length > 0) {
     return directRows.map((r: any) => r.memory_id);
@@ -329,8 +333,8 @@ export async function retrieveStageAExactSubject(
       const extractedNorm = normalizeSubject(match[1]);
       if (extractedNorm) {
         const subRows = await querySql(
-          `SELECT memory_id FROM memory_search_projection WHERE (subject_normalized = ? OR subject_normalized LIKE ?) AND status = ? ORDER BY createdAt ASC;`,
-          [extractedNorm, `%${extractedNorm}%`, status]
+          `SELECT memory_id FROM memory_search_projection WHERE (subject_normalized = ? OR subject_normalized LIKE ?) AND status = ?${ezzyClause} ORDER BY createdAt ASC;`,
+          [extractedNorm, `%${extractedNorm}%`, status, ...ezzyArgs]
         );
         if (subRows && subRows.length > 0) {
           return subRows.map((r: any) => r.memory_id);
@@ -341,8 +345,8 @@ export async function retrieveStageAExactSubject(
 
   // 3. Match against distinct subjects in projection by checking token overlap
   const distinctSubjects = await querySql(
-    `SELECT DISTINCT subject_normalized FROM memory_search_projection WHERE subject_normalized IS NOT NULL AND status = ?;`,
-    [status]
+    `SELECT DISTINCT subject_normalized FROM memory_search_projection WHERE subject_normalized IS NOT NULL AND status = ?${ezzyClause};`,
+    [status, ...ezzyArgs]
   );
 
   const queryWords = normQuery.split(/\s+/).map(w => LEMMA_CANONICAL_MAP[w] || w);
@@ -363,8 +367,8 @@ export async function retrieveStageAExactSubject(
     const allPresent = subjWords.every((w: string) => queryWordSet.has(w));
     if (allPresent) {
       const clusterRows = await querySql(
-        `SELECT memory_id FROM memory_search_projection WHERE subject_normalized = ? AND status = ? ORDER BY createdAt ASC;`,
-        [subj, status]
+        `SELECT memory_id FROM memory_search_projection WHERE subject_normalized = ? AND status = ?${ezzyClause} ORDER BY createdAt ASC;`,
+        [subj, status, ...ezzyArgs]
       );
       if (clusterRows && clusterRows.length > 0) {
         return clusterRows.map((r: any) => r.memory_id);
@@ -380,21 +384,30 @@ export async function retrieveStageAExactSubject(
  */
 export async function retrieveStageBFts(
   query: string,
-  limit: number = MAX_FTS_INITIAL_CANDIDATES
+  limit: number = MAX_FTS_INITIAL_CANDIDATES,
+  ezzyId?: string
 ): Promise<ScoredCandidate[]> {
   const ftsExpression = buildFtsQueryExpression(query);
   if (!ftsExpression) return [];
 
   try {
-    const rows = await querySql(
-      `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
-              bm25(memories_fts, 2.0, 1.0, 1.5, 1.2, 1.2, 1.0, 1.0, 1.5) as bm25_score
-       FROM memories_fts
-       WHERE memories_fts MATCH ?
-       ORDER BY bm25_score ASC
-       LIMIT ?;`,
-      [ftsExpression, limit]
-    );
+    const sql = ezzyId
+      ? `SELECT f.memory_id, f.content, f.original_text, f.people, f.places, f.topics, f.retrieval_cues, f.items, f.subject,
+                bm25(memories_fts, 2.0, 1.0, 1.5, 1.2, 1.2, 1.0, 1.0, 1.5) as bm25_score
+         FROM memories_fts f
+         JOIN memory_search_projection msp ON f.memory_id = msp.memory_id
+         WHERE memories_fts MATCH ? AND msp.ezzy_id = ?
+         ORDER BY bm25_score ASC
+         LIMIT ?;`
+      : `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
+                bm25(memories_fts, 2.0, 1.0, 1.5, 1.2, 1.2, 1.0, 1.0, 1.5) as bm25_score
+         FROM memories_fts
+         WHERE memories_fts MATCH ?
+         ORDER BY bm25_score ASC
+         LIMIT ?;`;
+
+    const args = ezzyId ? [ftsExpression, ezzyId, limit] : [ftsExpression, limit];
+    const rows = await querySql(sql, args);
 
     if (!rows || !Array.isArray(rows)) return [];
 
@@ -421,15 +434,23 @@ export async function retrieveStageBFts(
 
       if (!fallbackExpr) return [];
 
-      const fallbackRows = await querySql(
-        `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
-                bm25(memories_fts) as bm25_score
-         FROM memories_fts
-         WHERE memories_fts MATCH ?
-         ORDER BY bm25_score ASC
-         LIMIT ?;`,
-        [fallbackExpr, limit]
-      );
+      const fallbackSql = ezzyId
+        ? `SELECT f.memory_id, f.content, f.original_text, f.people, f.places, f.topics, f.retrieval_cues, f.items, f.subject,
+                  bm25(memories_fts) as bm25_score
+           FROM memories_fts f
+           JOIN memory_search_projection msp ON f.memory_id = msp.memory_id
+           WHERE memories_fts MATCH ? AND msp.ezzy_id = ?
+           ORDER BY bm25_score ASC
+           LIMIT ?;`
+        : `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
+                  bm25(memories_fts) as bm25_score
+           FROM memories_fts
+           WHERE memories_fts MATCH ?
+           ORDER BY bm25_score ASC
+           LIMIT ?;`;
+
+      const fallbackArgs = ezzyId ? [fallbackExpr, ezzyId, limit] : [fallbackExpr, limit];
+      const fallbackRows = await querySql(fallbackSql, fallbackArgs);
       return (fallbackRows || []).map((r: any) => ({
         memory_id: r.memory_id,
         content: r.content || '',

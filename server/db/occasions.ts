@@ -1,30 +1,44 @@
 import { executeBunnySql } from './client';
 import { initBunnyDb } from './schema';
-import { UserOccasionPreferences } from '../../src/types';
+import { EzzyOccasionPreferences, UserOccasionPreferences } from '../../src/types';
 import { getDefaultOccasionPreferences } from '../../src/data/occasionsCatalog';
+import { DEFAULT_EZZY_ID, assertEzzyAccess } from '../instances/entitlements';
 
-export const DEFAULT_USER_ID = 'default_user';
+export const DEFAULT_USER_ID = DEFAULT_EZZY_ID;
 
 /**
- * Retrieves the persistent occasion preferences for the user.
+ * Retrieves the persistent occasion preferences for the specified Ezzy instance.
+ * Occasion preferences are Ezzy-instance-level configuration, not individual-user preferences.
  * Falls back to default regional preferences (Australia — ACT) if none stored yet.
  */
-export async function getUserOccasionPreferences(userId = DEFAULT_USER_ID): Promise<UserOccasionPreferences> {
+export async function getEzzyOccasionPreferences(
+  ezzyId = DEFAULT_EZZY_ID,
+  userId?: string
+): Promise<EzzyOccasionPreferences> {
   await initBunnyDb();
+  const eid = (ezzyId || DEFAULT_EZZY_ID).trim();
+
+  if (userId) {
+    await assertEzzyAccess(eid, userId, 'read');
+  }
 
   try {
     const results = await executeBunnySql([
       {
-        sql: `SELECT id, country, subdivision, selected_traditions, occasions_json, updated_at
-              FROM user_occasion_preferences
-              WHERE id = ? LIMIT 1;`,
-        args: [userId],
+        sql: `SELECT ezzy_id, country, subdivision, selected_traditions, occasions_json, updated_at
+              FROM ezzy_occasion_preferences
+              WHERE ezzy_id = ? LIMIT 1;`,
+        args: [eid],
       },
     ]);
 
     const row = results[0]?.rows?.[0];
     if (!row) {
-      return getDefaultOccasionPreferences('AU', 'ACT');
+      const defaultPrefs = getDefaultOccasionPreferences('AU', 'ACT');
+      return {
+        ezzyId: eid,
+        ...defaultPrefs,
+      };
     }
 
     const country = row.country ? String(row.country) : 'AU';
@@ -56,6 +70,7 @@ export async function getUserOccasionPreferences(userId = DEFAULT_USER_ID): Prom
     }
 
     return {
+      ezzyId: eid,
       country,
       subdivision,
       selectedTraditions,
@@ -63,21 +78,31 @@ export async function getUserOccasionPreferences(userId = DEFAULT_USER_ID): Prom
       updatedAt,
     };
   } catch (err) {
-    console.error('[Occasions DB] Error reading user occasion preferences:', err);
-    return getDefaultOccasionPreferences('AU', 'ACT');
+    console.error('[Occasions DB] Error reading occasion preferences for Ezzy:', eid, err);
+    const defaultPrefs = getDefaultOccasionPreferences('AU', 'ACT');
+    return {
+      ezzyId: eid,
+      ...defaultPrefs,
+    };
   }
 }
 
 /**
- * Persists the user's occasion preferences to Bunny DB.
+ * Persists occasion preferences for an Ezzy instance to Bunny DB.
  */
-export async function saveUserOccasionPreferences(
-  prefs: Partial<UserOccasionPreferences>,
-  userId = DEFAULT_USER_ID
-): Promise<UserOccasionPreferences> {
+export async function saveEzzyOccasionPreferences(
+  prefs: Partial<EzzyOccasionPreferences>,
+  ezzyId = DEFAULT_EZZY_ID,
+  userId?: string
+): Promise<EzzyOccasionPreferences> {
   await initBunnyDb();
+  const eid = (ezzyId || DEFAULT_EZZY_ID).trim();
 
-  const current = await getUserOccasionPreferences(userId);
+  if (userId) {
+    await assertEzzyAccess(eid, userId, 'write');
+  }
+
+  const current = await getEzzyOccasionPreferences(eid);
   const country = (prefs.country !== undefined ? prefs.country : current.country) || 'AU';
   const subdivision = prefs.subdivision !== undefined ? prefs.subdivision : current.subdivision;
   const selectedTraditions = Array.isArray(prefs.selectedTraditions)
@@ -88,16 +113,16 @@ export async function saveUserOccasionPreferences(
 
   await executeBunnySql([
     {
-      sql: `INSERT INTO user_occasion_preferences (id, country, subdivision, selected_traditions, occasions_json, updated_at)
+      sql: `INSERT INTO ezzy_occasion_preferences (ezzy_id, country, subdivision, selected_traditions, occasions_json, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(ezzy_id) DO UPDATE SET
               country = excluded.country,
               subdivision = excluded.subdivision,
               selected_traditions = excluded.selected_traditions,
               occasions_json = excluded.occasions_json,
               updated_at = excluded.updated_at;`,
       args: [
-        userId,
+        eid,
         country,
         subdivision || null,
         JSON.stringify(selectedTraditions),
@@ -108,6 +133,7 @@ export async function saveUserOccasionPreferences(
   ]);
 
   return {
+    ezzyId: eid,
     country,
     subdivision,
     selectedTraditions,
@@ -117,17 +143,26 @@ export async function saveUserOccasionPreferences(
 }
 
 /**
- * Deletes isolated test user preferences from Bunny DB.
- * Guaranteed to refuse deletion of protected default_user record.
+ * Deletes isolated test occasion preferences from Bunny DB.
+ * Guaranteed to refuse deletion of protected default instance record.
  */
-export async function deleteUserOccasionPreferences(userId: string): Promise<void> {
-  if (!userId || userId === DEFAULT_USER_ID) {
-    throw new Error(`[PRODUCTION DATA GUARD] Cannot delete protected user '${DEFAULT_USER_ID}'.`);
+export async function deleteEzzyOccasionPreferences(ezzyId: string, userId?: string): Promise<void> {
+  const eid = (ezzyId || '').trim();
+  if (!eid || eid === DEFAULT_EZZY_ID) {
+    throw new Error(`[PRODUCTION DATA GUARD] Cannot delete protected Ezzy instance '${DEFAULT_EZZY_ID}'.`);
+  }
+  if (userId) {
+    await assertEzzyAccess(eid, userId, 'write');
   }
   await executeBunnySql([
     {
-      sql: `DELETE FROM user_occasion_preferences WHERE id = ?;`,
-      args: [userId],
+      sql: `DELETE FROM ezzy_occasion_preferences WHERE ezzy_id = ?;`,
+      args: [eid],
     },
   ]);
 }
+
+// Backwards-compatible aliases for existing callers
+export const getUserOccasionPreferences = getEzzyOccasionPreferences;
+export const saveUserOccasionPreferences = saveEzzyOccasionPreferences;
+export const deleteUserOccasionPreferences = deleteEzzyOccasionPreferences;

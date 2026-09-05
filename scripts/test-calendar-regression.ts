@@ -2,10 +2,12 @@ import { buildDynamicRetrievalContext, detectGenericScheduleIntent } from '../se
 import { upsertCalendarEvents, readCalendarEvents } from '../server/calendar/store';
 import { executeBunnySql } from '../server/db/client';
 
+const TEST_EZZY_ID = 'test_ezzy_calendar_reg';
+
 async function cleanupCalendarRegressionFixtures() {
   try {
     await executeBunnySql([
-      { sql: `DELETE FROM calendar_events WHERE id IN ('cal_google_drmarning123', 'cal_google_dentist456');` }
+      { sql: `DELETE FROM calendar_events WHERE ezzy_id = ? OR id IN ('cal_google_drmarning123', 'cal_google_dentist456');`, args: [TEST_EZZY_ID] }
     ]);
   } catch (err) {
     console.warn('[Calendar Regression] Error cleaning up test fixtures:', err);
@@ -71,8 +73,8 @@ async function runTests() {
       updated_at: '2026-08-28T09:00:00Z'
     };
 
-    await upsertCalendarEvents([sampleDrMarningEvent, sampleDentistEvent]);
-    const storedEvents = await readCalendarEvents();
+    await upsertCalendarEvents([sampleDrMarningEvent, sampleDentistEvent], TEST_EZZY_ID);
+    const storedEvents = await readCalendarEvents({}, TEST_EZZY_ID);
     console.log(`  Stored ${storedEvents.length} events in local calendar_events table.`);
     const foundMarning = storedEvents.find(e => e.title === 'Dr Marning');
     if (!foundMarning) {

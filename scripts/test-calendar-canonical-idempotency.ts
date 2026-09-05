@@ -54,6 +54,7 @@ async function runCalendarIdempotencyTest() {
 
   // Test 4: Database repeated upsert idempotency
   console.log('4. Database repeated upsert idempotency test:');
+  const TEST_CAL_EZZY_ID = 'test_ezzy_calendar_idempotency';
   const testEventPayload = {
     source: 'google_calendar',
     source_event_id: 'test_calendar_sync@example.com#event_idempotent_test_999',
@@ -66,11 +67,11 @@ async function runCalendarIdempotencyTest() {
   };
 
   // Clean up any prior test row
-  await executeBunnySql([{ sql: `DELETE FROM calendar_events WHERE sourceEventId LIKE '%event_idempotent_test_999';` }]);
+  await executeBunnySql([{ sql: `DELETE FROM calendar_events WHERE sourceEventId LIKE '%event_idempotent_test_999' AND ezzy_id = ?;`, args: [TEST_CAL_EZZY_ID] }]);
 
   // Upsert 1st time
-  await upsertCalendarEvents([testEventPayload]);
-  const rows1 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ?;`, args: [testEventPayload.source_event_id] }]);
+  await upsertCalendarEvents([testEventPayload], TEST_CAL_EZZY_ID);
+  const rows1 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ? AND ezzy_id = ?;`, args: [testEventPayload.source_event_id, TEST_CAL_EZZY_ID] }]);
   const count1 = rows1[0]?.rows?.length || 0;
   console.log(`   After 1st upsert: found ${count1} row(s). ID: ${rows1[0]?.rows?.[0]?.id}`);
 
@@ -79,8 +80,8 @@ async function runCalendarIdempotencyTest() {
     ...testEventPayload,
     description: 'Updated description on repeated sync',
   };
-  await upsertCalendarEvents([updatedPayload]);
-  const rows2 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ?;`, args: [testEventPayload.source_event_id] }]);
+  await upsertCalendarEvents([updatedPayload], TEST_CAL_EZZY_ID);
+  const rows2 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ? AND ezzy_id = ?;`, args: [testEventPayload.source_event_id, TEST_CAL_EZZY_ID] }]);
   const count2 = rows2[0]?.rows?.length || 0;
   const desc2 = rows2[0]?.rows?.[0]?.description;
   console.log(`   After 2nd upsert: found ${count2} row(s). Updated Description: "${desc2}"`);
@@ -91,8 +92,8 @@ async function runCalendarIdempotencyTest() {
     source_event_id: testEventPayload.source_event_id,
     title: 'Idempotency Test Event (3rd pass)',
     start_datetime: '2026-09-20T10:00:00+10:00',
-  }]);
-  const rows3 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ?;`, args: [testEventPayload.source_event_id] }]);
+  }], TEST_CAL_EZZY_ID);
+  const rows3 = await executeBunnySql([{ sql: `SELECT id, title, description FROM calendar_events WHERE sourceEventId = ? AND ezzy_id = ?;`, args: [testEventPayload.source_event_id, TEST_CAL_EZZY_ID] }]);
   const count3 = rows3[0]?.rows?.length || 0;
   console.log(`   After 3rd upsert: found ${count3} row(s). Title: "${rows3[0]?.rows?.[0]?.title}"`);
 
@@ -100,7 +101,7 @@ async function runCalendarIdempotencyTest() {
   console.log(`   Idempotency ${test4Passed ? 'PASSED (Zero duplicate rows created)' : 'FAILED'}\n`);
 
   // Clean up test rows
-  await executeBunnySql([{ sql: `DELETE FROM calendar_events WHERE sourceEventId LIKE '%event_idempotent_test_999';` }]);
+  await executeBunnySql([{ sql: `DELETE FROM calendar_events WHERE sourceEventId LIKE '%event_idempotent_test_999' AND ezzy_id = ?;`, args: [TEST_CAL_EZZY_ID] }]);
 
   const allPassed = test1Passed && test2Passed && test3Passed && test4Passed;
   console.log('================================================================================');

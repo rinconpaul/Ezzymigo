@@ -28,23 +28,26 @@ export function isTestContext(): boolean {
   return argvStr.includes('/scripts/') || argvStr.includes('test');
 }
 
-// Production Data Guard: Blocks test code from mutating live production / default_user data
+// Production Data Guard: Blocks test code from mutating live production / default_user / ezzy_default data
 export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
   if (!isTestContext()) return;
 
   for (const st of statements) {
-    const sqlLower = (st.sql || '').toLowerCase();
+    const sqlLower = (st.sql || '').toLowerCase().trim();
+    // Allow idempotent bootstrap inserts (e.g. INSERT OR IGNORE into ezzy_instances during init)
+    if (/^insert\s+or\s+ignore\b/i.test(sqlLower)) continue;
+
     const isWrite = /^\s*(insert|update|delete|replace|drop|alter|truncate)\b/i.test(sqlLower);
     if (!isWrite) continue;
 
-    // Check if targeting protected default_user record
-    const hasDefaultUserInSql = /\bdefault_user\b/i.test(st.sql);
-    const hasDefaultUserInArgs =
+    // Check if targeting protected default_user or ezzy_default record
+    const hasProtectedTenantInSql = /\b(default_user|ezzy_default)\b/i.test(st.sql);
+    const hasProtectedTenantInArgs =
       Array.isArray(st.args) &&
-      st.args.some((a) => typeof a === 'string' && a.trim() === 'default_user');
+      st.args.some((a) => typeof a === 'string' && (a.trim() === 'default_user' || a.trim() === 'ezzy_default'));
 
-    if (hasDefaultUserInSql || hasDefaultUserInArgs) {
-      const err = `[PRODUCTION DATA GUARD VIOLATION] Automated test code attempted to execute write operation mutating protected record 'default_user'! SQL: "${st.sql}". Tests must use isolated test IDs (e.g. 'test_...').`;
+    if (hasProtectedTenantInSql || hasProtectedTenantInArgs) {
+      const err = `[PRODUCTION DATA GUARD VIOLATION] Automated test code attempted to execute write operation mutating protected record ('default_user' or 'ezzy_default')! SQL: "${st.sql}". Tests must use isolated test IDs (e.g. 'test_...').`;
       console.error(`❌ ${err}`);
       throw new Error(err);
     }

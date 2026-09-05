@@ -1,16 +1,16 @@
-import { getUserOccasionPreferences } from '../db/occasions';
+import { getEzzyOccasionPreferences } from '../db/occasions';
 import { CATALOG_OCCASIONS, getRegionalOccasions, getTraditionOccasions } from '../../src/data/occasionsCatalog';
-import { CatalogOccasion, OccasionOccurrence, UserOccasionPreferences } from '../../src/types';
+import { CatalogOccasion, OccasionOccurrence, EzzyOccasionPreferences, UserOccasionPreferences } from '../../src/types';
 import { resolveOccasionOccurrencesForWindow, addDays, formatYMD } from './dateResolver';
 
 /**
- * Retrieves the catalog occasions that the user has selected or enabled.
+ * Retrieves the catalog occasions that the specified Ezzy instance has selected or enabled.
  */
-export async function getUserSelectedCatalogOccasions(): Promise<{
+export async function getEzzySelectedCatalogOccasions(ezzyId?: string): Promise<{
   occasions: CatalogOccasion[];
-  preferences: UserOccasionPreferences;
+  preferences: EzzyOccasionPreferences;
 }> {
-  const prefs = await getUserOccasionPreferences();
+  const prefs = await getEzzyOccasionPreferences(ezzyId || undefined);
   const country = (prefs.country || 'AU').toUpperCase();
   const subdivision = prefs.subdivision ? prefs.subdivision.toUpperCase() : undefined;
 
@@ -33,16 +33,11 @@ export async function getUserSelectedCatalogOccasions(): Promise<{
     uniqueMap.set(item.id, item);
   }
 
-  // Filter based on explicit user toggle in prefs.occasions
-  // If an occasion is in prefs.occasions and set to false, it is excluded.
-  // If not explicitly false, it is included if it was part of selected region or tradition.
+  // Filter based on explicit toggle in prefs.occasions
   const activeOccasions: CatalogOccasion[] = [];
   for (const [id, occasion] of uniqueMap.entries()) {
     const isExplicitlyDisabled = prefs.occasions?.[id] === false;
-    const isExplicitlyEnabled = prefs.occasions?.[id] === true;
 
-    // For regional: enabled by default unless explicitly false
-    // For traditions: enabled if tradition is selected unless explicitly false
     if (!isExplicitlyDisabled) {
       activeOccasions.push(occasion);
     }
@@ -51,17 +46,20 @@ export async function getUserSelectedCatalogOccasions(): Promise<{
   return { occasions: activeOccasions, preferences: prefs };
 }
 
+export const getUserSelectedCatalogOccasions = getEzzySelectedCatalogOccasions;
+
 /**
- * Resolves all active occurrences for the user's selected occasions in a rolling window around referenceDate.
+ * Resolves all active occurrences for an Ezzy's selected occasions in a rolling window around referenceDate.
  * Default window: 14 days in the past (for reflection on recent occasions) to 60 days in the future.
  */
-export async function getActiveUserOccasionOccurrences(
+export async function getActiveEzzyOccasionOccurrences(
   referenceDate: Date,
   timeZone = 'Australia/Sydney',
   windowPastDays = 14,
-  windowFutureDays = 60
+  windowFutureDays = 60,
+  ezzyId?: string
 ): Promise<OccasionOccurrence[]> {
-  const { occasions, preferences } = await getUserSelectedCatalogOccasions();
+  const { occasions, preferences } = await getEzzySelectedCatalogOccasions(ezzyId);
 
   // Compute window boundaries YYYY-MM-DD in user's timeZone
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -97,3 +95,5 @@ export async function getActiveUserOccasionOccurrences(
 
   return allOccurrences;
 }
+
+export const getActiveUserOccasionOccurrences = getActiveEzzyOccasionOccurrences;

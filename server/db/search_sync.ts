@@ -3,6 +3,7 @@ import { parseStoredTopicsAndMetadata } from './memories';
 
 export interface SearchDoc {
   memory_id: string;
+  ezzy_id?: string;
   content: string;
   original_text: string;
   people: string;
@@ -96,9 +97,11 @@ export function extractSearchDoc(input: any): SearchDoc {
   const itemsStr = itemsArr.filter(Boolean).join(' ');
   const cleanSubject = (rawSubject && rawSubject.toLowerCase() !== 'null' && rawSubject.toLowerCase() !== 'undefined') ? rawSubject : '';
   const normSubject = normalizeSubject(rawSubject);
+  const ezzyId = input.ezzy_id || input.ezzyId || 'ezzy_default';
 
   return {
     memory_id: memoryId,
+    ezzy_id: ezzyId,
     content: content || '',
     original_text: originalText || '',
     people: peopleStr,
@@ -114,7 +117,8 @@ export function extractSearchDoc(input: any): SearchDoc {
 }
 
 // Generate atomic SQL statements to synchronize memories_fts and memory_search_projection
-export function getSearchSyncStatements(doc: SearchDoc): Array<{ sql: string; args: any[] }> {
+export function getSearchSyncStatements(doc: SearchDoc, ezzyId?: string): Array<{ sql: string; args: any[] }> {
+  const scopeEzzyId = ezzyId || doc.ezzy_id || 'ezzy_default';
   return [
     {
       sql: 'DELETE FROM memories_fts WHERE memory_id = ?;',
@@ -140,10 +144,11 @@ export function getSearchSyncStatements(doc: SearchDoc): Array<{ sql: string; ar
       args: [doc.memory_id]
     },
     {
-      sql: `INSERT INTO memory_search_projection (memory_id, subject, subject_normalized, status, createdAt)
-            VALUES (?, ?, ?, ?, ?);`,
+      sql: `INSERT INTO memory_search_projection (memory_id, ezzy_id, subject, subject_normalized, status, createdAt)
+            VALUES (?, ?, ?, ?, ?, ?);`,
       args: [
         doc.memory_id,
+        scopeEzzyId,
         doc.subject || null,
         doc.subject_normalized || null,
         doc.status,

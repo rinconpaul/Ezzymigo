@@ -162,13 +162,16 @@ export interface CatalogOccasion {
   unsupportedReason?: string;
 }
 
-export interface UserOccasionPreferences {
+export interface EzzyOccasionPreferences {
+  ezzyId?: string;
   country: string; // e.g. "AU"
   subdivision?: string; // e.g. "ACT"
   selectedTraditions: string[]; // array of tradition IDs, e.g. ["vietnamese"]
   occasions: Record<string, boolean>; // occasionId -> enabled/disabled
   updatedAt: string;
 }
+
+export type UserOccasionPreferences = EzzyOccasionPreferences;
 
 export interface AnticipationOffer {
   memoryId: string;

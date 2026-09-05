@@ -92,6 +92,8 @@ import {
   startReminderDispatcherInterval,
 } from './server/push/index';
 import {
+  getEzzyOccasionPreferences,
+  saveEzzyOccasionPreferences,
   getUserOccasionPreferences,
   saveUserOccasionPreferences,
 } from './server/db/occasions';
@@ -115,6 +117,38 @@ import {
   computeTodayRelevance,
   evaluateMemoryTodayLifecycle,
 } from './server/today/relevance';
+import {
+  DEFAULT_EZZY_ID,
+  getEzzyInstance,
+  createEzzyInstance,
+  updateEzzyInstance,
+  listEzzyInstances,
+  getEzzyMembers,
+  addEzzyMember,
+  removeEzzyMember,
+  checkEzzyEntitlement,
+  assertEzzyWriteAllowed,
+  assertEzzyAccess,
+  handleEntitlementError,
+  EntitlementViolation,
+} from './server/instances/entitlements';
+import { extractUserId } from './server/instances/identity';
+
+export { extractUserId };
+
+export function extractEzzyId(req: express.Request): string {
+  const headerId = (req.headers['x-ezzy-id'] || req.headers['ezzy-id']) as string | undefined;
+  if (headerId && typeof headerId === 'string' && headerId.trim()) {
+    return headerId.trim();
+  }
+  if (req.query && typeof req.query.ezzy_id === 'string' && req.query.ezzy_id.trim()) {
+    return req.query.ezzy_id.trim();
+  }
+  if (req.body && typeof req.body.ezzy_id === 'string' && req.body.ezzy_id.trim()) {
+    return req.body.ezzy_id.trim();
+  }
+  return DEFAULT_EZZY_ID;
+}
 
 // Start background push dispatcher interval
 startReminderDispatcherInterval(10000);
@@ -296,16 +330,29 @@ app.get('/api/push/status', async (req, res) => {
 // -------------------------------------------------------------
 
 app.get('/api/memories', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const memories = await readMemories();
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const memories = await readMemories(ezzyId);
     res.json({ memories });
-  } catch (error) {
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error fetching memories:', error);
     res.status(500).json({ error: 'Failed to retrieve memories from database' });
   }
 });
 
 app.post('/api/memories', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+  } catch (entErr: any) {
+    if (handleEntitlementError(res, entErr, ezzyId)) return;
+    throw entErr;
+  }
+
   const rawInput = req.body?.originalText || req.body?.text;
   const { clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body || {};
 
@@ -314,7 +361,7 @@ app.post('/api/memories', async (req, res) => {
   }
 
   const trimmedText = rawInput.trim();
-  console.log(`[API MEMORY WRITE] POST /api/memories - Received thought to save: "${trimmedText}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, linkedEventId: ${linkedEventId || 'none'}, subject: ${subject || 'none'})`);
+  console.log(`[API MEMORY WRITE] POST /api/memories - Received thought to save: "${trimmedText}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, linkedEventId: ${linkedEventId || 'none'}, subject: ${subject || 'none'})`);
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
   const ai = getGeminiClient();
 
@@ -384,13 +431,13 @@ app.post('/api/memories', async (req, res) => {
                   role: rel.role,
                   normalized_role: normalizeRoleName(rel.role),
                   metadata: { phone: phoneNumber },
-                });
+                }, undefined, ezzyId);
               }
             }
           }
         }
       }
-      await saveRelationships(extractedRelationships);
+      await saveRelationships(extractedRelationships, undefined, ezzyId);
     })();
 
     // Phase A Tell Concurrency:
@@ -399,10 +446,10 @@ app.post('/api/memories', async (req, res) => {
     // 3. readMemories pre-loads historical memories for ambiguity detection
     // 4. readActiveRelationships loads pre-existing active relationships
     const [insertResult, _relResult, historicalMemories, currentActiveRelationships] = await Promise.all([
-      insertMemories(newMemories, { skipRelationshipSave: true }),
+      insertMemories(newMemories, { skipRelationshipSave: true }, ezzyId),
       persistRelationshipsPromise,
-      readMemories(),
-      readActiveRelationships(),
+      readMemories(ezzyId),
+      readActiveRelationships(ezzyId),
     ]);
 
     if (!phoneOffer && insertResult?.phoneOffer) {
@@ -421,7 +468,8 @@ app.post('/api/memories', async (req, res) => {
       trimmedText,
       ai,
       historicalMemories,
-      enrichedRelationships
+      enrichedRelationships,
+      ezzyId
     );
 
     // Prioritise resolving who the person is first: if ambiguity clarification exists, suppress phone offer
@@ -434,7 +482,7 @@ app.post('/api/memories', async (req, res) => {
     const effectiveLinkedEventId = linkedEventId || newMemories[0]?.interpretation?.linked_event_id;
     if (effectiveLinkedEventId) {
       try {
-        const allCalendarEvents = await readCalendarEvents();
+        const allCalendarEvents = await readCalendarEvents({}, ezzyId);
         const matchedEvt = allCalendarEvents.find(
           (e: any) => e.id === effectiveLinkedEventId || e.source_event_id === effectiveLinkedEventId
         );
@@ -623,7 +671,10 @@ app.post('/api/interpret-preview', handleNonPersistingInterpret);
 // -------------------------------------------------------------
 
 app.post('/api/clarifications/resolve', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
     const { clarificationId, entityName, entityType, answer, candidateChosen, memoryId, metadata, clientNow, clientTimeZone, clientLanguage, clientRegion } = req.body;
 
     if (!entityName || typeof entityName !== 'string') {
@@ -637,7 +688,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       return res.status(400).json({ error: 'Answer is required to resolve clarification' });
     }
 
-    console.log(`[Ambiguity Rule] Resolving clarification (type: ${entityType || 'person/rel'}) for "${trimmedEntity}" with answer: "${rawAnswer}" (memoryId: ${memoryId || 'none'})`);
+    console.log(`[Ambiguity Rule] Resolving clarification (ezzyId: ${ezzyId}, type: ${entityType || 'person/rel'}) for "${trimmedEntity}" with answer: "${rawAnswer}" (memoryId: ${memoryId || 'none'})`);
 
     // -------------------------------------------------------------
     // TEMPORAL CLARIFICATION (Time Meridiem AM/PM resolution)
@@ -679,7 +730,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
         return res.status(400).json({ error: 'Could not determine hour for time clarification' });
       }
 
-      const allStored = await readMemories();
+      const allStored = await readMemories(ezzyId);
       const targetMemory = allStored.find((m: any) => m.id === memoryId);
       if (!targetMemory) {
         return res.status(404).json({ error: `Memory with ID ${memoryId} not found` });
@@ -708,21 +759,22 @@ app.post('/api/clarifications/resolve', async (req, res) => {
         temporal_ambiguity: null,
       };
 
-      const updatedMemory = await updateMemoryInDb(targetMemory.id, updatedInterpretation);
+      const updatedMemory = await updateMemoryInDb(targetMemory.id, updatedInterpretation, undefined, ezzyId);
 
       // Ensure scheduled_reminders has exactly one notification
       await initBunnyDb();
       await executeBunnySql([
         {
-          sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ?;',
-          args: [targetMemory.id]
+          sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ? AND ezzy_id = ?;',
+          args: [targetMemory.id, ezzyId]
         },
         {
-          sql: `INSERT INTO scheduled_reminders (id, memoryId, title, body, remindAt, notified, createdAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?);`,
+          sql: `INSERT INTO scheduled_reminders (id, memoryId, ezzy_id, title, body, remindAt, notified, createdAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
           args: [
             `remind_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             targetMemory.id,
+            ezzyId,
             'Ezzymigo Reminder',
             targetMemory.interpretation.content,
             new Date(resolvedIso).toISOString(),
@@ -732,7 +784,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
         }
       ]);
 
-      console.log(`[Ambiguity Rule] Resolved time clarification for memory "${targetMemory.id}": ${resolvedIso} (${formattedTiming})`);
+      console.log(`[Ambiguity Rule] Resolved time clarification for memory "${targetMemory.id}" in ezzyId "${ezzyId}": ${resolvedIso} (${formattedTiming})`);
 
       return res.json({
         success: true,
@@ -785,14 +837,14 @@ app.post('/api/clarifications/resolve', async (req, res) => {
     resolvedRole = normalizeRoleName(resolvedRole);
 
     // Explicit user clarification response clears any durable suppression
-    await unsuppressUserEntity(resolvedPerson);
+    await unsuppressUserEntity(resolvedPerson, ezzyId);
 
     // 1. Save relationship
     await saveRelationships([{
       person: resolvedPerson,
       role: resolvedRole,
       is_active: true,
-    }], { skipSuppressionCheck: true });
+    }], { skipSuppressionCheck: true }, ezzyId);
 
     // 2. Save user entity with structured metadata
     const entityMetadata: Record<string, any> = phoneToSave ? { phone: phoneToSave } : {};
@@ -802,7 +854,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       role: resolvedRole,
       normalized_role: normalizeRoleName(resolvedRole),
       metadata: entityMetadata,
-    }, { skipSuppressionCheck: true });
+    }, { skipSuppressionCheck: true }, ezzyId);
 
     const phoneSuffix = phoneToSave ? ` — ${phoneToSave}` : '';
 
@@ -825,7 +877,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
     }
 
     if (memoryId && isPhoneOffer) {
-      const allStored = await readMemories();
+      const allStored = await readMemories(ezzyId);
       const targetMemory = allStored.find((m: any) => m.id === memoryId);
       if (targetMemory) {
         const updatedContent = phoneToSave && !targetMemory.interpretation.content.includes(phoneToSave)
@@ -843,7 +895,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
           retrieval_cues: [...existingCues, ...newCues],
         };
 
-        const updatedMem = await updateMemoryInDb(targetMemory.id, updatedInterpretation, updatedContent);
+        const updatedMem = await updateMemoryInDb(targetMemory.id, updatedInterpretation, updatedContent, ezzyId);
 
         return res.json({
           success: true,
@@ -904,7 +956,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       },
     };
 
-    await insertMemories([factMemory]);
+    await insertMemories([factMemory], undefined, ezzyId);
 
     const phoneOffer = (!phoneToSave && !isPhoneOffer && resolvedPerson && resolvedRole)
       ? { person: resolvedPerson, role: resolvedRole }
@@ -922,6 +974,7 @@ app.post('/api/clarifications/resolve', async (req, res) => {
       phoneOffer: phoneOffer || null,
     });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('[Ambiguity Rule] Error resolving clarification:', err);
     return res.status(500).json({ error: 'Failed to resolve clarification' });
   }
@@ -929,6 +982,15 @@ app.post('/api/clarifications/resolve', async (req, res) => {
 
 app.put('/api/memories/:id', async (req, res) => {
   const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+  } catch (entErr: any) {
+    if (handleEntitlementError(res, entErr, ezzyId)) return;
+    throw entErr;
+  }
+
   const { editedText, clientNow, clientTimeZone, clientLanguage, clientRegion } = req.body;
 
   if (!editedText || typeof editedText !== 'string' || !editedText.trim()) {
@@ -936,16 +998,16 @@ app.put('/api/memories/:id', async (req, res) => {
   }
 
   const trimmedText = editedText.trim();
-  console.log(`[API MEMORY EDIT] PUT /api/memories/${id} - Re-interpreting edited memory: "${trimmedText}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'})`);
+  console.log(`[API MEMORY EDIT] PUT /api/memories/${id} - Re-interpreting edited memory: "${trimmedText}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'})`);
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
   const ai = getGeminiClient();
 
   try {
-    const oldMemory = await readMemoryById(id);
+    const oldMemory = await readMemoryById(id, ezzyId);
 
     // Re-run the exact same interpretation and metadata extraction pipeline
     const newInterpretation = await interpretSingleMemoryUnit(trimmedText, trimmedText, localContext, ai);
-    const updatedMemory = await updateMemoryInDb(id, newInterpretation, trimmedText);
+    const updatedMemory = await updateMemoryInDb(id, newInterpretation, trimmedText, ezzyId);
 
     if (!updatedMemory) {
       return res.status(404).json({ error: 'Memory not found' });
@@ -973,8 +1035,8 @@ app.put('/api/memories/:id', async (req, res) => {
       );
 
       if (!stillPresentInNew) {
-        console.log(`[Relationships] Deactivating old relationship due to memory edit: ${oldP} <-> ${oldR}`);
-        await deactivateUserRelationship(oldP, oldR);
+        console.log(`[Relationships] Deactivating old relationship due to memory edit: ${oldP} <-> ${oldR} in ezzyId "${ezzyId}"`);
+        await deactivateUserRelationship(oldP, oldR, ezzyId);
       }
     }
 
@@ -992,7 +1054,7 @@ app.put('/api/memories/:id', async (req, res) => {
               role: rel.role,
               normalized_role: normalizeRoleName(rel.role),
               metadata: { phone: phoneNumber },
-            });
+            }, undefined, ezzyId);
           }
         }
       } else if (!phoneOffer) {
@@ -1001,10 +1063,10 @@ app.put('/api/memories/:id', async (req, res) => {
           phoneOffer = { person: activeRel.person, role: activeRel.role };
         }
       }
-      await saveRelationships(newRelationships);
+      await saveRelationships(newRelationships, undefined, ezzyId);
     }
 
-    console.log(`[API MEMORY EDIT] Successfully updated memory ${id} with refreshed metadata. People:`, updatedMemory.interpretation?.people);
+    console.log(`[API MEMORY EDIT] Successfully updated memory ${id} in ezzyId "${ezzyId}". People:`, updatedMemory.interpretation?.people);
     return res.json({ memory: updatedMemory, phoneOffer: phoneOffer || null });
   } catch (err: any) {
     console.error('Error updating memory:', err);
@@ -1014,13 +1076,17 @@ app.put('/api/memories/:id', async (req, res) => {
 
 app.patch('/api/memories/:id/toggle', async (req, res) => {
   const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const updated = await toggleMemoryInDb(id);
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const updated = await toggleMemoryInDb(id, ezzyId);
     if (!updated) {
       return res.status(404).json({ error: 'Memory not found' });
     }
     return res.json({ memory: updated });
-  } catch (error) {
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error toggling memory:', error);
     return res.status(500).json({ error: 'Failed to toggle memory status' });
   }
@@ -1028,16 +1094,18 @@ app.patch('/api/memories/:id/toggle', async (req, res) => {
 
 app.delete('/api/memories/:id', async (req, res) => {
   const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const memoryToDelete = await readMemoryById(id);
-    await deleteMemoryFromDb(id);
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const memoryToDelete = await readMemoryById(id, ezzyId);
+    await deleteMemoryFromDb(id, ezzyId);
 
     // If the deleted memory asserted relationships, synchronize/deactivate them
-    // so Ezzymigo no longer holds the relationship unless another active fact memory still asserts it.
     if (memoryToDelete && Array.isArray(memoryToDelete.interpretation?.relationships)) {
       const rels = memoryToDelete.interpretation.relationships;
       if (rels.length > 0) {
-        const remainingMemories = await readMemories();
+        const remainingMemories = await readMemories(ezzyId);
         for (const rel of rels) {
           if (!rel || !rel.person || !rel.role) continue;
           const p = rel.person.trim();
@@ -1057,31 +1125,35 @@ app.delete('/api/memories/:id', async (req, res) => {
           });
 
           if (!isStillAssertedInOtherMemory) {
-            console.log(`[Relationships] Deactivating relationship for deleted memory: ${p} <-> ${r}`);
-            await deactivateUserRelationship(p, r);
+            console.log(`[Relationships] Deactivating relationship for deleted memory in ezzyId "${ezzyId}": ${p} <-> ${r}`);
+            await deactivateUserRelationship(p, r, ezzyId);
           }
         }
       }
     }
 
     return res.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error deleting memory:', error);
     return res.status(500).json({ error: 'Failed to delete memory' });
   }
 });
 
 app.delete('/api/lists', async (req, res) => {
-  const { subject } = req.body;
-  if (!subject || typeof subject !== 'string' || !subject.trim()) {
-    return res.status(400).json({ error: 'List subject name is required' });
-  }
-
-  const targetSubject = subject.trim();
-  console.log(`[API LIST DELETE] DELETE /api/lists - Target subject: "${targetSubject}"`);
-
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const allMemories = await readMemories();
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { subject } = req.body;
+    if (!subject || typeof subject !== 'string' || !subject.trim()) {
+      return res.status(400).json({ error: 'List subject name is required' });
+    }
+
+    const targetSubject = subject.trim();
+    console.log(`[API LIST DELETE] DELETE /api/lists - Target subject: "${targetSubject}" in ezzyId "${ezzyId}"`);
+
+    const allMemories = await readMemories(ezzyId);
     const memoriesToDelete = allMemories.filter(
       (m) => m.interpretation?.subject?.trim().toLowerCase() === targetSubject.toLowerCase()
     );
@@ -1094,7 +1166,7 @@ app.delete('/api/lists', async (req, res) => {
 
     // Delete each memory and its scheduled reminders
     for (const mem of memoriesToDelete) {
-      await deleteMemoryFromDb(mem.id);
+      await deleteMemoryFromDb(mem.id, ezzyId);
     }
 
     // Collect relationships asserted by deleted memories
@@ -1111,7 +1183,7 @@ app.delete('/api/lists', async (req, res) => {
 
     // Safeguard relationships if not asserted elsewhere in remaining memories
     if (relsToCheck.length > 0) {
-      const remainingMemories = await readMemories();
+      const remainingMemories = await readMemories(ezzyId);
       for (const rel of relsToCheck) {
         const p = rel.person;
         const r = rel.role;
@@ -1130,15 +1202,16 @@ app.delete('/api/lists', async (req, res) => {
         });
 
         if (!isStillAssertedInOtherMemory) {
-          console.log(`[Relationships] Deactivating relationship for deleted list items: ${p} <-> ${r}`);
-          await deactivateUserRelationship(p, r);
+          console.log(`[Relationships] Deactivating relationship for deleted list items in ezzyId "${ezzyId}": ${p} <-> ${r}`);
+          await deactivateUserRelationship(p, r, ezzyId);
         }
       }
     }
 
-    console.log(`[API LIST DELETE] Successfully deleted ${memoriesToDelete.length} memories for list "${targetSubject}"`);
+    console.log(`[API LIST DELETE] Successfully deleted ${memoriesToDelete.length} memories for list "${targetSubject}" in ezzyId "${ezzyId}"`);
     return res.json({ success: true, count: memoriesToDelete.length, deletedIds });
-  } catch (error) {
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error deleting list memories:', error);
     return res.status(500).json({ error: 'Failed to delete list memories' });
   }
@@ -1149,6 +1222,15 @@ app.delete('/api/lists', async (req, res) => {
 // -------------------------------------------------------------
 
 app.post('/api/memories/:id/lookup', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    throw err;
+  }
+
   const { id } = req.params;
   const { query, memoryContent, clientRegion = 'AU', clientLanguage = 'en-AU' } = req.body;
 
@@ -1372,15 +1454,19 @@ Or if an entity / name / title / spelling discrepancy was identified:
 
 // GET /api/calendar-events - List stored external calendar events
 app.get('/api/calendar-events', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
     const { startAfter, startBefore, limit } = req.query;
     const events = await readCalendarEvents({
       startAfter: typeof startAfter === 'string' ? startAfter : undefined,
       startBefore: typeof startBefore === 'string' ? startBefore : undefined,
       limit: limit ? Number(limit) : undefined,
-    });
+    }, ezzyId);
     return res.json({ events });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error fetching calendar events:', err);
     return res.status(500).json({ error: 'Failed to fetch calendar events' });
   }
@@ -1388,16 +1474,20 @@ app.get('/api/calendar-events', async (req, res) => {
 
 // POST /api/calendar-events/sync - Save a batch of synced calendar events
 app.post('/api/calendar-events/sync', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
     const { events } = req.body;
     if (!Array.isArray(events)) {
       return res.status(400).json({ error: 'Expected an array of events' });
     }
 
-    await upsertCalendarEvents(events);
-    const stored = await readCalendarEvents();
+    await upsertCalendarEvents(events, ezzyId);
+    const stored = await readCalendarEvents({}, ezzyId);
     return res.json({ success: true, count: events.length, events: stored });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error syncing calendar events:', err);
     return res.status(500).json({ error: 'Failed to save calendar events' });
   }
@@ -1405,10 +1495,14 @@ app.post('/api/calendar-events/sync', async (req, res) => {
 
 // GET /api/relationships - List current active user relationships
 app.get('/api/relationships', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const relationships = await readActiveRelationships();
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const relationships = await readActiveRelationships(ezzyId);
     return res.json({ relationships });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error fetching relationships:', err);
     return res.status(500).json({ error: 'Failed to fetch relationships' });
   }
@@ -1416,20 +1510,24 @@ app.get('/api/relationships', async (req, res) => {
 
 // POST /api/relationships/forget - Direct endpoint to forget an entity or relationship
 app.post('/api/relationships/forget', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
     const { person, role } = req.body;
     if (!person || typeof person !== 'string' || !person.trim()) {
       return res.status(400).json({ error: 'Person name is required' });
     }
     const p = person.trim();
     if (role && typeof role === 'string' && role.trim()) {
-      const result = await deactivateUserRelationship(p, role.trim());
+      const result = await deactivateUserRelationship(p, role.trim(), ezzyId);
       return res.json({ success: true, person: p, role: role.trim(), ...result });
     } else {
-      const success = await forgetUserEntity(p);
+      const success = await forgetUserEntity(p, ezzyId);
       return res.json({ success, person: p });
     }
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error forgetting relationship/entity:', err);
     return res.status(500).json({ error: 'Failed to forget knowledge' });
   }
@@ -1437,11 +1535,15 @@ app.post('/api/relationships/forget', async (req, res) => {
 
 // POST /api/relationships/backfill - Idempotent sync of relationships from stored memories
 app.post('/api/relationships/backfill', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    await backfillStoredRelationships();
-    const relationships = await readActiveRelationships();
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    await backfillStoredRelationships(ezzyId);
+    const relationships = await readActiveRelationships(ezzyId);
     return res.json({ success: true, count: relationships.length, relationships });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error backfilling relationships:', err);
     return res.status(500).json({ error: 'Failed to backfill relationships' });
   }
@@ -1449,10 +1551,14 @@ app.post('/api/relationships/backfill', async (req, res) => {
 
 // GET /api/occasions/preferences - Get stored user occasion preferences
 app.get('/api/occasions/preferences', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
-    const preferences = await getUserOccasionPreferences();
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const preferences = await getEzzyOccasionPreferences(ezzyId);
     return res.json({ preferences });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error fetching occasion preferences:', err);
     return res.status(500).json({ error: 'Failed to fetch occasion preferences' });
   }
@@ -1460,11 +1566,15 @@ app.get('/api/occasions/preferences', async (req, res) => {
 
 // POST /api/occasions/preferences - Persist user occasion preferences
 app.post('/api/occasions/preferences', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
     const body = req.body || {};
-    const preferences = await saveUserOccasionPreferences(body);
+    const preferences = await saveEzzyOccasionPreferences(body, ezzyId);
     return res.json({ success: true, preferences });
   } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
     console.error('Error saving occasion preferences:', err);
     return res.status(500).json({ error: 'Failed to save occasion preferences' });
   }
@@ -1497,27 +1607,31 @@ const askResponseSchema = {
 
 // POST /api/ask - Ask Ezzymigo retrieval endpoint
 app.post('/api/ask', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
     const { question, clientNow, clientTimeZone, clientLanguage, clientRegion, confirm } = req.body;
     if (!question || typeof question !== 'string' || !question.trim()) {
       return res.status(400).json({ error: 'Question is required' });
     }
 
     const trimmedQuestion = question.trim();
-    console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
+    console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
     // Phase A: Concurrent database retrieval for relationships, calendar events, and user entities
     const [activeRelationships, calendarEvents, userEntities] = await Promise.all([
-      readActiveRelationships(),
-      readCalendarEvents(),
-      getUserEntities(),
+      readActiveRelationships(ezzyId),
+      readCalendarEvents({}, ezzyId),
+      getUserEntities(ezzyId),
     ]);
 
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
     const ai = getGeminiClient();
-    const knowledgeModResult = await evaluateKnowledgeModification(trimmedQuestion, activeRelationships, Boolean(confirm), ai);
+    const knowledgeModResult = await evaluateKnowledgeModification(trimmedQuestion, activeRelationships, Boolean(confirm), ai, ezzyId);
     if (knowledgeModResult && knowledgeModResult.handled) {
-      console.log(`[Knowledge Engine] Handled knowledge modification for: "${trimmedQuestion}"`);
+      console.log(`[Knowledge Engine] Handled knowledge modification for: "${trimmedQuestion}" in ezzyId "${ezzyId}"`);
       return res.json({
         answer: knowledgeModResult.answer,
         confirmation_required: knowledgeModResult.confirmation_required || false,
@@ -1545,6 +1659,7 @@ app.post('/api/ask', async (req, res) => {
       localContext,
       activeRelationships,
       userEntities,
+      ezzyId,
     });
     const boundedMemories = boundedRetrieval.candidateMemories;
 
@@ -1862,6 +1977,7 @@ Please answer the user's question accurately and concisely based strictly on the
     console.log(`[API ASK] Final result - Answer: "${answer}", is_out_of_scope: ${is_out_of_scope}, Supporting memory_ids: ${JSON.stringify(memory_ids)}, calendar_event_ids: ${JSON.stringify(calendar_event_ids)}`);
     return res.json({ answer, memory_ids, calendar_event_ids, is_out_of_scope });
   } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error answering question with Ezzymigo:', error);
     return res.status(500).json({ error: 'Failed to retrieve answer for question' });
   }
@@ -1869,7 +1985,11 @@ Please answer the user's question accurately and concisely based strictly on the
 
 // GET /api/today-relevance - Diagnostic endpoint (query params)
 app.get('/api/today-relevance', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
     const { clientNow, clientTimeZone, clientLanguage, clientRegion, dismissed } = req.query;
     const dismissedList = typeof dismissed === 'string' ? dismissed.split(',').filter(Boolean) : [];
     const result = await computeTodayRelevance(
@@ -1877,10 +1997,13 @@ app.get('/api/today-relevance', async (req, res) => {
       typeof clientTimeZone === 'string' ? clientTimeZone : undefined,
       typeof clientLanguage === 'string' ? clientLanguage : undefined,
       typeof clientRegion === 'string' ? clientRegion : undefined,
-      dismissedList
+      dismissedList,
+      ezzyId,
+      userId
     );
     return res.json(result);
   } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error computing today relevance:', error);
     return res.status(500).json({ error: 'Failed to compute today relevance' });
   }
@@ -1888,19 +2011,173 @@ app.get('/api/today-relevance', async (req, res) => {
 
 // POST /api/today-relevance - Diagnostic endpoint (JSON body)
 app.post('/api/today-relevance', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
   try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
     const { clientNow, clientTimeZone, clientLanguage, clientRegion, dismissedReflectionIds } = req.body || {};
     const result = await computeTodayRelevance(
       typeof clientNow === 'string' ? clientNow : undefined,
       typeof clientTimeZone === 'string' ? clientTimeZone : undefined,
       typeof clientLanguage === 'string' ? clientLanguage : undefined,
       typeof clientRegion === 'string' ? clientRegion : undefined,
-      Array.isArray(dismissedReflectionIds) ? dismissedReflectionIds : []
+      Array.isArray(dismissedReflectionIds) ? dismissedReflectionIds : [],
+      ezzyId,
+      userId
     );
     return res.json(result);
   } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error computing today relevance:', error);
     return res.status(500).json({ error: 'Failed to compute today relevance' });
+  }
+});
+
+// -------------------------------------------------------------
+// Ezzy Instance & Entitlement Boundaries API Endpoints
+// -------------------------------------------------------------
+
+// GET /api/instances - List all instances with entitlement status
+app.get('/api/instances', async (req, res) => {
+  try {
+    const instances = await listEzzyInstances();
+    return res.json({ instances });
+  } catch (err: any) {
+    console.error('Error listing Ezzy instances:', err);
+    return res.status(500).json({ error: 'Failed to list Ezzy instances' });
+  }
+});
+
+// GET /api/instances/:id - Get a specific instance with detailed entitlement status
+app.get('/api/instances/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const instance = await getEzzyInstance(id);
+    if (!instance) {
+      return res.status(404).json({ error: `Ezzy instance "${id}" not found` });
+    }
+    const readCheck = await checkEzzyEntitlement(id, 'read');
+    const writeCheck = await checkEzzyEntitlement(id, 'write');
+    const members = await getEzzyMembers(id);
+
+    return res.json({
+      instance,
+      members,
+      entitlement: {
+        status: instance.status,
+        plan: instance.plan,
+        isTrial: instance.status === 'trial',
+        isExpired: instance.status === 'expired',
+        readAllowed: readCheck.allowed,
+        writeAllowed: writeCheck.allowed,
+        memberLimit: instance.max_members,
+        memberCount: members.length,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error fetching Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to fetch Ezzy instance' });
+  }
+});
+
+// POST /api/instances - Create a new isolated Ezzy instance
+app.post('/api/instances', async (req, res) => {
+  try {
+    const { id, name, plan, status, max_members, trial_ends_at, expires_at, created_by } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Instance name is required' });
+    }
+
+    const instance = await createEzzyInstance({
+      id: typeof id === 'string' && id.trim() ? id.trim() : undefined,
+      name: name.trim(),
+      plan: plan || 'free_trial',
+      status: status || 'trial',
+      max_members: typeof max_members === 'number' ? max_members : 5,
+      trial_ends_at: trial_ends_at || undefined,
+      expires_at: expires_at || undefined,
+      created_by: created_by || undefined,
+    });
+
+    return res.status(201).json({ success: true, instance });
+  } catch (err: any) {
+    console.error('Error creating Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to create Ezzy instance' });
+  }
+});
+
+// PATCH /api/instances/:id - Update instance status (trial/active/expired), plan, or limits
+app.patch('/api/instances/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, plan, status, max_members, trial_ends_at, expires_at } = req.body || {};
+    const updated = await updateEzzyInstance(id, {
+      name: typeof name === 'string' ? name.trim() : undefined,
+      plan: typeof plan === 'string' ? plan : undefined,
+      status: typeof status === 'string' ? (status as any) : undefined,
+      max_members: typeof max_members === 'number' ? max_members : undefined,
+      trial_ends_at: trial_ends_at !== undefined ? trial_ends_at : undefined,
+      expires_at: expires_at !== undefined ? expires_at : undefined,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ error: `Ezzy instance "${id}" not found` });
+    }
+
+    return res.json({ success: true, instance: updated });
+  } catch (err: any) {
+    console.error('Error updating Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to update Ezzy instance' });
+  }
+});
+
+// GET /api/instances/:id/members - List members in an instance
+app.get('/api/instances/:id/members', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const members = await getEzzyMembers(id);
+    return res.json({ instanceId: id, members });
+  } catch (err: any) {
+    console.error('Error fetching instance members:', err);
+    return res.status(500).json({ error: 'Failed to fetch instance members' });
+  }
+});
+
+// POST /api/instances/:id/members - Add a member to an instance (enforces member limits)
+app.post('/api/instances/:id/members', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, displayName, email, role } = req.body || {};
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const member = await addEzzyMember(id, userId.trim(), {
+      displayName: displayName ? String(displayName).trim() : undefined,
+      email: email ? String(email).trim() : undefined,
+      role: role ? String(role).trim() : 'member',
+    });
+
+    return res.status(201).json({ success: true, member });
+  } catch (err: any) {
+    console.error('Error adding instance member:', err);
+    if (err instanceof EntitlementViolation || err?.code === 'MEMBER_LIMIT_EXCEEDED') {
+      return res.status(403).json({ error: err.message, code: err.code || 'MEMBER_LIMIT_EXCEEDED' });
+    }
+    return res.status(500).json({ error: 'Failed to add member to instance' });
+  }
+});
+
+// DELETE /api/instances/:id/members/:userId - Remove a member from an instance
+app.delete('/api/instances/:id/members/:userId', async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    await removeEzzyMember(id, userId);
+    return res.json({ success: true, instanceId: id, userId });
+  } catch (err: any) {
+    console.error('Error removing instance member:', err);
+    return res.status(500).json({ error: 'Failed to remove member from instance' });
   }
 });
 
