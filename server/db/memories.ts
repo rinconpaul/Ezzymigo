@@ -326,7 +326,7 @@ export async function readMemoriesByIds(ids: string[], ezzyId?: string): Promise
 // Insert memory records into Bunny Database and schedule reminders if timed
 export async function insertMemories(
   items: any[],
-  options?: { skipRelationshipSave?: boolean },
+  optionsOrEzzyId?: { skipRelationshipSave?: boolean } | string,
   ezzyId: string = 'ezzy_default'
 ): Promise<{
   phoneOffer?: { person: string; role: string } | null;
@@ -334,7 +334,13 @@ export async function insertMemories(
   linkedEntities?: Array<{ memoryId: string; entityId: string; entityName?: string }>;
 }> {
   await initBunnyDb();
-  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  let options: { skipRelationshipSave?: boolean } = {};
+  let scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  if (typeof optionsOrEzzyId === 'string') {
+    scopeEzzyId = optionsOrEzzyId.trim();
+  } else if (optionsOrEzzyId && typeof optionsOrEzzyId === 'object') {
+    options = optionsOrEzzyId;
+  }
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const reminderStmts: Array<{ sql: string; args: any[] }> = [];
   const scheduledReminders: Array<{ memoryId: string; remindAt: string }> = [];

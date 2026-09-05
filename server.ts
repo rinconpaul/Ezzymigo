@@ -133,6 +133,7 @@ import {
   EntitlementViolation,
 } from './server/instances/entitlements';
 import { extractUserId } from './server/instances/identity';
+import { evaluateAnticipatoryResponsePersistence } from './server/anticipatory/persistenceGate';
 
 export { extractUserId };
 
@@ -392,6 +393,37 @@ app.post('/api/memories', async (req, res) => {
         ack_evidence: ['device_action_created'],
         ack_label: 'Action ready',
       });
+    }
+
+    // -------------------------------------------------------------
+    // ANTICIPATORY PERSISTENCE GATE
+    // Invariant: "Ezzy may initiate a conversation; the user initiates persistence."
+    // - An anticipatory prompt and ordinary response must NOT automatically create permanent memory.
+    // - Ignore / dismiss / nope creates nothing.
+    // - Only an explicit Save / capture / reminder instruction crosses into the Tell/reminder pipeline.
+    // -------------------------------------------------------------
+    if (linkedEventId || req.body?.isAnticipatoryResponse) {
+      const gateResult = evaluateAnticipatoryResponsePersistence(trimmedText);
+      if (!gateResult.shouldPersist) {
+        console.log(
+          `[Anticipatory Persistence Gate] Blocked automatic persistence for response "${trimmedText}" (${gateResult.classification}). Reason: ${gateResult.reason}`
+        );
+        return res.status(200).json({
+          memories: [],
+          memory: null,
+          persisted: false,
+          classification: gateResult.classification,
+          reason: gateResult.reason,
+          clarification: null,
+          phoneOffer: null,
+          ack_level: 0,
+          ack_evidence: [],
+          ack_label: gateResult.classification === 'DISMISS' ? 'Check-in dismissed' : 'Check-in noted',
+        });
+      }
+      console.log(
+        `[Anticipatory Persistence Gate] Permitted explicit persistence instruction: "${trimmedText}" (${gateResult.instructionType}). Crossing into Tell/reminder pipeline.`
+      );
     }
 
     const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);

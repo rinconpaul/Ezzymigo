@@ -1,14 +1,21 @@
 import { classifyAnticipatoryMode, generateAnticipationOffer } from '../server/anticipatory/classifier';
 import { buildAnticipatoryPrompt } from '../server/anticipatory/promptBuilder';
+import {
+  evaluateAnticipatoryResponsePersistence,
+  isAnticipatoryDismissal,
+  isExplicitPersistenceInstruction,
+} from '../server/anticipatory/persistenceGate';
 import { evaluateTodayRelevance, hasCompletedReflectionForEvent } from '../server/today/relevance';
 import { insertMemories, readMemories, readMemoryById, updateMemoryAnticipation } from '../server/db/memories';
 import { executeBunnySql } from '../server/db/client';
 import { CalendarEvent, MemoryItem } from '../src/types';
 
+const TEST_EZZY_ID = 'test_ezzy_anticipatory';
+
 async function cleanupFixtures() {
   try {
     await executeBunnySql([
-      { sql: `DELETE FROM memories WHERE id LIKE 'test_anticipatory_%';` },
+      { sql: `DELETE FROM memories WHERE id LIKE 'test_anticipatory_%' OR ezzy_id = 'test_ezzy_anticipatory';` },
       { sql: `DELETE FROM scheduled_reminders WHERE memoryId LIKE 'test_anticipatory_%';` }
     ]);
   } catch (err) {
@@ -318,16 +325,16 @@ async function runSuite() {
       }
     };
 
-    await insertMemories([testMem]);
+    await insertMemories([testMem], TEST_EZZY_ID);
 
-    const fetched = await readMemoryById('test_anticipatory_mem_1');
+    const fetched = await readMemoryById('test_anticipatory_mem_1', TEST_EZZY_ID);
     assert(fetched !== null, 'Memory was successfully persisted to SQLite');
     assert(fetched?.anticipatory_mode === 'POST_ONLY', 'Fetched anticipatory_mode matches POST_ONLY');
     assert(fetched?.anticipatory_opted_in === true, 'Fetched anticipatory_opted_in matches true');
 
     // Update anticipatory preference
-    await updateMemoryAnticipation('test_anticipatory_mem_1', 'POST_ONLY', false);
-    const updated = await readMemoryById('test_anticipatory_mem_1');
+    await updateMemoryAnticipation('test_anticipatory_mem_1', 'POST_ONLY', false, TEST_EZZY_ID);
+    const updated = await readMemoryById('test_anticipatory_mem_1', TEST_EZZY_ID);
     assert(updated?.anticipatory_opted_in === false, 'Updated anticipatory_opted_in is now false');
 
     await cleanupFixtures();
@@ -507,13 +514,80 @@ async function runSuite() {
     );
 
     // -------------------------------------------------------------------------
-    // TEST 16: Response Enters Normal Tell/Memory Pipeline
+    // TEST 16: Persistence Semantics for Anticipatory Prompt Responses
+    // Invariant: "Ezzy may initiate a conversation; the user initiates persistence."
+    // - Ignore / dismiss / nope creates nothing.
+    // - An anticipatory prompt and ordinary response must not automatically create permanent memory.
+    // - Only an explicit Save/capture/reminder instruction crosses into the existing Tell/reminder pipeline.
     // -------------------------------------------------------------------------
-    console.log('\n[Test 16] Response Enters Normal Tell/Memory Pipeline');
+    console.log('\n[Test 16] Anticipatory Persistence Invariant: "Ezzy may initiate a conversation; the user initiates persistence."');
     await cleanupFixtures();
-    const responseMemory: MemoryItem = {
+
+    // 16A: Ignore / dismiss / nope creates nothing
+    const dismissSamples = [
+      'nope',
+      'no',
+      'nothing',
+      'no thanks',
+      'nothing to add',
+      'all good',
+      "we're fine",
+      'nah',
+      'dismiss',
+      'ignore',
+      'nada',
+      'tout va bien',
+      'alles gut'
+    ];
+    for (const sample of dismissSamples) {
+      const evalDismiss = evaluateAnticipatoryResponsePersistence(sample);
+      assert(
+        evalDismiss.shouldPersist === false && evalDismiss.classification === 'DISMISS',
+        `Dismissal "${sample}" evaluated as DISMISS with shouldPersist=false`
+      );
+    }
+
+    // 16B: Ordinary conversational response does NOT automatically create permanent memory
+    const ordinaryResponses = [
+      'It went well',
+      'We had a lovely time',
+      'She was in good spirits',
+      'Traffic was bad on the way home',
+      'Doctor was 20 minutes late',
+      'Mum loved her new slacks and she wants to look at cardigans next week', // Previous Test 16 utterance
+      'Had a nice chat over tea',
+      'Everything went according to plan'
+    ];
+    for (const sample of ordinaryResponses) {
+      const evalOrdinary = evaluateAnticipatoryResponsePersistence(sample);
+      assert(
+        evalOrdinary.shouldPersist === false && evalOrdinary.classification === 'CONVERSATIONAL',
+        `Ordinary response "${sample}" evaluated as CONVERSATIONAL with shouldPersist=false`
+      );
+    }
+
+    // 16C: Only an explicit Save/capture/reminder instruction crosses into the Tell/reminder pipeline
+    const explicitSamples = [
+      { text: 'Save: Mum loved her new slacks and she wants to look at cardigans next week', type: 'save' },
+      { text: 'Remember that she wants to look at cardigans next week', type: 'remember' },
+      { text: 'Remind me next Monday to look at cardigans with Mum', type: 'reminder' },
+      { text: 'Capture: Dr Marning increased dose to 20mg', type: 'capture' },
+      { text: 'Note: she loved the flowers', type: 'note' },
+      { text: 'Guarda: le encantaron los pantalones', type: 'save' },
+      { text: "Rappelle-moi d'acheter des cardigans", type: 'reminder' }
+    ];
+    for (const sample of explicitSamples) {
+      const evalExplicit = evaluateAnticipatoryResponsePersistence(sample.text);
+      assert(
+        evalExplicit.shouldPersist === true && evalExplicit.classification === 'EXPLICIT_PERSISTENCE' && evalExplicit.instructionType === sample.type,
+        `Explicit instruction "${sample.text}" evaluated as EXPLICIT_PERSISTENCE (${sample.type}) with shouldPersist=true`
+      );
+    }
+
+    // Verify pipeline persistence for explicit instruction
+    const explicitResponseMemory: MemoryItem = {
       id: 'test_anticipatory_response_1',
-      originalText: 'Mum loved her new slacks and she wants to look at cardigans next week',
+      originalText: 'Save: Mum loved her new slacks and she wants to look at cardigans next week',
       createdAt: new Date().toISOString(),
       isDone: false,
       interpretation: {
@@ -528,11 +602,11 @@ async function runSuite() {
         resurfacing: { mode: 'manual', timing: '' }
       }
     };
-    await insertMemories([responseMemory]);
-    const storedResponse = await readMemoryById('test_anticipatory_response_1');
-    assert(storedResponse !== null, 'Response thought is successfully persisted via normal pipeline');
-    assert(storedResponse?.interpretation?.linked_event_id === 'cal_visit_mum:2026-09-07', 'Response memory has linked_event_id preserved');
-    assert(storedResponse?.interpretation?.status === 'active', 'Response memory status is active');
+    await insertMemories([explicitResponseMemory], TEST_EZZY_ID);
+    const storedResponse = await readMemoryById('test_anticipatory_response_1', TEST_EZZY_ID);
+    assert(storedResponse !== null, 'Explicit response thought is successfully persisted via normal pipeline');
+    assert(storedResponse?.interpretation?.linked_event_id === 'cal_visit_mum:2026-09-07', 'Explicit response memory has linked_event_id preserved');
+    assert(storedResponse?.interpretation?.status === 'active', 'Explicit response memory status is active');
     await cleanupFixtures();
 
     // -------------------------------------------------------------------------
