@@ -77,6 +77,19 @@ export function detectGenericScheduleIntent(qLower: string): boolean {
   return schedulePatterns.some(p => p.test(qLower));
 }
 
+export function detectHistoricalCalendarIntent(qLower: string): boolean {
+  const patterns = [
+    /\b(?:when\s+was\s+(?:my\s+)?(?:last|previous|latest))\b/i,
+    /\b(?:what\s+was\s+(?:my\s+)?(?:last|previous|latest))\b/i,
+    /\b(?:when\s+did\s+i\s+last)\b/i,
+    /\b(?:did\s+i\s+last\s+(?:see|visit|meet|have|go))\b/i,
+    /\b(?:last\s+(?:time\s+i\s+(?:saw|visited|met|went|had)|appointment|meeting|session|visit|consultation|checkup))\b/i,
+    /\b(?:previous\s+(?:appointment|meeting|session|visit|consultation|checkup))\b/i,
+    /\b(?:last\s+saw|last\s+seen|last\s+visited|last\s+met)\b/i
+  ];
+  return patterns.some(p => p.test(qLower));
+}
+
 export const RETRIEVAL_MONTHS = [
   { name: 'january', abbr: 'jan', index: 0 },
   { name: 'february', abbr: 'feb', index: 1 },
@@ -440,6 +453,7 @@ export function buildDynamicRetrievalContext(
 
   // 3. Extract Topics & Meaningful Concept Keywords
   const isGenericScheduleIntent = detectGenericScheduleIntent(qLower);
+  const isHistoricalIntent = detectHistoricalCalendarIntent(qLower);
   const rawTokens = qLower.replace(/[^\w\s$]/g, ' ').split(/\s+/).filter(Boolean);
   const topicsAndKeywords: string[] = [];
 
@@ -770,6 +784,46 @@ export function buildDynamicRetrievalContext(
     const eLoc = (e.location || '').toLowerCase();
     const eAttendees = (e.attendees || []).map((a: string) => a.toLowerCase());
     const eText = `${eTitle} ${eDesc} ${eLoc} ${eAttendees.join(' ')}`;
+    const isAllDay = Boolean(e.is_all_day || Number(e.is_all_day));
+
+    // Determine temporal position relative to client context
+    let isPastEvent = false;
+    if (isAllDay) {
+      const startYMD = (e.start_datetime || '').slice(0, 10);
+      const endYMDExcl = (e.end_datetime || '').slice(0, 10) || startYMD;
+      isPastEvent = endYMDExcl <= clientTodayYMD;
+    } else if (e.start_datetime) {
+      try {
+        const evTime = new Date(e.start_datetime).getTime();
+        isPastEvent = evTime < nowMs;
+      } catch {
+        isPastEvent = false;
+      }
+    }
+
+    // Historical / LAST intent: future events must NEVER be returned
+    if (isHistoricalIntent && !isPastEvent) {
+      return { event: e, score: 0 };
+    }
+
+    // Explicit month boundary constraint (e.g. "in August"): events outside the specified month must be excluded
+    if (detectedMonths.length > 0 && e.start_datetime) {
+      let inDetectedMonth = false;
+      try {
+        if (isAllDay) {
+          const startYMD = e.start_datetime.slice(0, 10);
+          const mIdx = parseInt(startYMD.slice(5, 7), 10) - 1;
+          inDetectedMonth = detectedMonths.some(m => RETRIEVAL_MONTHS[mIdx]?.name === m);
+        } else {
+          const d = new Date(e.start_datetime);
+          inDetectedMonth = detectedMonths.some(m => RETRIEVAL_MONTHS[d.getMonth()]?.name === m);
+        }
+      } catch {}
+
+      if (!inDetectedMonth && !detectedMonths.some(m => eText.includes(m))) {
+        return { event: e, score: 0 };
+      }
+    }
 
     for (const p of resolvedPeople) {
       const pLower = p.toLowerCase();
@@ -787,6 +841,10 @@ export function buildDynamicRetrievalContext(
       const kwLower = kw.toLowerCase();
       const kwSingular = kwLower.endsWith('s') && kwLower.length > 3 ? kwLower.slice(0, -1) : kwLower;
       if (eText.includes(kwLower) || eText.includes(kwSingular)) calScore += 20;
+    }
+
+    if (isHistoricalIntent && isPastEvent) {
+      calScore += 10;
     }
 
     if (hasTemporalConstraint) {
@@ -886,7 +944,7 @@ export function buildDynamicRetrievalContext(
     }
 
     // Generic schedule / upcoming intent: include upcoming / future calendar events
-    if (isGenericScheduleIntent) {
+    if (isGenericScheduleIntent && !isHistoricalIntent) {
       if (e.start_datetime) {
         try {
           if (e.is_all_day) {
@@ -909,21 +967,35 @@ export function buildDynamicRetrievalContext(
   });
 
   let candidateCalendarEvents: any[] = [];
-  if (hasSpecificContentAnchors || hasTemporalConstraint || isGenericScheduleIntent) {
+  if (hasSpecificContentAnchors || hasTemporalConstraint || isGenericScheduleIntent || isHistoricalIntent) {
     candidateCalendarEvents = scoredCalendarEvents
       .filter(item => item.score > 0)
       .sort((a, b) => {
-        // High specific relevance takes precedence if significantly different
-        if (Math.abs(b.score - a.score) >= 15) {
-          return b.score - a.score;
-        }
-        // Otherwise, preserve chronological ordering (earliest upcoming event first)
         const timeA = a.event.is_all_day
           ? new Date(`${a.event.start_datetime.slice(0, 10)}T00:00:00Z`).getTime()
           : (a.event.start_datetime ? new Date(a.event.start_datetime).getTime() : 0);
         const timeB = b.event.is_all_day
           ? new Date(`${b.event.start_datetime.slice(0, 10)}T00:00:00Z`).getTime()
           : (b.event.start_datetime ? new Date(b.event.start_datetime).getTime() : 0);
+
+        if (isHistoricalIntent) {
+          // Historical / LAST queries: sort newest past event first (descending)
+          return timeB - timeA;
+        }
+
+        // High specific relevance takes precedence if significantly different
+        if (Math.abs(b.score - a.score) >= 15) {
+          return b.score - a.score;
+        }
+
+        // Future/upcoming queries: prefer upcoming over past
+        const isUpcomingA = timeA >= startOfTodayMs;
+        const isUpcomingB = timeB >= startOfTodayMs;
+        if (isUpcomingA !== isUpcomingB) {
+          return isUpcomingA ? -1 : 1;
+        }
+
+        // Preserve chronological ordering (earliest upcoming event first)
         return timeA - timeB;
       })
       .slice(0, MAX_DYNAMIC_CALENDAR)

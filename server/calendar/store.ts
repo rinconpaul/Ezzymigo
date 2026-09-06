@@ -197,12 +197,13 @@ export async function retrieveTargetedCalendarEvents(
     /\b(?:what\s+am\s+i\s+doing)\b/i.test(qLower) ||
     /\b(?:calendar|schedule|appointments?|meetings?|agenda)\b/i.test(qLower);
 
-  const isHistorical = /\b(?:last\s+week|last\s+month|last\s+year|yesterday|past|previous|history|did\s+i\s+have|did\s+i\s+see)\b/i.test(qLower);
+  const isHistorical = /\b(?:last|past|previous|latest|yesterday|history|did\s+i\s+(?:have|see|visit|meet|go))\b/i.test(qLower);
 
   // If a specific name is detected (e.g. "When am I seeing Dr Marning?"):
   if (targetName) {
     const events = await queryCalendarEvents({
       textMatch: targetName,
+      maxDate: isHistorical ? new Date(refTime).toISOString() : undefined,
       limit: 25,
       direction: isHistorical ? 'desc' : 'asc',
     }, ezzyId);
