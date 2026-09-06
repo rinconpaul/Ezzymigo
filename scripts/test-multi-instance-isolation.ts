@@ -494,8 +494,8 @@ async function runMultiInstanceProof() {
     assert(memA2AfterCrossUpdate?.originalText !== 'Hacked text', 'Instance A memory text was NOT modified by Instance B update attempt');
 
     // Cross-instance entity forget attempt
-    await saveUserEntity('Alice', 'sister', 'sister', 'person', {}, INSTANCE_A);
-    await saveUserEntity('Bob', 'accountant', 'accountant', 'person', {}, INSTANCE_B);
+    await saveUserEntity({ name: 'Alice', entity_type: 'person', role: 'sister' }, undefined, INSTANCE_A);
+    await saveUserEntity({ name: 'Bob', entity_type: 'person', role: 'accountant' }, undefined, INSTANCE_B);
     await forgetUserEntity('Alice', INSTANCE_B);
     const entitiesAAfterCrossForget = await getUserEntities(INSTANCE_A);
     assert(entitiesAAfterCrossForget.some((e) => e.name.toLowerCase() === 'alice'),
@@ -563,7 +563,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_A, nonMember, 'read');
     } catch (err: any) {
-      nonMemberReadBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      nonMemberReadBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(nonMemberReadBlocked, 'Non-member read blocked with NOT_A_MEMBER');
 
@@ -571,7 +571,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_A, nonMember, 'write');
     } catch (err: any) {
-      nonMemberWriteBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      nonMemberWriteBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(nonMemberWriteBlocked, 'Non-member write blocked with NOT_A_MEMBER');
 
@@ -609,7 +609,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_A, newMemberId, 'read');
     } catch (err: any) {
-      removedMemberAccessBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      removedMemberAccessBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(removedMemberAccessBlocked, 'Removed member access is immediately revoked (NOT_A_MEMBER)');
 
@@ -633,7 +633,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_A, nonMember, 'read');
     } catch (err: any) {
-      nonMemberExpiredReadBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      nonMemberExpiredReadBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(nonMemberExpiredReadBlocked, 'Non-member cannot read expired instance (NOT_A_MEMBER precedes read grace)');
 
@@ -646,7 +646,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_A, memberB, 'read');
     } catch (err: any) {
-      userBCrossAccessToABlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      userBCrossAccessToABlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(userBCrossAccessToABlocked, 'Member of Ezzy B supplying Ezzy A ID is strictly rejected (no membership in A)');
 
@@ -654,7 +654,7 @@ async function runMultiInstanceProof() {
     try {
       await assertEzzyAccess(INSTANCE_B, memberA, 'read');
     } catch (err: any) {
-      userACrossAccessToBBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      userACrossAccessToBBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(userACrossAccessToBBlocked, 'Member of Ezzy A supplying Ezzy B ID is strictly rejected (no membership in B)');
 
@@ -671,7 +671,7 @@ async function runMultiInstanceProof() {
         nonMember
       );
     } catch (err: any) {
-      relevanceNonMemberBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      relevanceNonMemberBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(relevanceNonMemberBlocked, 'computeTodayRelevance strictly enforces membership for non-member');
 
@@ -679,7 +679,7 @@ async function runMultiInstanceProof() {
     try {
       await getEzzyOccasionPreferences(INSTANCE_A, nonMember);
     } catch (err: any) {
-      occasionPrefsNonMemberBlocked = err instanceof EntitlementViolation && (err.code === 'NOT_A_MEMBER' || err.code === 'MEMBERSHIP_REQUIRED');
+      occasionPrefsNonMemberBlocked = err instanceof EntitlementViolation && err.code === 'NOT_A_MEMBER';
     }
     assert(occasionPrefsNonMemberBlocked, 'getEzzyOccasionPreferences strictly enforces membership for non-member');
 

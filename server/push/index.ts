@@ -60,34 +60,38 @@ export async function initVapidKeys(): Promise<{ publicKey: string; privateKey: 
 
 // Background Reminder Push Dispatcher
 let isDispatcherRunning = false;
-export async function dispatchDueReminders(): Promise<void> {
-  if (isDispatcherRunning) return;
+export async function dispatchDueReminders(overrideNowIso?: string): Promise<{ dispatchedCount: number; targetEndpoints: string[] }> {
+  if (isDispatcherRunning) return { dispatchedCount: 0, targetEndpoints: [] };
   isDispatcherRunning = true;
+  const targetEndpoints: string[] = [];
+  let dispatchedCount = 0;
 
   try {
     await initVapidKeys();
-    const nowIso = new Date().toISOString();
+    const nowIso = overrideNowIso || new Date().toISOString();
 
-    // Query due reminders that have not been notified
+    // Query due reminders that have not been notified (including ezzy_id and created_by)
     const remindersRes = await executeBunnySql([{
-      sql: 'SELECT id, memoryId, title, body, remindAt FROM scheduled_reminders WHERE remindAt <= ? AND notified = 0;',
+      sql: 'SELECT id, memoryId, title, body, remindAt, ezzy_id, created_by FROM scheduled_reminders WHERE remindAt <= ? AND notified = 0;',
       args: [nowIso]
     }]);
 
     const dueReminders = remindersRes[0]?.rows || [];
     if (dueReminders.length === 0) {
       isDispatcherRunning = false;
-      return;
+      return { dispatchedCount: 0, targetEndpoints: [] };
     }
 
-    // Get active subscriptions
-    const subsRes = await executeBunnySql([{
-      sql: 'SELECT endpoint, p256dh, auth FROM push_subscriptions;'
-    }]);
-    const subscriptions = subsRes[0]?.rows || [];
-
     for (const reminder of dueReminders) {
-      console.log(`[Push Dispatcher] Triggering reminder: "${reminder.title} - ${reminder.body}" (due: ${reminder.remindAt})`);
+      const reminderEzzyId = (reminder.ezzy_id || 'ezzy_default').trim();
+      console.log(`[Push Dispatcher] Triggering reminder: "${reminder.title} - ${reminder.body}" (due: ${reminder.remindAt}) in ezzy: ${reminderEzzyId}`);
+
+      // Query only subscriptions registered to this reminder's ezzy_id
+      const subsRes = await executeBunnySql([{
+        sql: 'SELECT endpoint, p256dh, auth, ezzy_id, user_id FROM push_subscriptions WHERE ezzy_id = ?;',
+        args: [reminderEzzyId]
+      }]);
+      const subscriptions = subsRes[0]?.rows || [];
 
       const payload = JSON.stringify({
         title: reminder.title || 'Ezzymigo Reminder',
@@ -95,10 +99,12 @@ export async function dispatchDueReminders(): Promise<void> {
         id: reminder.memoryId || reminder.id,
         url: '/',
         timestamp: Date.now(),
+        ezzy_id: reminderEzzyId,
       });
 
-      // Send to all registered subscriber devices
+      // Send only to subscribers authorized for this Ezzy
       for (const sub of subscriptions) {
+        targetEndpoints.push(sub.endpoint);
         const pushSubscription = {
           endpoint: sub.endpoint,
           keys: {
@@ -109,6 +115,7 @@ export async function dispatchDueReminders(): Promise<void> {
 
         try {
           await webpush.sendNotification(pushSubscription, payload);
+          dispatchedCount++;
         } catch (err: any) {
           console.warn('[Push Dispatcher] Error sending to subscription:', err?.statusCode || err?.message);
           // If subscription is expired or gone (404, 410), remove from database
@@ -132,6 +139,20 @@ export async function dispatchDueReminders(): Promise<void> {
   } finally {
     isDispatcherRunning = false;
   }
+
+  return { dispatchedCount, targetEndpoints };
+}
+
+// Helper to query authorized push subscriptions partitioned by ezzy_id
+export async function getAuthorizedPushSubscriptions(ezzyId: string, userId?: string): Promise<any[]> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  const userClause = userId ? ` AND user_id = ?` : ``;
+  const args = userId ? [scopeEzzyId, userId] : [scopeEzzyId];
+  const res = await executeBunnySql([{
+    sql: `SELECT endpoint, p256dh, auth, ezzy_id, user_id, createdAt FROM push_subscriptions WHERE ezzy_id = ?${userClause};`,
+    args,
+  }]);
+  return res[0]?.rows || [];
 }
 
 // Start background poll timer (every 10 seconds)

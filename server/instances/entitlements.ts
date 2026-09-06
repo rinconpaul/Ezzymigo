@@ -10,7 +10,9 @@ export interface EzzyInstance {
   owner_user_id: string;
   status: InstanceStatus;
   plan_tier: string;
+  plan?: string;
   member_limit: number;
+  max_members?: number;
   trial_ends_at: string | null;
   created_at: string;
   updated_at: string;
@@ -27,11 +29,11 @@ export interface EzzyMember {
 }
 
 export class EntitlementViolation extends Error {
-  code: 'ENTITLEMENT_EXPIRED' | 'MEMBER_LIMIT_REACHED' | 'MEMBER_LIMIT_EXCEEDED' | 'INSTANCE_NOT_FOUND' | 'INVALID_INSTANCE_STATUS' | 'NOT_A_MEMBER';
+  code: 'ENTITLEMENT_EXPIRED' | 'MEMBER_LIMIT_REACHED' | 'MEMBER_LIMIT_EXCEEDED' | 'INSTANCE_NOT_FOUND' | 'INVALID_INSTANCE_STATUS' | 'NOT_A_MEMBER' | 'MEMBERSHIP_REQUIRED';
   ezzyId: string;
 
   constructor(
-    code: 'ENTITLEMENT_EXPIRED' | 'MEMBER_LIMIT_REACHED' | 'MEMBER_LIMIT_EXCEEDED' | 'INSTANCE_NOT_FOUND' | 'INVALID_INSTANCE_STATUS' | 'NOT_A_MEMBER',
+    code: 'ENTITLEMENT_EXPIRED' | 'MEMBER_LIMIT_REACHED' | 'MEMBER_LIMIT_EXCEEDED' | 'INSTANCE_NOT_FOUND' | 'INVALID_INSTANCE_STATUS' | 'NOT_A_MEMBER' | 'MEMBERSHIP_REQUIRED',
     ezzyId: string,
     message: string
   ) {
@@ -76,7 +78,9 @@ export async function getEzzyInstance(ezzyId: string): Promise<EzzyInstance | nu
       owner_user_id: String(row.owner_user_id),
       status: row.status as InstanceStatus,
       plan_tier: String(row.plan_tier),
+      plan: String(row.plan_tier),
       member_limit: Number(row.member_limit || 5),
+      max_members: Number(row.member_limit || 5),
       trial_ends_at: row.trial_ends_at ? String(row.trial_ends_at) : null,
       created_at: String(row.created_at),
       updated_at: String(row.updated_at),
@@ -177,8 +181,14 @@ export async function updateEzzyInstance(
     name: string;
     status: InstanceStatus;
     planTier: string;
+    plan?: string;
+    plan_tier?: string;
     memberLimit: number;
+    member_limit?: number;
+    max_members?: number;
     trialEndsAt: string | null;
+    trial_ends_at?: string | null;
+    expires_at?: string | null;
   }>
 ): Promise<EzzyInstance> {
   const current = await getEzzyInstance(ezzyId);
@@ -188,9 +198,15 @@ export async function updateEzzyInstance(
 
   const name = updates.name !== undefined ? updates.name.trim() : current.name;
   const status = updates.status !== undefined ? updates.status : current.status;
-  const planTier = updates.planTier !== undefined ? updates.planTier : current.plan_tier;
-  const memberLimit = updates.memberLimit !== undefined ? updates.memberLimit : current.member_limit;
-  const trialEndsAt = updates.trialEndsAt !== undefined ? updates.trialEndsAt : current.trial_ends_at;
+  const planTier = updates.planTier !== undefined
+    ? updates.planTier
+    : (updates.plan !== undefined ? updates.plan : (updates.plan_tier !== undefined ? updates.plan_tier : current.plan_tier));
+  const memberLimit = updates.memberLimit !== undefined
+    ? updates.memberLimit
+    : (updates.member_limit !== undefined ? updates.member_limit : (updates.max_members !== undefined ? updates.max_members : current.member_limit));
+  const trialEndsAt = updates.trialEndsAt !== undefined
+    ? updates.trialEndsAt
+    : (updates.trial_ends_at !== undefined ? updates.trial_ends_at : (updates.expires_at !== undefined ? updates.expires_at : current.trial_ends_at));
   const updatedAt = new Date().toISOString();
 
   await executeBunnySql([
@@ -283,8 +299,8 @@ export async function getEzzyMembers(ezzyId: string): Promise<EzzyMember[]> {
  */
 export async function addEzzyMember(
   ezzyId: string,
-  memberOrUserId: string | { userId: string; name?: string; displayName?: string; role?: MemberRole },
-  details?: { name?: string; displayName?: string; role?: MemberRole }
+  memberOrUserId: string | { userId: string; name?: string; displayName?: string; email?: string; role?: MemberRole },
+  details?: { name?: string; displayName?: string; email?: string; role?: MemberRole }
 ): Promise<EzzyMember> {
   await initBunnyDb();
   const instance = await getEzzyInstance(ezzyId);
@@ -346,7 +362,7 @@ export async function removeEzzyMember(ezzyId: string, userId: string): Promise<
       args: [ezzyId, userId],
     }
   ]);
-  return (results[0]?.rowsAffected || 0) > 0;
+  return (results[0]?.affected_rows || 0) > 0;
 }
 
 /**

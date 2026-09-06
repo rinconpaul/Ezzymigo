@@ -46,14 +46,16 @@ export async function resolveContactAction(params: {
   actionType: 'call' | 'sms';
   prefilledMessage: string | null;
   rawInput: string;
+  ezzyId?: string;
 }): Promise<ImmediateDeviceActionPayload> {
   const { actionType, prefilledMessage, rawInput } = params;
+  const scopeEzzyId = (params.ezzyId || 'ezzy_default').trim();
   let personQuery = (params.targetPerson || '').trim();
   let roleQuery = (params.targetRole || '').trim();
 
   // If both person and role are empty, check if any known entity is mentioned in raw input
   if (!personQuery && !roleQuery) {
-    const knownEnts = await getUserEntities();
+    const knownEnts = await getUserEntities(scopeEzzyId);
     for (const ent of knownEnts) {
       if (rawInput.toLowerCase().includes(ent.name.toLowerCase())) {
         personQuery = ent.name;
@@ -63,8 +65,8 @@ export async function resolveContactAction(params: {
   }
 
   // 1. Check all user entities and active relationships to detect ambiguity or exact matches
-  const allEntities = await getUserEntities();
-  const activeRelationships = await readActiveRelationships();
+  const allEntities = await getUserEntities(scopeEzzyId);
+  const activeRelationships = await readActiveRelationships(scopeEzzyId);
 
   // Filter candidates matching person name
   let matchedPersonCandidates: Array<{ name: string; role?: string; phone?: string }> = [];
@@ -96,16 +98,16 @@ export async function resolveContactAction(params: {
   // Check if target was given as role (e.g. "electrician", "plumber", "mum")
   if (matchedPersonCandidates.length === 0 && (roleQuery || personQuery)) {
     const searchRole = roleQuery || personQuery;
-    const relByRole = await getActiveRelationshipByRole(searchRole);
+    const relByRole = await getActiveRelationshipByRole(searchRole, scopeEzzyId);
     if (relByRole) {
-      const ent = await getUserEntity(relByRole.person);
+      const ent = await getUserEntity(relByRole.person, scopeEzzyId);
       matchedPersonCandidates.push({
         name: relByRole.person,
         role: relByRole.role,
         phone: ent?.metadata?.phone || ent?.metadata?.mobile || undefined,
       });
     } else {
-      const entByRole = await getUserEntityByRole(searchRole);
+      const entByRole = await getUserEntityByRole(searchRole, scopeEzzyId);
       if (entByRole) {
         matchedPersonCandidates.push({
           name: entByRole.name,
@@ -149,17 +151,17 @@ export async function resolveContactAction(params: {
 
   // If phone wasn't in the entity object directly, check entity table again by exact name
   if (!phone) {
-    const ent = await getUserEntity(resolved.name);
+    const ent = await getUserEntity(resolved.name, scopeEzzyId);
     phone = ent?.metadata?.phone || ent?.metadata?.mobile || undefined;
   }
 
-  // If still no phone, check stored memories table for any phone number associated with this person
+  // If still no phone, check stored memories table for any phone number associated with this person (MUST be scoped by ezzy_id)
   if (!phone) {
     try {
       await initBunnyDb();
       const memResults = await executeBunnySql([{
-        sql: `SELECT content, originalText FROM memories WHERE LOWER(content) LIKE LOWER(?) OR LOWER(originalText) LIKE LOWER(?);`,
-        args: [`%${resolved.name}%`, `%${resolved.name}%`]
+        sql: `SELECT content, originalText FROM memories WHERE (LOWER(content) LIKE LOWER(?) OR LOWER(originalText) LIKE LOWER(?)) AND ezzy_id = ?;`,
+        args: [`%${resolved.name}%`, `%${resolved.name}%`, scopeEzzyId]
       }]);
       if (memResults[0]?.rows) {
         for (const row of memResults[0].rows) {
@@ -206,10 +208,11 @@ export async function resolveContactAction(params: {
   };
 }
 
-export async function resolveContactQuery(query: string): Promise<ContactQueryResult> {
+export async function resolveContactQuery(query: string, ezzyId: string = 'ezzy_default'): Promise<ContactQueryResult> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const qLower = query.toLowerCase();
-  const allEntities = await getUserEntities();
-  const activeRelationships = await readActiveRelationships();
+  const allEntities = await getUserEntities(scopeEzzyId);
+  const activeRelationships = await readActiveRelationships(scopeEzzyId);
 
   // Try matching any entity name or active relationship in the query
   for (const ent of allEntities) {
@@ -232,7 +235,7 @@ export async function resolveContactQuery(query: string): Promise<ContactQueryRe
   // Check by role (e.g. "electrician", "mum", "doctor")
   for (const rel of activeRelationships) {
     if (qLower.includes(rel.role.toLowerCase()) || qLower.includes(rel.normalized_role.toLowerCase()) || qLower.includes(rel.person.toLowerCase())) {
-      const ent = await getUserEntity(rel.person);
+      const ent = await getUserEntity(rel.person, scopeEzzyId);
       const phone = ent?.metadata?.phone || ent?.metadata?.mobile;
       if (phone) {
         return {

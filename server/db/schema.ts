@@ -32,7 +32,9 @@ export async function initBunnyDb(): Promise<void> {
             endpoint TEXT PRIMARY KEY,
             p256dh TEXT NOT NULL,
             auth TEXT NOT NULL,
-            createdAt TEXT NOT NULL
+            createdAt TEXT NOT NULL,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            user_id TEXT NOT NULL DEFAULT 'default_user'
           );`
         },
         {
@@ -93,8 +95,10 @@ export async function initBunnyDb(): Promise<void> {
         },
         {
           sql: `CREATE TABLE IF NOT EXISTS suppressed_entities (
-            name TEXT PRIMARY KEY,
-            suppressed_at TEXT NOT NULL
+            name TEXT NOT NULL,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            suppressed_at TEXT NOT NULL,
+            PRIMARY KEY (name, ezzy_id)
           );`
         },
         {
@@ -152,7 +156,8 @@ export async function initBunnyDb(): Promise<void> {
           sql: `CREATE TABLE IF NOT EXISTS memory_vectors (
             memory_id TEXT PRIMARY KEY,
             vector_json TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default'
           );`
         },
         {
@@ -230,7 +235,10 @@ export async function initBunnyDb(): Promise<void> {
         'user_relationships',
         'user_entities',
         'memory_entities',
-        'memory_search_projection'
+        'memory_search_projection',
+        'push_subscriptions',
+        'suppressed_entities',
+        'memory_vectors'
       ];
 
       for (const tbl of tablesToMigrate) {
@@ -251,7 +259,41 @@ export async function initBunnyDb(): Promise<void> {
         }
       }
 
-      // Add indexes for ezzy_id
+      // Check and add user_id column to push_subscriptions
+      try {
+        const pInfo = await executeBunnySql([{ sql: `PRAGMA table_info(push_subscriptions);` }]);
+        const pCols = (pInfo[0]?.rows || []).map((r: any) => r.name);
+        if (!pCols.includes('user_id')) {
+          await executeBunnySql([{
+            sql: `ALTER TABLE push_subscriptions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user';`
+          }]);
+          console.log('[Bunny DB] Migrated table "push_subscriptions" with user_id column.');
+        }
+      } catch (pErr: any) {
+        if (!String(pErr?.message || '').includes('duplicate column')) {
+          console.warn('[Bunny DB] Note during user_id check on push_subscriptions:', pErr?.message || pErr);
+        }
+      }
+
+      // Check and add created_by column to memories and scheduled_reminders
+      for (const tbl of ['memories', 'scheduled_reminders']) {
+        try {
+          const infoRes = await executeBunnySql([{ sql: `PRAGMA table_info(${tbl});` }]);
+          const cols = (infoRes[0]?.rows || []).map((r: any) => r.name);
+          if (!cols.includes('created_by')) {
+            await executeBunnySql([{
+              sql: `ALTER TABLE ${tbl} ADD COLUMN created_by TEXT DEFAULT NULL;`
+            }]);
+            console.log(`[Bunny DB] Migrated table "${tbl}" with created_by column.`);
+          }
+        } catch (colErr: any) {
+          if (!String(colErr?.message || '').includes('duplicate column')) {
+            console.warn(`[Bunny DB] Note during created_by check on ${tbl}:`, colErr?.message || colErr);
+          }
+        }
+      }
+
+      // Add indexes for ezzy_id and isolation
       await executeBunnySql([
         { sql: `CREATE INDEX IF NOT EXISTS idx_mem_ezzy ON memories(ezzy_id);` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_rem_ezzy ON scheduled_reminders(ezzy_id);` },
@@ -259,6 +301,10 @@ export async function initBunnyDb(): Promise<void> {
         { sql: `CREATE INDEX IF NOT EXISTS idx_rel_ezzy ON user_relationships(ezzy_id);` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_ent_ezzy ON user_entities(ezzy_id);` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_msp_ezzy ON memory_search_projection(ezzy_id);` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_push_ezzy ON push_subscriptions(ezzy_id);` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);` },
+        { sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_suppressed_name_ezzy ON suppressed_entities(name, ezzy_id);` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_vec_ezzy ON memory_vectors(ezzy_id);` },
       ]).catch(() => {});
 
       dbInitialized = true;

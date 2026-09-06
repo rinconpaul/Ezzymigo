@@ -595,8 +595,10 @@ export async function executeNativeRetrievalPipeline(options: {
   activeRoleLabels?: string[];
   legacyCandidateIds?: string[];
   targetStatus?: string;
+  ezzyId?: string;
 }): Promise<NativeRetrievalResult> {
-  const { question, nowIso, activeRoleLabels = [], legacyCandidateIds = [], targetStatus = 'active' } = options;
+  const { question, nowIso, activeRoleLabels = [], legacyCandidateIds = [], targetStatus = 'active', ezzyId } = options;
+  const scopeEzzyId = ezzyId ? ezzyId.trim() : undefined;
   const startTotal = Date.now();
 
   const telemetry: ShadowRetrievalTelemetry = {
@@ -633,7 +635,7 @@ export async function executeNativeRetrievalPipeline(options: {
     // STAGE A: Exact Subject / Sibling Expansion
     // -------------------------------------------------------------
     const startA = Date.now();
-    const stageASubjectIds = await retrieveStageAExactSubject(question, targetStatus);
+    const stageASubjectIds = await retrieveStageAExactSubject(question, targetStatus, scopeEzzyId);
     telemetry.timings.stage_a_ms = Date.now() - startA;
     telemetry.stage_a_count = stageASubjectIds.length;
 
@@ -643,7 +645,7 @@ export async function executeNativeRetrievalPipeline(options: {
     // STAGE B: Lexical FTS5 Match
     // -------------------------------------------------------------
     const startB = Date.now();
-    const ftsCandidates = await retrieveStageBFts(question, MAX_FTS_INITIAL_CANDIDATES);
+    const ftsCandidates = await retrieveStageBFts(question, MAX_FTS_INITIAL_CANDIDATES, scopeEzzyId);
     telemetry.timings.stage_b_ms = Date.now() - startB;
     telemetry.stage_b_count = ftsCandidates.length;
 
@@ -677,15 +679,25 @@ export async function executeNativeRetrievalPipeline(options: {
           .join(' OR ');
 
         if (combinedReformExpr) {
-          const secRows = await querySql(
-            `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
+          const secSql = scopeEzzyId
+            ? `SELECT f.memory_id, f.content, f.original_text, f.people, f.places, f.topics, f.retrieval_cues, f.items, f.subject,
+                    bm25(memories_fts) as bm25_score
+             FROM memories_fts f
+             JOIN memory_search_projection msp ON f.memory_id = msp.memory_id
+             WHERE memories_fts MATCH ? AND msp.ezzy_id = ?
+             ORDER BY bm25_score ASC
+             LIMIT ?;`
+            : `SELECT memory_id, content, original_text, people, places, topics, retrieval_cues, items, subject,
                     bm25(memories_fts) as bm25_score
              FROM memories_fts
              WHERE memories_fts MATCH ?
              ORDER BY bm25_score ASC
-             LIMIT ?;`,
-            [combinedReformExpr, MAX_STAGE_C_FTS_CANDIDATES]
-          );
+             LIMIT ?;`;
+          const secArgs = scopeEzzyId
+            ? [combinedReformExpr, scopeEzzyId, MAX_STAGE_C_FTS_CANDIDATES]
+            : [combinedReformExpr, MAX_STAGE_C_FTS_CANDIDATES];
+
+          const secRows = await querySql(secSql, secArgs);
 
           if (secRows && Array.isArray(secRows)) {
             secondaryCandidates = secRows.map((r: any) => ({
@@ -758,8 +770,8 @@ export async function executeNativeRetrievalPipeline(options: {
     if (finalHydrationIds.length > 0) {
       const placeholders = finalHydrationIds.map(() => '?').join(',');
       const rows = await querySql(
-        `SELECT * FROM memories WHERE id IN (${placeholders}) AND status = ?;`,
-        [...finalHydrationIds, targetStatus]
+        `SELECT * FROM memories WHERE id IN (${placeholders}) AND status = ?${scopeEzzyId ? ' AND ezzy_id = ?' : ''};`,
+        scopeEzzyId ? [...finalHydrationIds, targetStatus, scopeEzzyId] : [...finalHydrationIds, targetStatus]
       );
       if (rows && Array.isArray(rows)) {
         // Preserve ranking / subject cluster order

@@ -116,7 +116,8 @@ export async function generateEmbedding(
  * Synchronizes a single memory's vector into memory_vectors table.
  * Idempotent, safe, and handles errors gracefully.
  */
-export async function syncMemoryVector(memoryId: string, docText: string): Promise<void> {
+export async function syncMemoryVector(memoryId: string, docText: string, ezzyId: string = 'ezzy_default'): Promise<void> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   try {
     await initBunnyDb();
     const { vector } = await generateEmbedding(docText, 'RETRIEVAL_DOCUMENT');
@@ -125,12 +126,13 @@ export async function syncMemoryVector(memoryId: string, docText: string): Promi
 
     await executeBunnySql([
       {
-        sql: `INSERT INTO memory_vectors (memory_id, vector_json, updated_at)
-              VALUES (?, ?, ?)
+        sql: `INSERT INTO memory_vectors (memory_id, vector_json, updated_at, ezzy_id)
+              VALUES (?, ?, ?, ?)
               ON CONFLICT(memory_id) DO UPDATE SET
                 vector_json = excluded.vector_json,
-                updated_at = excluded.updated_at;`,
-        args: [memoryId, vectorJson, nowIso],
+                updated_at = excluded.updated_at,
+                ezzy_id = excluded.ezzy_id;`,
+        args: [memoryId, vectorJson, nowIso, scopeEzzyId],
       },
     ]);
   } catch (err) {
@@ -141,12 +143,14 @@ export async function syncMemoryVector(memoryId: string, docText: string): Promi
 /**
  * Delete vector record for a deleted memory.
  */
-export async function deleteMemoryVector(memoryId: string): Promise<void> {
+export async function deleteMemoryVector(memoryId: string, ezzyId?: string): Promise<void> {
   try {
+    const scopeClause = ezzyId ? ` AND ezzy_id = ?` : ``;
+    const args = ezzyId ? [memoryId, (ezzyId || 'ezzy_default').trim()] : [memoryId];
     await executeBunnySql([
       {
-        sql: 'DELETE FROM memory_vectors WHERE memory_id = ?;',
-        args: [memoryId],
+        sql: `DELETE FROM memory_vectors WHERE memory_id = ?${scopeClause};`,
+        args,
       },
     ]);
   } catch (err) {
@@ -161,23 +165,26 @@ export interface VectorSearchResult {
 }
 
 /**
- * Searches memory_vectors using libSQL vector_distance_cos.
+ * Searches memory_vectors using libSQL vector_distance_cos scoped by ezzy_id.
  */
 export async function searchMemoryVectors(
   queryVector: number[],
-  limit = 20
+  limit = 20,
+  ezzyId: string = 'ezzy_default'
 ): Promise<{ results: VectorSearchResult[]; latencyMs: number }> {
   await initBunnyDb();
   const start = Date.now();
   const vectorJson = JSON.stringify(queryVector);
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
 
   const res = await executeBunnySql([
     {
       sql: `SELECT memory_id, vector_distance_cos(vector_json, ?) AS cosine_distance
             FROM memory_vectors
+            WHERE ezzy_id = ?
             ORDER BY cosine_distance ASC
             LIMIT ?;`,
-      args: [vectorJson, limit],
+      args: [vectorJson, scopeEzzyId, limit],
     },
   ]);
 

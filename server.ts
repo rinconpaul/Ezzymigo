@@ -131,6 +131,7 @@ import {
   assertEzzyAccess,
   handleEntitlementError,
   EntitlementViolation,
+  MemberRole,
 } from './server/instances/entitlements';
 import { extractUserId } from './server/instances/identity';
 import { evaluateAnticipatoryResponsePersistence } from './server/anticipatory/persistenceGate';
@@ -246,6 +247,9 @@ app.post('/api/push/subscribe', async (req, res) => {
     return res.status(400).json({ error: 'Valid push subscription object is required' });
   }
 
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+
   try {
     await initBunnyDb();
     const endpoint = subscription.endpoint;
@@ -255,17 +259,19 @@ app.post('/api/push/subscribe', async (req, res) => {
     const nowIso = new Date().toISOString();
 
     await executeBunnySql([{
-      sql: `INSERT INTO push_subscriptions (endpoint, p256dh, auth, userAgent, createdAt)
-            VALUES (?, ?, ?, ?, ?)
+      sql: `INSERT INTO push_subscriptions (endpoint, p256dh, auth, userAgent, createdAt, ezzy_id, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(endpoint) DO UPDATE SET
               p256dh = excluded.p256dh,
               auth = excluded.auth,
-              userAgent = excluded.userAgent;`,
-      args: [endpoint, p256dh, auth, userAgent, nowIso]
+              userAgent = excluded.userAgent,
+              ezzy_id = excluded.ezzy_id,
+              user_id = excluded.user_id;`,
+      args: [endpoint, p256dh, auth, userAgent, nowIso, ezzyId, userId]
     }]);
 
-    console.log(`[Web Push] Successfully stored/refreshed subscription: ${endpoint.slice(-16)}`);
-    res.status(201).json({ success: true, message: 'Push subscription saved successfully' });
+    console.log(`[Web Push] Successfully stored/refreshed subscription for ezzy "${ezzyId}", user "${userId}": ${endpoint.slice(-16)}`);
+    res.status(201).json({ success: true, message: 'Push subscription saved successfully', ezzyId, userId });
   } catch (error) {
     console.error('Error storing push subscription:', error);
     res.status(500).json({ error: 'Failed to save push subscription' });
@@ -381,6 +387,7 @@ app.post('/api/memories', async (req, res) => {
         actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
         prefilledMessage: intentResult.prefilled_message,
         rawInput: trimmedText,
+        ezzyId,
       });
 
       return res.status(200).json({
@@ -653,6 +660,7 @@ const handleNonPersistingInterpret = async (req: express.Request, res: express.R
   }
 
   const trimmedText = rawInput.trim();
+  const ezzyId = extractEzzyId(req);
   console.log(`[TEST/PREVIEW PIPELINE - NON-PERSISTING] Interpreting thought: "${trimmedText}" (subject: ${subject || 'none'})`);
   const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
   const ai = getGeminiClient();
@@ -666,6 +674,7 @@ const handleNonPersistingInterpret = async (req: express.Request, res: express.R
         actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
         prefilledMessage: intentResult.prefilled_message,
         rawInput: trimmedText,
+        ezzyId,
       });
 
       return res.status(200).json({
@@ -1722,6 +1731,7 @@ app.post('/api/ask', async (req, res) => {
           nowIso: localContext.referenceDate.toISOString(),
           activeRoleLabels: activeRelationships.map(r => r.role),
           legacyCandidateIds: candidateMemories.map(m => m.id),
+          ezzyId,
         });
         const ad = archDResult.shadowTelemetry;
         console.log(`[Architecture D Shadow Telemetry] Query: "${trimmedQuestion}" (${ad.query_language_script}) | Route: ${ad.route_taken} | Top: ${ad.top_candidate_id} (Sim: ${ad.top_cosine_similarity?.toFixed(4) ?? 'N/A'}) | Ambiguity Rescue: ${ad.ambiguity_rescue_triggered ? `YES (${ad.ambiguity_rescue_reason})` : 'NO'} | Counts: Legacy=${ad.legacy_ids.length}, ArchD=${ad.architecture_d_ids.length}, Inter=${ad.intersection_ids.length}, LegacyOnly=${ad.legacy_only_ids.length}, ArchDOnly=${ad.architecture_d_only_ids.length} | Latency: Total=${ad.timings.total_architecture_d_ms}ms (Embed=${ad.timings.embedding_api_ms}ms, VecSQL=${ad.timings.vector_sql_ms}ms, Arb=${ad.timings.arbitration_ms}ms, Rescue=${ad.timings.ambiguity_rescue_ms}ms, Hydrate=${ad.timings.hydration_ms}ms)`);
@@ -2188,7 +2198,7 @@ app.post('/api/instances/:id/members', async (req, res) => {
     const member = await addEzzyMember(id, userId.trim(), {
       displayName: displayName ? String(displayName).trim() : undefined,
       email: email ? String(email).trim() : undefined,
-      role: role ? String(role).trim() : 'member',
+      role: (role ? String(role).trim() : 'member') as MemberRole,
     });
 
     return res.status(201).json({ success: true, member });

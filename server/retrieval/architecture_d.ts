@@ -166,8 +166,10 @@ export async function executeArchitectureDRetrieval(options: {
   activeRoleLabels?: string[];
   legacyCandidateIds?: string[];
   targetStatus?: 'active' | 'done' | 'all';
+  ezzyId?: string;
 }): Promise<ArchitectureDResult> {
-  const { question, nowIso, activeRoleLabels = [], legacyCandidateIds = [], targetStatus = 'active' } = options;
+  const { question, nowIso, activeRoleLabels = [], legacyCandidateIds = [], targetStatus = 'active', ezzyId } = options;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const startTotal = Date.now();
   const scriptType = detectScript(question);
   const queryTokens = segmentUnicodeWords(question);
@@ -212,7 +214,7 @@ export async function executeArchitectureDRetrieval(options: {
     const vectorSearchPromise = (async () => {
       const { vector, latencyMs: embedMs } = await generateEmbedding(question, 'RETRIEVAL_QUERY');
       telemetry.timings.embedding_api_ms = embedMs;
-      const { results, latencyMs: vecSqlMs } = await searchMemoryVectors(vector, 20);
+      const { results, latencyMs: vecSqlMs } = await searchMemoryVectors(vector, 20, scopeEzzyId);
       telemetry.timings.vector_sql_ms = vecSqlMs;
       return results;
     })();
@@ -220,7 +222,7 @@ export async function executeArchitectureDRetrieval(options: {
     const exactAndFtsPromise = (async () => {
       const startSql = Date.now();
       // 1. Exact Subject Check
-      const exactSubjectIds = await retrieveStageAExactSubject(question, targetStatus);
+      const exactSubjectIds = await retrieveStageAExactSubject(question, targetStatus, scopeEzzyId);
 
       // 2. FTS5 exact token check (for quick lexical verification)
       let ftsIds: string[] = [];
@@ -233,8 +235,8 @@ export async function executeArchitectureDRetrieval(options: {
         try {
           const ftsRes = await executeBunnySql([
             {
-              sql: `SELECT memory_id FROM memories_fts WHERE memories_fts MATCH ? LIMIT 15;`,
-              args: [cleanFtsQuery],
+              sql: `SELECT f.memory_id FROM memories_fts f JOIN memory_search_projection msp ON f.memory_id = msp.memory_id WHERE memories_fts MATCH ? AND msp.ezzy_id = ? LIMIT 15;`,
+              args: [cleanFtsQuery, scopeEzzyId],
             },
           ]);
           ftsIds = (ftsRes[0]?.rows || []).map((r: any) => r.memory_id);
@@ -485,8 +487,8 @@ export async function executeArchitectureDRetrieval(options: {
       const placeholders = selectedCandidateIds.map(() => '?').join(',');
       const rowsRes = await executeBunnySql([
         {
-          sql: `SELECT * FROM memories WHERE id IN (${placeholders}) AND status = ? AND isDone = 0;`,
-          args: [...selectedCandidateIds, targetStatus],
+          sql: `SELECT * FROM memories WHERE id IN (${placeholders}) AND status = ? AND isDone = 0 AND ezzy_id = ?;`,
+          args: [...selectedCandidateIds, targetStatus, scopeEzzyId],
         },
       ]);
       const rows = rowsRes[0]?.rows || [];

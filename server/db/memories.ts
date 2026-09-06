@@ -360,7 +360,7 @@ export async function insertMemories(
       if (phoneNumber) {
         for (const rel of itemRelationships) {
           if (rel && rel.person && rel.role && rel.is_active !== false) {
-            await unsuppressUserEntity(rel.person);
+            await unsuppressUserEntity(rel.person, scopeEzzyId);
             await saveUserEntity({
               name: rel.person,
               entity_type: 'person',
@@ -381,7 +381,7 @@ export async function insertMemories(
       // Explicit contact phone teaching for a single person (e.g. "Fred's number is 0412...")
       const singlePerson = (people[0] || '').trim();
       if (singlePerson) {
-        await unsuppressUserEntity(singlePerson);
+        await unsuppressUserEntity(singlePerson, scopeEzzyId);
         await saveUserEntity({
           name: singlePerson,
           entity_type: 'person',
@@ -498,7 +498,7 @@ export async function insertMemories(
   // Synchronize vectors asynchronously in the background (non-blocking for Tell write)
   for (const item of items) {
     const docText = buildMemoryDocumentString(item);
-    syncMemoryVector(item.id, docText).catch(err => {
+    syncMemoryVector(item.id, docText, scopeEzzyId).catch(err => {
       console.warn(`[Vector Sync] Non-fatal error syncing vector for ${item.id}:`, err);
     });
   }
@@ -506,7 +506,7 @@ export async function insertMemories(
   if (!options?.skipRelationshipSave && relationshipsToSave.length > 0) {
     for (const rel of relationshipsToSave) {
       if (rel && rel.person && rel.is_active !== false) {
-        await unsuppressUserEntity(rel.person);
+        await unsuppressUserEntity(rel.person, scopeEzzyId);
       }
     }
     await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true }, scopeEzzyId);
@@ -772,7 +772,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     topics: metaTopicsObj.topics,
     retrieval_cues: metaTopicsObj.retrieval_cues,
   });
-  syncMemoryVector(id, updatedDocText).catch(err => {
+  syncMemoryVector(id, updatedDocText, scopeEzzyId).catch(err => {
     console.warn(`[Vector Sync] Non-fatal error updating vector for ${id}:`, err);
   });
 
@@ -786,7 +786,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     if (phoneNumber) {
       for (const rel of itemRelationships) {
         if (rel && rel.person && rel.role && rel.is_active !== false) {
-          await unsuppressUserEntity(rel.person);
+          await unsuppressUserEntity(rel.person, scopeEzzyId);
           await saveUserEntity({
             name: rel.person,
             entity_type: 'person',
@@ -805,14 +805,14 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     }
     for (const rel of itemRelationships) {
       if (rel && rel.person && rel.is_active !== false) {
-        await unsuppressUserEntity(rel.person);
+        await unsuppressUserEntity(rel.person, scopeEzzyId);
       }
     }
     await saveRelationships(itemRelationships, { skipSuppressionCheck: true }, scopeEzzyId);
   } else if (phoneNumber && people.length === 1) {
     const singlePerson = (people[0] || '').trim();
     if (singlePerson) {
-      await unsuppressUserEntity(singlePerson);
+      await unsuppressUserEntity(singlePerson, scopeEzzyId);
       await saveUserEntity({
         name: singlePerson,
         entity_type: 'person',
@@ -941,7 +941,7 @@ export async function deleteMemoryFromDb(id: string, ezzyId?: string): Promise<v
     },
     ...getSearchDeleteStatements(id)
   ]);
-  deleteMemoryVector(id).catch(err => {
+  deleteMemoryVector(id, ezzyId).catch(err => {
     console.warn(`[Vector Delete] Non-fatal error deleting vector for ${id}:`, err);
   });
 }

@@ -142,11 +142,12 @@ export function extractPhoneNumber(text: string): { phoneNumber: string | null; 
 // PERSON-LEVEL DURABLE SUPPRESSION ENGINE
 // ==========================================
 
-export async function getSuppressedEntities(): Promise<Set<string>> {
+export async function getSuppressedEntities(ezzyId: string = 'ezzy_default'): Promise<Set<string>> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   await initBunnyDb();
   try {
     const results = await executeBunnySql([
-      { sql: 'SELECT name FROM suppressed_entities;' }
+      { sql: 'SELECT name FROM suppressed_entities WHERE ezzy_id = ?;', args: [scopeEzzyId] }
     ]);
     const rows = results[0]?.rows || [];
     return new Set(rows.map((r: any) => (r.name || '').trim().toLowerCase()));
@@ -156,15 +157,16 @@ export async function getSuppressedEntities(): Promise<Set<string>> {
   }
 }
 
-export async function isEntitySuppressed(person: string): Promise<boolean> {
+export async function isEntitySuppressed(person: string, ezzyId: string = 'ezzy_default'): Promise<boolean> {
   const p = (person || '').trim().toLowerCase();
   if (!p) return false;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   await initBunnyDb();
   try {
     const results = await executeBunnySql([
       {
-        sql: 'SELECT name FROM suppressed_entities WHERE LOWER(name) = LOWER(?) LIMIT 1;',
-        args: [p]
+        sql: 'SELECT name FROM suppressed_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ? LIMIT 1;',
+        args: [p, scopeEzzyId]
       }
     ]);
     return (results[0]?.rows?.length || 0) > 0;
@@ -174,38 +176,40 @@ export async function isEntitySuppressed(person: string): Promise<boolean> {
   }
 }
 
-export async function suppressUserEntity(person: string): Promise<void> {
+export async function suppressUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<void> {
   const p = (person || '').trim();
   if (!p) return;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const nowIso = new Date().toISOString();
   await initBunnyDb();
   try {
     await executeBunnySql([
       {
-        sql: `INSERT INTO suppressed_entities (name, suppressed_at)
-              VALUES (LOWER(?), ?)
-              ON CONFLICT(name) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
-        args: [p, nowIso]
+        sql: `INSERT INTO suppressed_entities (name, ezzy_id, suppressed_at)
+              VALUES (LOWER(?), ?, ?)
+              ON CONFLICT(name, ezzy_id) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, scopeEzzyId, nowIso]
       }
     ]);
-    console.log(`[Suppressed Entities] Durably marked "${p}" as suppressed.`);
+    console.log(`[Suppressed Entities] Durably marked "${p}" as suppressed in ezzy "${scopeEzzyId}".`);
   } catch (err) {
     console.error(`[Suppressed Entities] Error suppressing "${p}":`, err);
   }
 }
 
-export async function unsuppressUserEntity(person: string): Promise<void> {
+export async function unsuppressUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<void> {
   const p = (person || '').trim().toLowerCase();
   if (!p) return;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   await initBunnyDb();
   try {
     await executeBunnySql([
       {
-        sql: 'DELETE FROM suppressed_entities WHERE LOWER(name) = LOWER(?);',
-        args: [p]
+        sql: 'DELETE FROM suppressed_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [p, scopeEzzyId]
       }
     ]);
-    console.log(`[Suppressed Entities] Cleared durable suppression for explicitly re-taught entity "${p}".`);
+    console.log(`[Suppressed Entities] Cleared durable suppression for explicitly re-taught entity "${p}" in ezzy "${scopeEzzyId}".`);
   } catch (err) {
     console.error(`[Suppressed Entities] Error unsuppressing entity "${p}":`, err);
   }
@@ -223,18 +227,17 @@ export async function saveUserEntity(
   options?: { skipSuppressionCheck?: boolean },
   ezzyId: string = 'ezzy_default'
 ): Promise<void> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const name = (entity.name || '').trim();
   if (!name) return;
 
   if (!options?.skipSuppressionCheck) {
-    const suppressed = await isEntitySuppressed(name);
+    const suppressed = await isEntitySuppressed(name, scopeEzzyId);
     if (suppressed) {
-      console.log(`[Entities] Skipping saveUserEntity for "${name}" because entity is durably suppressed.`);
+      console.log(`[Entities] Skipping saveUserEntity for "${name}" because entity is durably suppressed in ezzy "${scopeEzzyId}".`);
       return;
     }
   }
-
-  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const entityType = entity.entity_type || 'person';
   const role = entity.role || '';
   const normalizedRole = entity.normalized_role || normalizeRoleName(role);
@@ -469,12 +472,12 @@ export async function saveRelationships(
   if (!Array.isArray(relationships) || relationships.length === 0) return;
   await initBunnyDb();
 
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   let suppressedSet = new Set<string>();
   if (!options?.skipSuppressionCheck) {
-    suppressedSet = await getSuppressedEntities();
+    suppressedSet = await getSuppressedEntities(scopeEzzyId);
   }
 
-  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const stmts: Array<{ sql: string; args: any[] }> = [];
   const nowIso = new Date().toISOString();
 
@@ -545,11 +548,12 @@ export async function saveRelationships(
 }
 
 // Idempotently restore any relationships already present in stored memory records into user_relationships table
-export async function backfillStoredRelationships(): Promise<void> {
+export async function backfillStoredRelationships(ezzyId: string = 'ezzy_default'): Promise<void> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   try {
     const [allMemories, suppressedSet] = await Promise.all([
-      readMemories(),
-      getSuppressedEntities()
+      readMemories(scopeEzzyId),
+      getSuppressedEntities(scopeEzzyId)
     ]);
     const relationshipsToSave: Array<{ person: string; role: string; is_active?: boolean }> = [];
     for (const mem of allMemories) {
@@ -652,10 +656,10 @@ export async function forgetUserEntity(person: string, ezzyId: string = 'ezzy_de
         args: [canonicalId, `%_${p.toLowerCase()}%`, ezzyId]
       },
       {
-        sql: `INSERT INTO suppressed_entities (name, suppressed_at)
-              VALUES (LOWER(?), ?)
-              ON CONFLICT(name) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
-        args: [p, nowIso]
+        sql: `INSERT INTO suppressed_entities (name, ezzy_id, suppressed_at)
+              VALUES (LOWER(?), ?, ?)
+              ON CONFLICT(name, ezzy_id) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, ezzyId, nowIso]
       }
     ]);
     console.log(`[Entities] Successfully forgot entity "${p}" in ezzy "${ezzyId}", removed from user_entities, deactivated all relationships, and created durable suppression marker.`);
@@ -673,7 +677,7 @@ export async function correctUserRelationship(person: string, oldRole: string, n
   const newR = (newRole || '').trim();
   if (!p || !newR) return;
 
-  await unsuppressUserEntity(p);
+  await unsuppressUserEntity(p, ezzyId);
   if (oldR) {
     await deactivateUserRelationship(p, oldR, ezzyId);
   }
@@ -886,9 +890,10 @@ export async function detectAmbiguityInSavedMemories(
   }
 
   // Retrieve existing stored memories and suppressed entities to distinguish first-mention from established contextual entities
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const [allStored, suppressedSet] = await Promise.all([
-    preLoadedMemories !== undefined ? preLoadedMemories : readMemories(),
-    getSuppressedEntities()
+    preLoadedMemories !== undefined ? preLoadedMemories : readMemories(scopeEzzyId),
+    getSuppressedEntities(scopeEzzyId)
   ]);
   const newIds = new Set(memories.map(m => m.id));
   const priorStored = allStored.filter(m => !newIds.has(m.id));
