@@ -5,7 +5,7 @@ import { readActiveRelationships } from '../relationships/index';
 import { isDependentReminderClause } from '../ai/splitter';
 import { AnticipatoryMode, OccasionOccurrence } from '../../src/types';
 import { classifyAnticipatoryMode, isRecurringRoutineText } from '../anticipatory/classifier';
-import { buildAnticipatoryPrompt } from '../anticipatory/promptBuilder';
+import { buildAnticipatoryPrompt, isReflectionOutcomeMemory } from '../anticipatory/promptBuilder';
 import { getActiveUserOccasionOccurrences } from '../occasions/manager';
 import { daysBetween } from '../occasions/dateResolver';
 import { assertEzzyAccess, DEFAULT_EZZY_ID } from '../instances/entitlements';
@@ -122,7 +122,10 @@ export function findPreparationMemoriesForEvent(
       }
     }
 
-    // 1. Direct explicit link
+    // Defect 2: Exclude memories captured as reflection outcomes
+    if (isReflectionOutcomeMemory(m)) continue;
+
+    // 1. Direct explicit link (only for genuine preparation memories)
     if (
       m.interpretation?.linked_event_id &&
       String(m.interpretation.linked_event_id) === String(ev.id)
@@ -149,16 +152,23 @@ export function findPreparationMemoriesForEvent(
       continue;
     }
 
+    // Exclude passive facts about expiration without an action verb (e.g. "expire on 18/08/2027")
+    if (kind === 'fact' && /\b(?:expires?|expired|expiration)\b/i.test(content) &&
+        !/\b(?:ask|discuss|mention|renew|check|remind)\b/i.test(content)) {
+      continue;
+    }
+
     const people = (m.interpretation?.people || []).map((p: string) => p.toLowerCase());
     const topics = (m.interpretation?.topics || []).map((t: string) => t.toLowerCase());
     const contexts = (m.interpretation?.contexts || []).map((c: string) => c.toLowerCase());
     const cues = (m.interpretation?.retrieval_cues || []).map((c: string) => c.toLowerCase());
 
+    // Must have true action or discussion intent (bare nouns like "scripts" are NOT action verbs)
     const hasActionOrDiscussionIntent =
-      /(?:ask|discuss|mention|check|prepare|renew|scripts?|prescription|blood test|referral|scan|x-ray|symptoms?|results?|follow up|remember)/i.test(
+      /(?:ask|discuss|mention|check|prepare|renew|bring|take|give|tell|show|pick\s*up|buy|get|send|call|order|book|remind|organise|organize|raise|query|follow\s*up)/i.test(
         content
       ) ||
-      /(?:ask|discuss|mention|check|prepare|renew|scripts?|prescription|blood test|referral|scan|x-ray|symptoms?|results?|follow up|remember)/i.test(
+      /(?:ask|discuss|mention|check|prepare|renew|bring|take|give|tell|show|pick\s*up|buy|get|send|call|order|book|remind|organise|organize|raise|query|follow\s*up)/i.test(
         origText
       );
 
@@ -177,22 +187,13 @@ export function findPreparationMemoriesForEvent(
       continue;
     }
 
-    // 3. Medical / Doctor appointment preparation matching
-    if (isMedicalEvent) {
-      const isPrepContext =
-        contexts.some(
-          (c) =>
-            c.includes('appointment') ||
-            c.includes('medical') ||
-            c.includes('doctor')
-        ) ||
-        cues.some(
-          (c) =>
-            c.includes('doctor') ||
-            c.includes('appointment') ||
-            c.includes('checkup')
-        );
-
+    // 3. Medical / Doctor appointment preparation matching (Locked Relevance Rule)
+    // Topic/entity similarity alone is NEVER sufficient.
+    // A preparation memory qualifies when:
+    // A. It contains explicit intent binding it to the appointment/event (e.g. "ask Dr Marning about...", "discuss this at my next appointment", "renew this when I see the doctor")
+    // OR
+    // B. It is temporally near enough to the event AND semantically/actionably relevant (actionable task without distant future expiry).
+    if (isMedicalEvent && hasActionOrDiscussionIntent) {
       const isMedicalTopic =
         topics.some((t) =>
           [
@@ -207,19 +208,36 @@ export function findPreparationMemoriesForEvent(
             'scan',
           ].includes(t)
         ) ||
-        /(?:blood\s*test|script|prescription|refill|referral|scan|x-ray|medication|ask\s+about|renew\s+scripts?)/i.test(
-          content
-        ) ||
-        /(?:blood\s*test|script|prescription|refill|referral|scan|x-ray|medication|ask\s+about|renew\s+scripts?)/i.test(
-          origText
-        );
+        /(?:blood\s*test|script|prescription|refill|referral|scan|x-ray|medication)/i.test(content) ||
+        /(?:blood\s*test|script|prescription|refill|referral|scan|x-ray|medication)/i.test(origText);
 
-      if (isPrepContext && isMedicalTopic && hasActionOrDiscussionIntent) {
+      // Condition A: Explicit appointment/doctor binding
+      const hasExplicitBinding =
+        /\b(?:at\s+(?:my\s+|the\s+)?(?:next\s+)?appointment|to\s+(?:my\s+|the\s+)?appointment|for\s+(?:my\s+|the\s+)?appointment|when\s+i\s+see\s+(?:the\s+)?(?:doctor|dr|gp|dentist|physio)|with\s+(?:the\s+)?(?:doctor|dr|gp)|from\s+(?:the\s+)?(?:doctor|dr|gp))\b/i.test(content) ||
+        /\b(?:at\s+(?:my\s+|the\s+)?(?:next\s+)?appointment|to\s+(?:my\s+|the\s+)?appointment|for\s+(?:my\s+|the\s+)?appointment|when\s+i\s+see\s+(?:the\s+)?(?:doctor|dr|gp|dentist|physio)|with\s+(?:the\s+)?(?:doctor|dr|gp)|from\s+(?:the\s+)?(?:doctor|dr|gp))\b/i.test(origText) ||
+        Boolean(eventPerson && (people.includes(eventPerson.toLowerCase()) || content.includes(eventPerson.toLowerCase()) || origText.includes(eventPerson.toLowerCase())));
+
+      if (hasExplicitBinding && isMedicalTopic) {
         if (!seenIds.has(m.id)) {
           seenIds.add(m.id);
           matched.push(m);
         }
         continue;
+      }
+
+      // Condition B: Actionable task/reminder without distant future expiry
+      const resolvedIso = m.interpretation?.resolved_datetime || m.interpretation?.reminder_datetime || m.interpretation?.event_datetime;
+      const hasFarFutureDate = (resolvedIso && resolvedIso.slice(0, 4) > '2026') ||
+                               /\b\d{1,2}[\/\-.]\d{1,2}[\/\-.](?:202[7-9]|20[3-9]\d)\b/.test(content);
+
+      if (!hasFarFutureDate && isMedicalTopic && (kind === 'reminder' || kind === 'task')) {
+        if (/(?:ask|discuss|mention|renew|bring|take)\s+(?:about\s+)?(?:my\s+|the\s+)?(?:scripts?|prescription|blood\s*test|referral|scan|medication)/i.test(content)) {
+          if (!seenIds.has(m.id)) {
+            seenIds.add(m.id);
+            matched.push(m);
+          }
+          continue;
+        }
       }
     }
   }
@@ -442,8 +460,9 @@ export function hasCompletedReflectionForEvent(
     words.forEach((w) => prepKeywords.add(w));
   }
 
-  const baseId = String(ev.id).replace(/:\d{4}-\d{2}-\d{2}$/, '');
-  const occurrenceKey = `${baseId}:${occurrenceYMD}`;
+  const evOccurrenceId = ev.occurrenceId || ev.occurrence_id;
+  const baseId = String(ev.id || evOccurrenceId || '').replace(/:\d{4}-\d{2}-\d{2}$/, '');
+  const occurrenceKey = evOccurrenceId ? String(evOccurrenceId) : `${baseId}:${occurrenceYMD}`;
 
   for (const m of memories) {
     if (!m.createdAt) continue;
@@ -451,25 +470,28 @@ export function hasCompletedReflectionForEvent(
     const memTime = memDate.getTime();
     if (isNaN(memTime)) continue;
 
-    // Occurrence-scoped date check: Memory must be created on or after the occurrence start time window
-    // and strictly on the same occurrence date (in local time zone)
-    const memYMD = getYMDInTz(memDate, timeZone);
-    if (memYMD !== occurrenceYMD) continue;
-
     // 1. Explicit link to event occurrence (saved from reflection tray or with linkedEventId)
+    // When a memory is explicitly linked to the event/occurrence, it directly satisfies the reflection
     if (m.interpretation?.linked_event_id) {
       const linked = String(m.interpretation.linked_event_id);
       if (
         linked === occurrenceKey ||
+        (evOccurrenceId && linked === String(evOccurrenceId)) ||
         linked === String(ev.id) ||
-        linked === String(ev.source_event_id) ||
-        linked.startsWith(`${baseId}:${occurrenceYMD}`)
+        (ev.source_event_id && linked === String(ev.source_event_id)) ||
+        linked.startsWith(`${baseId}:${occurrenceYMD}`) ||
+        (evOccurrenceId && linked.startsWith(`${evOccurrenceId}`))
       ) {
         if (memTime >= evStartTime - 30 * 60 * 1000) {
           return true;
         }
       }
     }
+
+    // Occurrence-scoped date check: Memory must be created on or after the occurrence start time window
+    // and strictly on the same occurrence date (in local time zone)
+    const memYMD = getYMDInTz(memDate, timeZone);
+    if (memYMD !== occurrenceYMD) continue;
 
     // Invariant: Unrelated facts, profiles, preferences, contacts, and relationship memories
     // mentioning the person MUST NEVER count as completion of an event/visit reflection.
@@ -1112,7 +1134,17 @@ export function evaluateTodayRelevanceCandidates(
 
             // Before reminder time: communicate action + useful future time (e.g. "Ring Bill at 10:00am", "Put the bins out at 3:30pm")
             // At / after reminder time: remove obsolete future-time wording and continue showing unfinished action (e.g. "Ring Bill", "Put the bins out")
-            const displayText = isBeforeReminder && cleanTime
+            const alreadyHasTime = (() => {
+              if (!cleanTime) return false;
+              const baseLower = baseAction.toLowerCase();
+              if (baseLower.includes(cleanTime.toLowerCase())) return true;
+              const timeWithoutAmPm = cleanTime.replace(/(?:am|pm)$/i, '');
+              if (timeWithoutAmPm && baseLower.includes(timeWithoutAmPm)) return true;
+              if (/\b(?:at|@)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.test(baseLower)) return true;
+              return false;
+            })();
+
+            const displayText = isBeforeReminder && cleanTime && !alreadyHasTime
               ? `${baseAction} at ${cleanTime}`
               : baseAction;
 
@@ -1378,6 +1410,24 @@ export function evaluateTodayRelevanceCandidates(
       // ONLY trigger POST if mode is POST_ONLY or PRE_AND_POST.
       // Strict rule: PRE_ONLY or NONE MUST NEVER trigger post-event reflection!
       if (mode === 'POST_ONLY' || mode === 'PRE_AND_POST') {
+        // Defect 1: Stop completed occasion reflections resurfacing.
+        // Check whether this occasion occurrence has already received a completed reflection.
+        const hasCompleted = hasCompletedReflectionForEvent(
+          {
+            id: occ.occasionId,
+            occurrenceId: occ.occurrenceId,
+            title: occ.title,
+            start_datetime: occ.startDate ? `${occ.startDate}T00:00:00` : undefined,
+          },
+          activeMemories,
+          activeRelationships,
+          [],
+          localContext.timeZone,
+          occ.startDate || clientTodayYMD
+        );
+
+        if (hasCompleted) continue;
+
         const postPromptRes = buildAnticipatoryPrompt({
           stage: 'POST',
           title: occ.title,

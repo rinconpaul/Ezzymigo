@@ -93,11 +93,19 @@ export function identifyEventDetails(
   ) {
     eventType = 'appointment';
     if (!person) {
-      const drMatch = cleanTitle.match(/^(?:dr\.?|doctor)\s+([A-Za-z0-9'-]+)/i);
+      const drMatch = cleanTitle.match(/(?:with\s+)?(?:dr\.?|doctor)\s+([A-Za-z0-9'-]+)/i);
       if (drMatch) {
         const candidateName = drMatch[1].trim();
         if (!/^(?:appointment|appt|visit|consultation|checkup|check-up|check|session)\b/i.test(candidateName)) {
           person = `Dr ${candidateName}`;
+        }
+      } else {
+        const withMatch = cleanTitle.match(/\b(?:with|see|seeing)\s+([A-Za-z0-9'-]+)/i);
+        if (withMatch) {
+          const candidateName = withMatch[1].trim();
+          if (!/^(?:the|my|a|an)\b/i.test(candidateName)) {
+            person = candidateName;
+          }
         }
       }
     }
@@ -144,6 +152,37 @@ export function identifyEventDetails(
  * - Excludes completed/done tasks
  * - Requires explicit link OR actionable agenda/discussion intent tied to the person/event
  */
+/**
+ * Identifies memories created as outcomes/responses to completed reflections or past events.
+ * Such memories must NEVER be recycled back into anticipatory preparation for the same or subsequent prompts.
+ */
+export function isReflectionOutcomeMemory(m: any): boolean {
+  if (!m) return false;
+  if (m.interpretation?.is_reflection_response || m.is_reflection_response) return true;
+  if (m.interpretation?.origin === 'reflection_outcome' || m.interpretation?.origin === 'reflection_response') return true;
+  if (m.interpretation?.provenance === 'reflection_response' || m.provenance === 'reflection_response') return true;
+
+  const rawContent = (m.interpretation?.content || m.originalText || '').trim();
+  const lowerContent = rawContent.toLowerCase();
+
+  // Declarative past-tense completion/reporting markers (e.g. "I spoke with...", "Doug sent me...", "Went well")
+  if (/^(?:i\s+)?(?:spoke|talked|chatted|saw|visited|caught\s+up|went|had|received|got|sent|told|attended)\b/i.test(lowerContent)) {
+    return true;
+  }
+
+  // Kind is fact or note with past-tense narrative and no future/preparation action verb
+  const kind = (m.interpretation?.kind || '').toLowerCase();
+  const intent = (m.interpretation?.intent || '').toLowerCase();
+  if (['fact', 'note'].includes(kind) || ['fact', 'note'].includes(intent)) {
+    if (/\b(?:spoke|talked|visited|sent|received|attended|went|was|were)\b/i.test(lowerContent) &&
+        !/\b(?:ask|bring|take|check|renew|discuss|prepare|organise|organize|remind)\b/i.test(lowerContent)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function isStronglyRelevantMemory(
   m: any,
   eventDetails: { cleanTitle: string; person: string; eventType: string },
@@ -154,7 +193,13 @@ export function isStronglyRelevantMemory(
     return false;
   }
 
-  // 1. Direct explicit link to event ID
+  // Defect 2: Memories created as outcomes/responses to a completed reflection
+  // must NOT subsequently qualify as preparation context merely because they share linked_event_id.
+  if (isReflectionOutcomeMemory(m)) {
+    return false;
+  }
+
+  // 1. Direct explicit link to event ID (only for genuine preparation memories)
   if (eventId && m.interpretation?.linked_event_id && String(m.interpretation.linked_event_id) === String(eventId)) {
     return true;
   }
@@ -185,8 +230,14 @@ export function isStronglyRelevantMemory(
     return false;
   }
 
-  // Must have action, preparation, or discussion intent:
-  const hasActionVerb = /\b(?:ask|discuss|mention|check|bring|take|give|tell|show|pick\s*up|buy|get|send|call|order|book|renew|scripts?|prescription|blood\s*test|referral|scan|x-ray|symptoms?|results?|follow\s*up|remind|organise|organize)\b/i.test(lowerContent);
+  // Exclude passive facts about expiration/dates without an action verb (e.g. "All my current scripts expire on 18/08/2027")
+  if (kind === 'fact' && /\b(?:expires?|expired|expiration)\b/i.test(lowerContent) &&
+      !/\b(?:ask|discuss|mention|renew|check|remind)\b/i.test(lowerContent)) {
+    return false;
+  }
+
+  // Must have an actual action verb (bare nouns like "scripts", "blood test", "scan" are NOT action verbs):
+  const hasActionVerb = /\b(?:ask|discuss|mention|check|bring|take|give|tell|show|pick\s*up|buy|get|send|call|order|book|renew|remind|organise|organize|raise|query|follow\s*up)\b/i.test(lowerContent);
   if (!hasActionVerb) {
     return false;
   }
@@ -211,14 +262,40 @@ export function isStronglyRelevantMemory(
     }
   }
 
-  // Linkage to Medical Appointment:
+  // Linkage to Medical Appointment (Locked Relevance Rule):
+  // Topic/entity similarity alone is NEVER sufficient to qualify a memory as anticipatory preparation.
+  // A preparation memory qualifies when:
+  // A. It contains explicit intent binding it to the appointment/event (e.g. "ask Dr Marning about...", "discuss this at my next appointment", "renew this when I see the doctor")
+  // OR
+  // B. It is temporally near enough to the event AND semantically/actionably relevant (actionable task without distant future expiry).
   if (eventDetails.eventType === 'appointment' || /doctor|dentist|physio|gp/i.test(title)) {
-    const isMedicalTopic = /\b(?:scripts?|prescription|refill|blood\s*test|referral|scan|x-ray|medication|symptoms?|results?)\b/i.test(lowerContent);
-    const isMedicalContext = contexts.some(c => c.includes('medical') || c.includes('appointment') || c.includes('doctor')) ||
-                             topics.some(t => ['health', 'medical', 'prescriptions', 'blood test'].includes(t));
-    if (isMedicalTopic || isMedicalContext) {
+    // Condition A: Explicit intent binding
+    const hasExplicitAppointmentBinding =
+      /\b(?:at\s+(?:my\s+|the\s+)?(?:next\s+)?appointment|to\s+(?:my\s+|the\s+)?appointment|for\s+(?:my\s+|the\s+)?appointment|when\s+i\s+see\s+(?:the\s+)?(?:doctor|dr|gp|dentist|physio)|with\s+(?:the\s+)?(?:doctor|dr|gp)|from\s+(?:the\s+)?(?:doctor|dr|gp))\b/i.test(lowerContent) ||
+      Boolean(person && (people.includes(person) || lowerContent.includes(person)));
+
+    const isMedicalTopicOrContext =
+      /\b(?:scripts?|prescription|refill|blood\s*test|referral|scan|x-ray|medication|symptoms?|results?)\b/i.test(lowerContent) ||
+      contexts.some(c => c.includes('medical') || c.includes('appointment') || c.includes('doctor')) ||
+      topics.some(t => ['health', 'medical', 'prescriptions', 'blood test'].includes(t));
+
+    if (hasExplicitAppointmentBinding && isMedicalTopicOrContext) {
       return true;
     }
+
+    // Condition B: Actionable task/reminder without distant future expiry
+    const resolvedIso = m.interpretation?.resolved_datetime || m.interpretation?.reminder_datetime || m.interpretation?.event_datetime;
+    const hasFarFutureDate = (resolvedIso && resolvedIso.slice(0, 4) > '2026') ||
+                             /\b\d{1,2}[\/\-.]\d{1,2}[\/\-.](?:202[7-9]|20[3-9]\d)\b/.test(lowerContent);
+
+    if (!hasFarFutureDate && isMedicalTopicOrContext && (kind === 'reminder' || kind === 'task')) {
+      if (/\b(?:ask|discuss|mention|renew|bring|take)\s+(?:about\s+)?(?:my\s+|the\s+)?(?:scripts?|prescription|blood\s*test|referral|scan|medication)/i.test(lowerContent)) {
+        return true;
+      }
+    }
+
+    // When relevance is uncertain, OMIT supplemental context
+    return false;
   }
 
   // Linkage to Event Title:
@@ -246,12 +323,23 @@ export function formatContextSentence(rawItem: string, stage: 'PRE' | 'POST'): s
   // Strip trailing punctuation
   text = text.replace(/[.!?]+$/, '').trim();
 
-  // If text starts with "ask ...", "ask about ..."
+  // Invariant: Do not mechanically prepend modal language to declarative/past facts
+  const lower = text.toLowerCase();
+  const isPastTense = /^(?:i\s+)?(?:spoke|talked|chatted|saw|visited|caught\s+up|went|had|received|got|sent|told|attended|met|bought|called|checked)\b/i.test(lower);
+  if (isPastTense) {
+    return ''; // Cannot safely support modal rewriting; omit rather than distorting tense
+  }
+
+  // If text starts with "ask ...", "ask about ...", "ask [person] about ..."
   if (/^ask\b/i.test(text)) {
-    let subject = text.replace(/^ask\s+(?:about\s+)?/i, '').trim();
-    // Normalize "my scripts" or "scripts" -> "your scripts"
+    let subject = text
+      .replace(/^ask\s+(?:(?:dr\.?|doctor)\s+[A-Za-z0-9'-]+|[A-Za-z0-9'-]+)\s+about\s+/i, '')
+      .replace(/^ask\s+(?:about\s+)?/i, '')
+      .trim();
+    // Normalize "my" -> "your"
     subject = subject.replace(/\bmy\b/gi, 'your');
-    if (!/\b(?:your|the|a|an|her|his|their|our)\b/i.test(subject)) {
+    const firstWord = subject.split(/\s+/)[0].toLowerCase();
+    if (!/^(?:your|the|a|an|her|his|their|our|renewing|getting|checking|booking|buying)\b/i.test(firstWord)) {
       subject = `your ${subject}`;
     }
     if (stage === 'PRE') {
@@ -266,12 +354,14 @@ export function formatContextSentence(rawItem: string, stage: 'PRE' | 'POST'): s
 
   // If starts with "check ..."
   if (/^check\b/i.test(normalized)) {
-    return `You were going to ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
+    const prefix = stage === 'PRE' ? 'You wanted to' : 'You were going to';
+    return `${prefix} ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
   }
 
   // If starts with common action verbs
-  if (/^(?:bring|take|give|show|pick\s*up|discuss|mention|renew)\b/i.test(normalized)) {
-    return `You were going to ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
+  if (/^(?:bring|take|give|show|pick\s*up|discuss|mention|renew|order|buy|call|book|organise|organize)\b/i.test(normalized)) {
+    const prefix = stage === 'PRE' ? 'You wanted to' : 'You were going to';
+    return `${prefix} ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
   }
 
   // If already starts with "you were going to" or "you wanted to"
@@ -279,8 +369,8 @@ export function formatContextSentence(rawItem: string, stage: 'PRE' | 'POST'): s
     return normalized.endsWith('.') ? normalized : `${normalized}.`;
   }
 
-  const prefix = stage === 'PRE' ? 'You wanted to' : 'You were going to';
-  return `${prefix} ${normalized.charAt(0).toLowerCase() + normalized.slice(1)}.`;
+  // Where source semantics cannot safely support modal rewriting, omit rather than distorting
+  return '';
 }
 
 /**
@@ -323,7 +413,7 @@ export function buildAnticipatoryPrompt(options: AnticipatoryPromptOptions): Ant
     } else if (eventType === 'appointment') {
       if (/dentist/i.test(cleanTitle)) {
         leadSentence = 'How did the dentist appointment go?';
-      } else if (person && person.startsWith('Dr ')) {
+      } else if (person) {
         leadSentence = `How did your appointment with ${person} go?`;
       } else {
         leadSentence = 'How did the doctor appointment go?';
@@ -364,14 +454,19 @@ export function buildAnticipatoryPrompt(options: AnticipatoryPromptOptions): Ant
       const leadSentence = `${name}’s birthday is ${timePhrase}.`;
       prompt = `${leadSentence} Anything you need to organise or be reminded about?`;
     } else if (eventType === 'appointment') {
-      let appointmentName = 'doctor appointment';
-      if (/dentist/i.test(cleanTitle)) {
-        appointmentName = 'dentist appointment';
-      } else if (/physio/i.test(cleanTitle)) {
-        appointmentName = 'physio appointment';
+      let leadSentence = '';
+      if (person) {
+        leadSentence = `Your appointment with ${person} is ${timePhrase}.`;
+      } else {
+        let appointmentName = 'doctor appointment';
+        if (/dentist/i.test(cleanTitle)) {
+          appointmentName = 'dentist appointment';
+        } else if (/physio/i.test(cleanTitle)) {
+          appointmentName = 'physio appointment';
+        }
+        leadSentence = `Your ${appointmentName} is ${timePhrase}.`;
       }
 
-      const leadSentence = `Your ${appointmentName} is ${timePhrase}.`;
       if (contextSentence) {
         prompt = `${leadSentence} ${contextSentence} Anything else you want to remember for the appointment?`;
       } else {

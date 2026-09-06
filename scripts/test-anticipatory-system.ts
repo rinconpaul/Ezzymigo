@@ -7,6 +7,7 @@ import {
 } from '../server/anticipatory/persistenceGate';
 import { evaluateTodayRelevance, hasCompletedReflectionForEvent } from '../server/today/relevance';
 import { insertMemories, readMemories, readMemoryById, updateMemoryAnticipation } from '../server/db/memories';
+import { processThoughtCapturePipeline } from '../server/ai/interpreter';
 import { executeBunnySql } from '../server/db/client';
 import { CalendarEvent, MemoryItem } from '../src/types';
 
@@ -665,20 +666,154 @@ async function runSuite() {
     assert(routineCandidates.length === 1, `Exactly one candidate generated per event trigger (found ${routineCandidates.length})`);
 
     // -------------------------------------------------------------------------
+    // TEST 19: Anticipatory / Occasion Response Semantics
+    // Decoupling Occasion/Prompt Context from Subject & List Classification
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 19] Anticipatory/Occasion Response Semantics (6 Scenarios)');
+    const test19Context = {
+      referenceDate: new Date('2026-09-06T12:00:00Z'),
+      localDateTimeStr: '2026-09-06 22:00',
+      timeZone: 'Australia/Sydney',
+      offsetStr: '+10:00',
+      language: 'en-AU',
+      region: 'AU',
+      currency: 'AUD'
+    };
+
+    // Scenario 1: Occasion prompt + two independent facts
+    // Context: Father's Day ("occ_fathers_day_2026:2026-09-06")
+    // Response: "Spoke with Roland; he is moving down to Century Point in 2 weeks. Doug sent me a bottle of champagne."
+    console.log('  Scenario 1: Occasion prompt + two independent facts');
+    const s1Pipeline = await processThoughtCapturePipeline(
+      "Spoke with Roland; he is moving down to Century Point in 2 weeks. Doug sent me a bottle of champagne.",
+      test19Context,
+      null,
+      'occ_fathers_day_2026:2026-09-06',
+      undefined // Context decoupled: no occasion title passed as subject
+    );
+    assert(s1Pipeline.memories.length === 2, `Scenario 1 split into 2 independent memories (found ${s1Pipeline.memories.length})`);
+    const s1Mem0 = s1Pipeline.memories[0];
+    const s1Mem1 = s1Pipeline.memories[1];
+    assert(!s1Mem0.interpretation?.subject, 'Scenario 1 memory 0 has no subject / is not a List container');
+    assert(!s1Mem1.interpretation?.subject, 'Scenario 1 memory 1 has no subject / is not a List container');
+    assert((s1Mem0.interpretation?.items || []).length === 0, 'Scenario 1 memory 0 has 0 list items');
+    assert((s1Mem1.interpretation?.items || []).length === 0, 'Scenario 1 memory 1 has 0 list items');
+    assert(s1Mem0.interpretation?.people.includes('Roland'), 'Scenario 1 memory 0 associated with Roland');
+    assert(s1Mem1.interpretation?.people.includes('Doug'), 'Scenario 1 memory 1 associated with Doug');
+    assert(s1Mem0.interpretation?.linked_event_id === 'occ_fathers_day_2026:2026-09-06', 'Scenario 1 memory 0 has occasion linked_event_id context');
+    assert(s1Mem1.interpretation?.linked_event_id === 'occ_fathers_day_2026:2026-09-06', 'Scenario 1 memory 1 has occasion linked_event_id context');
+
+    // Actual DB persistence check for Scenario 1
+    s1Mem0.id = 'test_anticipatory_s1_0';
+    s1Mem1.id = 'test_anticipatory_s1_1';
+    await insertMemories([s1Mem0, s1Mem1], TEST_EZZY_ID);
+    const dbS1_0 = await readMemoryById('test_anticipatory_s1_0', TEST_EZZY_ID);
+    const dbS1_1 = await readMemoryById('test_anticipatory_s1_1', TEST_EZZY_ID);
+    assert(dbS1_0 !== null && dbS1_1 !== null, 'Scenario 1 memories successfully persisted in database');
+    assert(!dbS1_0?.interpretation?.subject && !dbS1_1?.interpretation?.subject, 'Scenario 1 stored records have no subject header in database');
+    assert((dbS1_0?.interpretation?.items || []).length === 0 && (dbS1_1?.interpretation?.items || []).length === 0, 'Scenario 1 stored records have no list items in database');
+
+    // Scenario 2: Post-event prompt ("How did your visit with Mum go? Anything worth saving?")
+    // Response: "Mum liked the new cardigan and the nurse said her doctor is coming Tuesday."
+    console.log('  Scenario 2: Post-event prompt with 2 facts in capture flow');
+    const s2Gate = evaluateAnticipatoryResponsePersistence(
+      "Mum liked the new cardigan and the nurse said her doctor is coming Tuesday.",
+      { isCaptureFlow: true }
+    );
+    assert(s2Gate.shouldPersist === true && s2Gate.classification === 'EXPLICIT_PERSISTENCE', 'Scenario 2 permitted via anticipatory capture flow');
+    const s2Pipeline = await processThoughtCapturePipeline(
+      "Mum liked the new cardigan and the nurse said her doctor is coming Tuesday.",
+      test19Context,
+      null,
+      'cal_visit_mum:2026-09-07',
+      undefined // Context decoupled: "Visit Mum" not forced as subject
+    );
+    assert(s2Pipeline.memories.length === 2, `Scenario 2 split into 2 facts (found ${s2Pipeline.memories.length})`);
+    const s2Mem0 = s2Pipeline.memories[0];
+    const s2Mem1 = s2Pipeline.memories[1];
+    assert(!s2Mem0.interpretation?.subject && !s2Mem1.interpretation?.subject, 'Scenario 2 memories are not a "Visit Mum" List');
+    assert((s2Mem0.interpretation?.items || []).length === 0 && (s2Mem1.interpretation?.items || []).length === 0, 'Scenario 2 memories have no list items');
+    s2Mem0.id = 'test_anticipatory_s2_0';
+    s2Mem1.id = 'test_anticipatory_s2_1';
+    await insertMemories([s2Mem0, s2Mem1], TEST_EZZY_ID);
+    const dbS2_0 = await readMemoryById('test_anticipatory_s2_0', TEST_EZZY_ID);
+    const dbS2_1 = await readMemoryById('test_anticipatory_s2_1', TEST_EZZY_ID);
+    assert(dbS2_0 !== null && dbS2_1 !== null, 'Scenario 2 records persisted in database');
+    assert(dbS2_0?.interpretation?.subject !== 'Visit Mum' && dbS2_1?.interpretation?.subject !== 'Visit Mum', 'Scenario 2 stored records are not titled "Visit Mum"');
+
+    // Scenario 3: Genuine list response after an occasion prompt
+    // Response: "Add these to my Father's Day list: champagne, chocolates and a card."
+    console.log('  Scenario 3: Genuine list response after occasion prompt');
+    const s3Gate = evaluateAnticipatoryResponsePersistence(
+      "Add these to my Father's Day list: champagne, chocolates and a card."
+    );
+    assert(s3Gate.shouldPersist === true && s3Gate.instructionType === 'list', 'Scenario 3 evaluated as EXPLICIT_PERSISTENCE (list)');
+    const s3Pipeline = await processThoughtCapturePipeline(
+      "Add these to my Father's Day list: champagne, chocolates and a card.",
+      test19Context,
+      null,
+      'occ_fathers_day_2026:2026-09-06',
+      undefined
+    );
+    assert(s3Pipeline.memories.length === 1, 'Scenario 3 preserved as a single list collection unit');
+    const s3Mem = s3Pipeline.memories[0];
+    assert(s3Mem.interpretation?.subject === "Father's Day list", `Scenario 3 memory subject is "${s3Mem.interpretation?.subject}" (preserved from response)`);
+    assert((s3Mem.interpretation?.items || []).length >= 2, `Scenario 3 memory extracted list items (found ${s3Mem.interpretation?.items?.length})`);
+    s3Mem.id = 'test_anticipatory_s3';
+    await insertMemories([s3Mem], TEST_EZZY_ID);
+    const dbS3 = await readMemoryById('test_anticipatory_s3', TEST_EZZY_ID);
+    assert(dbS3 !== null && dbS3?.interpretation?.subject === "Father's Day list", 'Scenario 3 stored record in database has subject "Father\'s Day list"');
+    assert((dbS3?.interpretation?.items || []).length >= 2, 'Scenario 3 stored record in database contains list items');
+
+    // Scenario 4: Existing dismissal ("No thanks.")
+    console.log('  Scenario 4: Existing dismissal ("No thanks.")');
+    const s4GateStandard = evaluateAnticipatoryResponsePersistence("No thanks.");
+    const s4GateCapture = evaluateAnticipatoryResponsePersistence("No thanks.", { isCaptureFlow: true });
+    assert(s4GateStandard.shouldPersist === false && s4GateStandard.classification === 'DISMISS', 'Scenario 4 standard dismissal persists nothing');
+    assert(s4GateCapture.shouldPersist === false && s4GateCapture.classification === 'DISMISS', 'Scenario 4 capture-flow dismissal persists nothing');
+
+    // Scenario 5: Existing conversational response ("It went well.")
+    console.log('  Scenario 5: Existing conversational response ("It went well.")');
+    const s5GateStandard = evaluateAnticipatoryResponsePersistence("It went well.");
+    const s5GateCapture = evaluateAnticipatoryResponsePersistence("It went well.", { isCaptureFlow: true });
+    assert(s5GateStandard.shouldPersist === false && s5GateStandard.classification === 'CONVERSATIONAL', 'Scenario 5 standard conversational persists nothing');
+    assert(s5GateCapture.shouldPersist === false && s5GateCapture.classification === 'CONVERSATIONAL', 'Scenario 5 capture-flow conversational persists nothing');
+
+    // Scenario 6: Explicit single fact ("Save that Doug sent me a bottle of champagne.")
+    console.log('  Scenario 6: Explicit single fact ("Save that Doug sent me a bottle of champagne.")');
+    const s6Gate = evaluateAnticipatoryResponsePersistence("Save that Doug sent me a bottle of champagne.");
+    assert(s6Gate.shouldPersist === true && s6Gate.instructionType === 'save', 'Scenario 6 evaluated as EXPLICIT_PERSISTENCE (save)');
+    const s6Pipeline = await processThoughtCapturePipeline(
+      "Save that Doug sent me a bottle of champagne.",
+      test19Context,
+      null,
+      'occ_fathers_day_2026:2026-09-06',
+      undefined
+    );
+    assert(s6Pipeline.memories.length === 1, 'Scenario 6 created exactly 1 memory');
+    const s6Mem = s6Pipeline.memories[0];
+    assert(!s6Mem.interpretation?.subject, 'Scenario 6 memory has no subject / is not a List');
+    assert((s6Mem.interpretation?.items || []).length === 0, 'Scenario 6 memory has 0 list items');
+    assert(s6Mem.interpretation?.people.includes('Doug'), 'Scenario 6 memory associated with Doug');
+    s6Mem.id = 'test_anticipatory_s6';
+    await insertMemories([s6Mem], TEST_EZZY_ID);
+    const dbS6 = await readMemoryById('test_anticipatory_s6', TEST_EZZY_ID);
+    assert(dbS6 !== null && !dbS6?.interpretation?.subject, 'Scenario 6 stored record in database is a single fact, not a List');
+    await cleanupFixtures();
+
+    // -------------------------------------------------------------------------
     // Summary
     // -------------------------------------------------------------------------
     console.log('\n================================================================================');
     console.log(`  RESULTS: ${passed} passed, ${failed} failed`);
     console.log('================================================================================');
 
-    if (failed > 0) {
-      process.exit(1);
-    }
+    await cleanupFixtures();
+    process.exit(failed > 0 ? 1 : 0);
   } catch (err) {
     console.error('Test execution exception:', err);
-    process.exit(1);
-  } finally {
     await cleanupFixtures();
+    process.exit(1);
   }
 }
 

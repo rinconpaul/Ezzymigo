@@ -100,12 +100,31 @@ export function fallbackInterpretation(text: string, now: Date = new Date()) {
     }
   }
 
+  const fallbackPeople: string[] = relationships.map(r => r.person);
+  const nameMatches = text.match(/\b(?:spoke\s+with|spoke\s+to|talked\s+to|visit\s+with|see|saw|sent\s+me|called|ring)\s+([A-Z][a-z]+)\b|\b([A-Z][a-z]+)\s+(?:sent|said|is|liked|told|called|loved)\b/gi);
+  if (nameMatches) {
+    for (const m of nameMatches) {
+      const parts = m.split(/\s+/);
+      const possibleName = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+      if (possibleName && /^[A-Z][a-z]+$/.test(possibleName) && !['Mum', 'Dad', 'He', 'She', 'They', 'It', 'The', 'When', 'How', 'Save', 'Remember', 'Note', 'Capture'].includes(possibleName)) {
+        if (!fallbackPeople.includes(possibleName)) fallbackPeople.push(possibleName);
+      }
+      const firstName = parts[0].replace(/[^a-zA-Z]/g, '');
+      if (firstName && /^[A-Z][a-z]+$/.test(firstName) && !['Mum', 'Dad', 'He', 'She', 'They', 'It', 'The', 'When', 'How', 'Save', 'Remember', 'Note', 'Capture'].includes(firstName)) {
+        if (!fallbackPeople.includes(firstName)) fallbackPeople.push(firstName);
+      }
+    }
+  }
+  if (/\b(?:Mum|Mother)\b/i.test(text) && !fallbackPeople.includes('Mum')) {
+    fallbackPeople.push('Mum');
+  }
+
   return {
     content: text.length > 120 ? text.slice(0, 117) + '...' : text,
     kind,
     intent,
     status: 'active',
-    people: relationships.map(r => r.person),
+    people: fallbackPeople,
     places: [],
     topics: words.slice(0, 3).map(w => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()).filter(Boolean),
     contexts: ['general', 'reference'],
@@ -709,8 +728,22 @@ export async function processThoughtCapturePipeline(
   // Assemble memory items, preserving discrete unit originalText
   const memories = interpretations.map((interpretation, index) => {
     const unitText = splitUnits[index] || trimmedText;
-    if (subject && typeof subject === 'string' && subject.trim()) {
-      const cleanSubject = subject.trim();
+    let unitSubject = subject && typeof subject === 'string' && subject.trim() ? subject.trim() : null;
+
+    // If no shared subject was passed, check if the unit text itself explicitly defines a list subject:
+    // E.g. "Add these to my Father's Day list: champagne, chocolates and a card."
+    if (!unitSubject) {
+      const explicitListMatch = unitText.match(/^\s*(?:please\s+)?(?:add\s+(?:this|these|the\s+following)?\s*to\s+(?:my\s+|the\s+)?([\w\s'’]+?)\s+list|put\s+(?:this|these|the\s+following)?\s*on\s+(?:my\s+|the\s+)?([\w\s'’]+?)\s+list|create\s+(?:a\s+)?(?:new\s+)?list(?:\s+called|\s+titled|\s+for)?\s+([\w\s'’]+?)(?::|$)|([\w\s'’]+?)\s+list:)/i);
+      if (explicitListMatch) {
+        const rawTitle = (explicitListMatch[1] || explicitListMatch[2] || explicitListMatch[3] || explicitListMatch[4] || '').trim();
+        if (rawTitle) {
+          unitSubject = `${rawTitle.replace(/\s+list$/i, '')} list`;
+        }
+      }
+    }
+
+    if (unitSubject) {
+      const cleanSubject = unitSubject.trim();
       interpretation.subject = cleanSubject;
       interpretation.subject_resolved_date = subjectResolvedDate || null;
       if (!Array.isArray(interpretation.retrieval_cues)) {
@@ -720,10 +753,13 @@ export async function processThoughtCapturePipeline(
         interpretation.retrieval_cues.push(cleanSubject);
       }
     } else {
+      interpretation.subject = undefined;
       interpretation.subject_resolved_date = null;
     }
     if (linkedEventId) {
       interpretation.linked_event_id = String(linkedEventId);
+      interpretation.is_reflection_response = true;
+      interpretation.origin = 'reflection_outcome';
       if (!Array.isArray(interpretation.contexts)) {
         interpretation.contexts = [];
       }
@@ -737,6 +773,7 @@ export async function processThoughtCapturePipeline(
       createdAt: now,
       isDone: false,
       interpretation,
+      is_reflection_response: linkedEventId ? true : undefined,
     };
   });
 

@@ -69,8 +69,12 @@ export function isCollectionContinuation(unitText: string, prevUnit: string): bo
   const lower = trimmed.toLowerCase();
   const prevLower = prevUnit.toLowerCase();
 
+  // If previous unit sets up an explicit list directive (e.g. "Add these to my Father's Day list: ...")
+  const isExplicitListHeader = /^(?:add\s+(?:these|this|the\s+following)?\s*to\s+(?:my\s+|the\s+)?[\w\s'’]+?\s+list|put\s+(?:these|this|the\s+following)?\s*on\s+(?:my\s+|the\s+)?[\w\s'’]+?\s+list|create\s+(?:a\s+)?(?:new\s+)?list|new\s+list|list:)/i.test(prevLower);
+
   // If previous unit sets up a list, recipe, shopping collection, or ends with a colon
-  const isPrevCollectionHeader = /^(these are the |here are the |things to |items to |list of |ingredients |recipe |pack for |take to |bring to |get the following|shopping list|groceries|supplies for|buy from \w+:|for the \w+:|the filling:)/i.test(prevLower) ||
+  const isPrevCollectionHeader = isExplicitListHeader ||
+    /^(these are the |here are the |things to |items to |list of |ingredients |recipe |pack for |take to |bring to |get the following|shopping list|groceries|supplies for|buy from \w+:|for the \w+:|the filling:)/i.test(prevLower) ||
     /:\s*$/i.test(prevUnit.trim()) ||
     /\b(ingredients|recipe|shopping list|pack for|things to take|things to bring|items for)\b/i.test(prevLower);
 
@@ -79,6 +83,10 @@ export function isCollectionContinuation(unitText: string, prevUnit: string): bo
 
   // Verbs that signal an entirely separate new user job/intention
   const containsIndependentJobVerb = /\b(ring|call|phone|email|book|schedule|meet|visit|pay bill|clean the|fix the|repair|drive to)\b/i.test(lower);
+
+  if (isExplicitListHeader) {
+    return true;
+  }
 
   if (isPrevCollectionHeader && (!containsIndependentJobVerb || isListItemPattern)) {
     return true;
@@ -180,6 +188,12 @@ export async function splitCaptureIntoUnits(
   }
 
   if (!ai) {
+    if (trimmed.includes('.') || trimmed.includes('\n') || /\s+and\s+(?:the\s+nurse|the\s+doctor|[A-Z][a-z]+)\s+said\b/i.test(trimmed)) {
+      const rawParts = trimmed.split(/(?<=[.!?])\s+(?=[A-Z])|\n+|\s+and\s+(?=(?:the\s+nurse|the\s+doctor|[A-Z][a-z]+)\s+said\b)/i).map(s => s.trim()).filter(Boolean);
+      if (rawParts.length > 1) {
+        return applyCollectionListRule(rawParts);
+      }
+    }
     return [trimmed];
   }
 

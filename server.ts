@@ -409,8 +409,9 @@ app.post('/api/memories', async (req, res) => {
     // - Ignore / dismiss / nope creates nothing.
     // - Only an explicit Save / capture / reminder instruction crosses into the Tell/reminder pipeline.
     // -------------------------------------------------------------
-    if (linkedEventId || req.body?.isAnticipatoryResponse) {
-      const gateResult = evaluateAnticipatoryResponsePersistence(trimmedText);
+    const isCaptureFlow = Boolean(req.body?.isCaptureFlow);
+    if (linkedEventId || req.body?.isAnticipatoryResponse || isCaptureFlow) {
+      const gateResult = evaluateAnticipatoryResponsePersistence(trimmedText, { isCaptureFlow });
       if (!gateResult.shouldPersist) {
         console.log(
           `[Anticipatory Persistence Gate] Blocked automatic persistence for response "${trimmedText}" (${gateResult.classification}). Reason: ${gateResult.reason}`
@@ -429,11 +430,28 @@ app.post('/api/memories', async (req, res) => {
         });
       }
       console.log(
-        `[Anticipatory Persistence Gate] Permitted explicit persistence instruction: "${trimmedText}" (${gateResult.instructionType}). Crossing into Tell/reminder pipeline.`
+        `[Anticipatory Persistence Gate] Permitted persistence instruction: "${trimmedText}" (${gateResult.instructionType}). Crossing into Tell/reminder pipeline.`
       );
     }
 
-    const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
+    // -------------------------------------------------------------
+    // OCCASION / ANTICIPATORY CAPTURE CONTEXT DECOUPLING
+    // LOCKED SEMANTIC RULE:
+    // An anticipatory prompt, post-event prompt, post-call prompt, or Occasion prompt provides CAPTURE CONTEXT ONLY.
+    // It must NOT automatically become the memory subject, storage container, or a List.
+    // The user's response determines whether anything is a List.
+    // -------------------------------------------------------------
+    let effectiveSubject = subject && typeof subject === 'string' ? subject.trim() : undefined;
+    if (effectiveSubject && (linkedEventId || req.body?.isAnticipatoryResponse || isCaptureFlow || req.body?.eventTitle)) {
+      const eventTitleClean = (req.body?.eventTitle || '').trim().toLowerCase();
+      const subjectClean = effectiveSubject.toLowerCase();
+      if (eventTitleClean && (subjectClean === eventTitleClean || subjectClean.includes(eventTitleClean) || eventTitleClean.includes(subjectClean))) {
+        console.log(`[Anticipatory Pipeline] Decoupled occasion/event context "${effectiveSubject}" from list subject.`);
+        effectiveSubject = undefined;
+      }
+    }
+
+    const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, effectiveSubject);
 
 
     // Initial phoneOffer computation from newMemories (deterministic in-memory)

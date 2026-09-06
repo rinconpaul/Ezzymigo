@@ -20,7 +20,7 @@ export type AnticipatoryResponseClassification =
 export interface AnticipatoryPersistenceEvaluation {
   shouldPersist: boolean;
   classification: AnticipatoryResponseClassification;
-  instructionType?: 'save' | 'remember' | 'reminder' | 'capture' | 'note';
+  instructionType?: 'save' | 'remember' | 'reminder' | 'capture' | 'note' | 'list';
   cleanContent?: string;
   reason: string;
 }
@@ -82,12 +82,15 @@ const EXPLICIT_REMINDER_REGEX = /^\s*(?:(?:please\s+)?remind\s+me(?:\s+to|\s+tha
 // Explicit Capture / Note directives: "Capture: ...", "Note: ...", "Take a note: ...", "Record that: ..."
 const EXPLICIT_CAPTURE_NOTE_REGEX = /^\s*(?:(?:please\s+)?capture(?:\s+(?:that|this))?[:\s]+|(?:take\s+(?:a\s+)?|keep\s+(?:a\s+)?|add\s+(?:a\s+)?)?note[:\s]+|record(?:\s+(?:that|this))?[:\s]+|notiz[:\s]+|toma\s+nota[:\s]+)(.+)$/is;
 
+// Explicit List directives: "Add to my ... list: ...", "Add these to my ... list: ...", "Add to list: ...", "Put these on my ... list: ...", "New list: ..."
+const EXPLICIT_LIST_REGEX = /^\s*(?:(?:please\s+)?(?:add\s+(?:this|these|the\s+following)?\s*to\s+(?:my\s+|the\s+)?(?:[\w\s'’]+?\s+)?list|put\s+(?:this|these|the\s+following)?\s*on\s+(?:my\s+|the\s+)?(?:[\w\s'’]+?\s+)?list|create\s+(?:a\s+)?(?:new\s+)?list(?:\s+called|\s+titled|\s+for)?|new\s+list[:\s]+|list[:\s]+)(?:[:\s]+)?)(.+)$/is;
+
 /**
- * Checks whether the input contains an explicit Save/capture/reminder instruction.
+ * Checks whether the input contains an explicit Save/capture/reminder/list instruction.
  */
 export function isExplicitPersistenceInstruction(text: string): {
   isExplicit: boolean;
-  instructionType?: 'save' | 'remember' | 'reminder' | 'capture' | 'note';
+  instructionType?: 'save' | 'remember' | 'reminder' | 'capture' | 'note' | 'list';
   cleanContent?: string;
 } {
   if (!text) return { isExplicit: false };
@@ -140,8 +143,21 @@ export function isExplicitPersistenceInstruction(text: string): {
     };
   }
 
+  // 5. Explicit List
+  const listMatch = trimmed.match(EXPLICIT_LIST_REGEX);
+  if (listMatch && listMatch[1]?.trim()) {
+    return {
+      isExplicit: true,
+      instructionType: 'list',
+      cleanContent: listMatch[1].trim(),
+    };
+  }
+
   return { isExplicit: false };
 }
+
+// Conversational status expressions without durable facts (e.g. "It went well", "We had a lovely time", "all good")
+const CONVERSATIONAL_STATUS_REGEX = /^\s*(?:it\s+went\s+well|went\s+well|it\s+was\s+(?:good|great|fine|lovely|okay|ok)|we\s+had\s+a\s+(?:lovely|great|good|nice)\s+time|had\s+a\s+(?:nice|great|good)\s+time|all\s+good|all\s+fine|everything\s+went\s+(?:fine|well|according\s+to\s+plan)|nothing\s+special|not\s+much|ok|okay|fine\s+thanks)\s*[.!]?$/i;
 
 // -----------------------------------------------------------------------------
 // 3. MAIN EVALUATION FUNCTION
@@ -156,7 +172,8 @@ export function isExplicitPersistenceInstruction(text: string): {
  * - Only an explicit Save/capture/reminder instruction crosses into the existing Tell/reminder pipeline.
  */
 export function evaluateAnticipatoryResponsePersistence(
-  response: string
+  response: string,
+  options?: { isCaptureFlow?: boolean }
 ): AnticipatoryPersistenceEvaluation {
   const trimmed = (response || '').trim();
 
@@ -169,7 +186,7 @@ export function evaluateAnticipatoryResponsePersistence(
     };
   }
 
-  // Case 2: Explicit Save / capture / reminder instruction
+  // Case 2: Explicit Save / capture / reminder / list instruction
   const explicitCheck = isExplicitPersistenceInstruction(trimmed);
   if (explicitCheck.isExplicit) {
     return {
@@ -178,6 +195,26 @@ export function evaluateAnticipatoryResponsePersistence(
       instructionType: explicitCheck.instructionType,
       cleanContent: explicitCheck.cleanContent,
       reason: `User explicitly initiated persistence via "${explicitCheck.instructionType}" instruction.`,
+    };
+  }
+
+  // Case 2b: Anticipatory Capture Flow (user opened the note/thought capture tray and submitted content)
+  // If the response is not a dismissal and not a pure conversational pleasantry/status,
+  // the explicit submission through the capture tray indicates intent to save substantive facts.
+  if (options?.isCaptureFlow) {
+    if (CONVERSATIONAL_STATUS_REGEX.test(trimmed)) {
+      return {
+        shouldPersist: false,
+        classification: 'CONVERSATIONAL',
+        reason: 'Conversational status/pleasantry in capture flow does not create permanent memory.',
+      };
+    }
+    return {
+      shouldPersist: true,
+      classification: 'EXPLICIT_PERSISTENCE',
+      instructionType: 'capture',
+      cleanContent: trimmed,
+      reason: 'User submitted substantive factual content via anticipatory capture flow.',
     };
   }
 

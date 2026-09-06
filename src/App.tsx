@@ -218,7 +218,7 @@ export default function App() {
   // Save new thought
   const handleSaveThought = async (
     text: string,
-    contextOrSubject?: { linkedEventId?: string; eventTitle?: string; subject?: string } | string
+    contextOrSubject?: { linkedEventId?: string; eventTitle?: string; subject?: string; isCaptureFlow?: boolean } | string
   ) => {
     setIsLoading(true);
     setError(null);
@@ -226,6 +226,7 @@ export default function App() {
     const subjectParam = typeof contextOrSubject === 'string' ? contextOrSubject : contextOrSubject?.subject;
     const linkedEventIdParam = typeof contextOrSubject === 'object' ? contextOrSubject?.linkedEventId : undefined;
     const eventTitleParam = typeof contextOrSubject === 'object' ? contextOrSubject?.eventTitle : undefined;
+    const isCaptureFlowParam = typeof contextOrSubject === 'object' ? contextOrSubject?.isCaptureFlow : undefined;
     try {
       const res = await fetch('/api/memories', {
         method: 'POST',
@@ -240,6 +241,7 @@ export default function App() {
           linkedEventId: linkedEventIdParam || undefined,
           eventTitle: eventTitleParam || undefined,
           subject: subjectParam || undefined,
+          isCaptureFlow: isCaptureFlowParam || undefined,
         }),
       });
 

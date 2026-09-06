@@ -205,9 +205,7 @@ const AnticipatoryPreparationTray: React.FC<{
       const saveRes = await onSaveThought(trimmed, {
         linkedEventId: occId,
         eventTitle: candidate.event_title || candidate.display_text,
-        subject: candidate.source_id?.startsWith('ephemeral_call:')
-          ? candidate.event_title
-          : ((candidate as any).subject || (candidate.event_title ? candidate.event_title : undefined)),
+        isCaptureFlow: true,
       });
       if (isReflection) {
         markOccurrenceDismissed(candidate);
@@ -463,9 +461,7 @@ const AnticipatoryReminderTray: React.FC<{
       await onSaveThought(trimmed, {
         linkedEventId: candidate.occurrence_id || candidate.source_id,
         eventTitle: candidate.event_title || candidate.display_text,
-        subject: candidate.source_id?.startsWith('ephemeral_call:')
-          ? candidate.event_title
-          : ((candidate as any).subject || (candidate.event_title ? candidate.event_title : undefined)),
+        isCaptureFlow: true,
       });
 
       const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
