@@ -9,6 +9,11 @@ import {
   FeedbackVerdict,
 } from '../snapshot/types';
 import { computeTodayRelevance } from '../today/relevance';
+import {
+  getLatestActiveAttentionChannel,
+  runUnifiedAttentionReview,
+} from '../attention/service';
+import { ShadowAttentionReviewRecord } from '../attention/types';
 
 // In-memory cache for ultra-fast Today retrieval (<5ms)
 const todayOrientCache = new Map<string, ShadowEvaluationRecord>();
@@ -155,17 +160,19 @@ export interface ShadowDisplayState {
   todayEvaluation: ShadowEvaluationRecord | null;
   checkInEvaluation: ShadowEvaluationRecord | null;
   recentEvaluations: ShadowEvaluationRecord[];
+  attentionReview: ShadowAttentionReviewRecord | null;
 }
 
 export async function getShadowDisplayState(
   ezzyId?: string
 ): Promise<ShadowDisplayState> {
-  const [todayEvaluation, checkInEvaluation, recentEvaluations] = await Promise.all([
+  const [todayEvaluation, checkInEvaluation, recentEvaluations, attentionReview] = await Promise.all([
     getLatestTodayEvaluation(ezzyId),
     getLatestCheckInEvaluation(ezzyId),
     getRecentShadowEvaluations(ezzyId, 6),
+    getLatestActiveAttentionChannel(ezzyId),
   ]);
-  return { todayEvaluation, checkInEvaluation, recentEvaluations };
+  return { todayEvaluation, checkInEvaluation, recentEvaluations, attentionReview };
 }
 
 export async function getLatestShadowEvaluation(
@@ -313,6 +320,16 @@ export async function evaluateShadowOpportunity(
       console.log(
         `[Shadow Service] Evaluated ${opportunity} (${record.latency_ms}ms) -> Mode: ${record.new_ezzy_decision.communication.mode} | Headline: "${record.new_ezzy_decision.communication.headline || 'N/A'}"`
       );
+
+      // Event-driven: whenever a new candidate evaluation is produced, re-run executive attention review
+      runUnifiedAttentionReview(
+        eid,
+        `opportunity_${opportunity}`,
+        options.clientNow,
+        options.clientTimeZone
+      ).catch((revErr) => {
+        console.warn('[Shadow Service] Background Attention Review after opportunity failed:', revErr);
+      });
 
       return record;
     } finally {

@@ -267,6 +267,8 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
   const [todayEvaluation, setTodayEvaluation] = useState<ShadowEvaluation | null>(null);
   const [checkInEvaluation, setCheckInEvaluation] = useState<ShadowEvaluation | null>(null);
   const [recentEvaluations, setRecentEvaluations] = useState<ShadowEvaluation[]>([]);
+  const [attentionReview, setAttentionReview] = useState<any>(null);
+  const [isCuratingAttention, setIsCuratingAttention] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Cycling ticker state
@@ -306,6 +308,7 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
         setTodayEvaluation(todayEval);
         setCheckInEvaluation(checkInEval);
         setRecentEvaluations(recents);
+        setAttentionReview(data.attentionReview || null);
 
         // Pre-fill verdict if inspecting
         const activeEval = checkInEval || todayEval;
@@ -327,10 +330,92 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
     fetchShadowState();
   }, [fetchShadowState]);
 
-  // Extract communications
+  // Extract communications from Curated Attention Channel or fallback
   const communications = React.useMemo(() => {
+    if (attentionReview && attentionReview.active_channel) {
+      if (attentionReview.active_channel.length > 0) {
+        return attentionReview.active_channel.map((c: any) => {
+          const matchingEval = recentEvaluations.find((ev) =>
+            c.sourceCandidateIds?.includes(`cand_${ev.id}`) || ev.id === c.sourceCandidateIds?.[0]?.replace('cand_', '')
+          ) || todayEvaluation || checkInEvaluation;
+
+          return {
+            id: c.id,
+            evaluation: matchingEval || ({
+              id: c.id,
+              ezzy_id: 'ezzy_default',
+              timestamp: attentionReview.timestamp,
+              opportunity: 'ATTENTION_CHANNEL',
+              trigger_name: 'executive_curation',
+              old_ezzy_outcome: null,
+              new_ezzy_decision: {
+                communication: {
+                  mode: c.mode,
+                  headline: c.headline,
+                  body: c.body,
+                  question: c.question,
+                },
+                proposedMutations: [],
+                proposedResolutions: [],
+                citedMemoryIds: [],
+                citedCalendarIds: [],
+                rationale: c.priorityRationale || attentionReview.overall_rationale,
+              },
+              new_ezzy_rationale: c.priorityRationale || attentionReview.overall_rationale,
+              cited_memory_ids: [],
+              cited_calendar_ids: [],
+              model_name: attentionReview.model_name,
+              latency_ms: attentionReview.latency_ms,
+              verdict: null,
+              verdict_comment: null,
+            } as any),
+            tickerText: c.question || c.headline || c.body || '',
+            detailTitle: c.headline || 'Ezzymigo Update',
+            detailPrompt: c.question || c.body || c.headline || '',
+            placeholder: 'Answer or note anything here...',
+            linkedEventId: c.linkedEventId || undefined,
+            eventTitle: c.headline || undefined,
+          };
+        });
+      } else {
+        const fallbackEval = todayEvaluation || checkInEvaluation;
+        return [
+          {
+            id: 'curated_restraint',
+            evaluation: fallbackEval || ({
+              id: 'restrained_synthetic',
+              ezzy_id: 'ezzy_default',
+              timestamp: attentionReview.timestamp,
+              opportunity: 'TODAY_ORIENT',
+              trigger_name: 'executive_restraint',
+              old_ezzy_outcome: null,
+              new_ezzy_decision: {
+                communication: { mode: 'SILENT', headline: null, body: null, question: null },
+                proposedMutations: [],
+                proposedResolutions: [],
+                citedMemoryIds: [],
+                citedCalendarIds: [],
+                rationale: attentionReview.overall_rationale || 'Executive review chose quiet restraint.',
+              },
+              new_ezzy_rationale: attentionReview.overall_rationale || 'Executive review chose quiet restraint.',
+              cited_memory_ids: [],
+              cited_calendar_ids: [],
+              model_name: attentionReview.model_name,
+              latency_ms: attentionReview.latency_ms,
+              verdict: null,
+              verdict_comment: null,
+            } as any),
+            tickerText: 'Ezzymigo is quietly holding your context.',
+            detailTitle: 'Quiet Context',
+            detailPrompt: attentionReview.overall_rationale || 'No proactive alerts needed right now.',
+            placeholder: 'Add anything on your mind...',
+            isRestrained: true,
+          },
+        ];
+      }
+    }
     return extractCommunications(todayEvaluation, checkInEvaluation, recentEvaluations);
-  }, [todayEvaluation, checkInEvaluation, recentEvaluations]);
+  }, [attentionReview, todayEvaluation, checkInEvaluation, recentEvaluations]);
 
   // Bound index safely
   const currentComm = communications[communicationIndex] || communications[0];
@@ -392,16 +477,18 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
 
     setIsSavingResponse(true);
     try {
+      let savedMemoryId: string | null = null;
       if (onSaveThought) {
-        await onSaveThought(trimmed, {
+        const savedData = await onSaveThought(trimmed, {
           linkedEventId: currentComm?.linkedEventId,
           eventTitle: currentComm?.eventTitle || currentComm?.detailTitle,
           isCaptureFlow: true,
         });
+        savedMemoryId = savedData?.memory?.id || savedData?.memories?.[0]?.id || savedData?.id || null;
       } else {
         // Direct POST to /api/memories if onSaveThought was not passed
         const tz = prefs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney';
-        await fetch('/api/memories', {
+        const res = await fetch('/api/memories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -415,7 +502,24 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
             isCaptureFlow: true,
           }),
         });
+        const resJson = await res.json().catch(() => ({}));
+        savedMemoryId = resJson?.memory?.id || resJson?.memories?.[0]?.id || resJson?.id || null;
       }
+
+      // Record authoritative interaction provenance linking communication -> response -> memory
+      await fetch('/api/shadow/interactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          communicationId: currentComm?.id,
+          evaluationId: currentComm?.evaluation?.id,
+          opportunity: currentComm?.evaluation?.opportunity,
+          promptHeadline: currentComm?.detailTitle,
+          promptQuestion: currentComm?.detailPrompt,
+          userResponse: trimmed,
+          capturedMemoryId: savedMemoryId,
+        }),
+      }).catch((err) => console.warn('[New Ezzy Ticker] Interaction provenance error:', err));
 
       setSaveSuccess('Saved to Ezzy');
       setResponseText('');
@@ -423,6 +527,9 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
         setIsDetailOpen(false);
         setSaveSuccess(null);
       }, 1100);
+
+      // Immediately refresh shadow state to show updated Attention Channel
+      await fetchShadowState();
     } catch (err) {
       console.error('[New Ezzy Ticker] Error saving response:', err);
     } finally {
@@ -473,6 +580,35 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
       console.warn('[New Ezzy Ticker] Re-evaluation error:', err);
     } finally {
       setIsReEvaluating(false);
+    }
+  };
+
+  // Trigger manual attention review
+  const handleTriggerAttentionReview = async () => {
+    if (isCuratingAttention) return;
+    setIsCuratingAttention(true);
+    try {
+      const tz = prefs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney';
+      const now = new Date().toISOString();
+      const res = await fetch('/api/shadow/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trigger: 'manual_inspect_refresh',
+          clientNow: now,
+          clientTimeZone: tz,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.review) {
+          setAttentionReview(data.review);
+        }
+      }
+    } catch (err) {
+      console.warn('[New Ezzy Ticker] Attention Review error:', err);
+    } finally {
+      setIsCuratingAttention(false);
     }
   };
 
@@ -775,6 +911,90 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
                 Save
               </button>
             </div>
+          </div>
+
+          {/* UNIFIED ATTENTION REVIEW (EXECUTIVE LAYER) */}
+          <div className="space-y-2 pt-2 border-t border-zinc-200/80">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-semibold text-zinc-900">Unified Attention Review</span>
+                {attentionReview?.model_name && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-zinc-100 text-zinc-600 font-mono rounded border border-zinc-200">
+                    {attentionReview.model_name}
+                  </span>
+                )}
+                {attentionReview?.latency_ms && (
+                  <span className="text-[9px] text-zinc-400 font-mono">
+                    {attentionReview.latency_ms}ms
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleTriggerAttentionReview}
+                disabled={isCuratingAttention}
+                className="text-[10px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-medium disabled:opacity-50"
+                title="Run new attention review pass"
+              >
+                <Loader2 className={`w-3 h-3 ${isCuratingAttention ? 'animate-spin' : 'hidden'}`} />
+                <span>Re-curate</span>
+              </button>
+            </div>
+
+            {attentionReview ? (
+              <div className="space-y-2">
+                {/* Executive Rationale */}
+                <div className="text-[11px] text-zinc-700 bg-emerald-50/50 border border-emerald-200/60 rounded-lg p-2 leading-relaxed">
+                  <span className="font-semibold text-emerald-900 block mb-0.5">Executive Curation Rationale:</span>
+                  {attentionReview.overall_rationale}
+                </div>
+
+                {/* Candidate Resolutions List */}
+                {attentionReview.candidate_resolutions && attentionReview.candidate_resolutions.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Candidate Resolutions ({attentionReview.candidate_resolutions.length})
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                      {attentionReview.candidate_resolutions.map((res: any, idx: number) => {
+                        const statusColors: Record<string, string> = {
+                          ACTIVE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                          SATISFIED: 'bg-blue-100 text-blue-800 border-blue-200',
+                          SUPERSEDED: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+                          STALE: 'bg-amber-100 text-amber-800 border-amber-200',
+                          RESTRAINED: 'bg-purple-100 text-purple-800 border-purple-200',
+                          DISMISSED: 'bg-rose-100 text-rose-800 border-rose-200',
+                        };
+                        const badgeClass = statusColors[res.status] || 'bg-zinc-100 text-zinc-700 border-zinc-200';
+                        return (
+                          <div
+                            key={res.candidateId || idx}
+                            className="p-1.5 bg-zinc-50 border border-zinc-200/80 rounded-md text-[11px] flex items-start gap-1.5"
+                          >
+                            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded border shrink-0 ${badgeClass}`}>
+                              {res.status}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-zinc-700 leading-snug">{res.reason}</div>
+                              {res.satisfiedByInteractionId && (
+                                <div className="text-[9px] text-blue-600 font-mono mt-0.5">
+                                  Satisfied by interaction: {res.satisfiedByInteractionId}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-[11px] text-zinc-400 italic">
+                No attention review recorded yet. Tap Re-curate to run executive curation.
+              </div>
+            )}
           </div>
         </div>
       )}

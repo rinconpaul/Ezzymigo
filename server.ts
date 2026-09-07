@@ -143,6 +143,11 @@ import {
   evaluateShadowOpportunity,
   recordShadowFeedback,
 } from './server/shadow/service';
+import {
+  recordShadowInteraction,
+  runUnifiedAttentionReview,
+  getLatestActiveAttentionChannel,
+} from './server/attention/service';
 
 export { extractUserId };
 
@@ -2134,12 +2139,77 @@ app.get('/api/shadow/today', async (req, res) => {
       todayEvaluation: state.todayEvaluation,
       checkInEvaluation: state.checkInEvaluation,
       recentEvaluations: state.recentEvaluations,
+      attentionReview: state.attentionReview,
+      attentionChannel: state.attentionReview?.active_channel || [],
       isEvaluating: false,
     });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error fetching latest shadow evaluation:', error);
     return res.status(500).json({ error: 'Failed to fetch latest shadow evaluation' });
+  }
+});
+
+// POST /api/shadow/interactions - Record authoritative user interaction with communication provenance
+app.post('/api/shadow/interactions', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const {
+      communicationId,
+      evaluationId,
+      opportunity,
+      promptHeadline,
+      promptQuestion,
+      userResponse,
+      capturedMemoryId,
+    } = req.body || {};
+
+    if (!communicationId || !userResponse) {
+      return res.status(400).json({ error: 'communicationId and userResponse are required' });
+    }
+
+    const interactionId = await recordShadowInteraction({
+      ezzyId,
+      communicationId,
+      evaluationId,
+      opportunity,
+      promptHeadline,
+      promptQuestion,
+      userResponse,
+      capturedMemoryId,
+    });
+
+    return res.status(201).json({ success: true, interactionId });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error recording shadow interaction:', error);
+    return res.status(500).json({ error: 'Failed to record interaction' });
+  }
+});
+
+// POST /api/shadow/review - Explicitly trigger executive Attention Review
+app.post('/api/shadow/review', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { trigger, clientNow, clientTimeZone } = req.body || {};
+    const review = await runUnifiedAttentionReview(
+      ezzyId,
+      trigger || 'manual_trigger',
+      clientNow,
+      clientTimeZone
+    );
+
+    return res.json({ review });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error running attention review:', error);
+    return res.status(500).json({ error: 'Failed to run attention review' });
   }
 });
 

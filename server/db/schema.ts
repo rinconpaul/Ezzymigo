@@ -207,6 +207,42 @@ export async function initBunnyDb(): Promise<void> {
           sql: `CREATE INDEX IF NOT EXISTS idx_shadow_eval_ezzy ON shadow_evaluations(ezzy_id, timestamp DESC);`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS shadow_interactions (
+            id TEXT PRIMARY KEY,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            communication_id TEXT NOT NULL,
+            evaluation_id TEXT,
+            opportunity TEXT,
+            prompt_headline TEXT,
+            prompt_question TEXT,
+            user_response TEXT NOT NULL,
+            captured_memory_id TEXT,
+            created_at TEXT NOT NULL
+          );`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_shadow_interactions_ezzy ON shadow_interactions(ezzy_id, created_at DESC);`
+        },
+        {
+          sql: `CREATE TABLE IF NOT EXISTS shadow_attention_reviews (
+            id TEXT PRIMARY KEY,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            timestamp TEXT NOT NULL,
+            trigger_name TEXT NOT NULL,
+            active_channel_json TEXT NOT NULL,
+            candidate_resolutions_json TEXT NOT NULL,
+            overall_rationale TEXT NOT NULL,
+            model_name TEXT NOT NULL,
+            latency_ms INTEGER NOT NULL DEFAULT 0,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+          );`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_shadow_attention_reviews_ezzy ON shadow_attention_reviews(ezzy_id, timestamp DESC);`
+        },
+        {
           sql: `CREATE TABLE IF NOT EXISTS ezzy_instances (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
