@@ -995,9 +995,9 @@ export const TodayTicker: React.FC<TodayTickerProps> = ({
               )}
             </span>
 
-            {/* Contextual indicator: TODAY (or Reflect) */}
+            {/* Contextual indicator: OLD EZZY · TODAY */}
             <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-500 uppercase tracking-wide shrink-0">
-              {currentCandidate.anticipatory_stage === 'reflect' ? 'Reflect' : 'Today'}
+              OLD EZZY · TODAY
             </span>
 
             <span className="text-zinc-300 shrink-0">·</span>

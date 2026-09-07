@@ -182,6 +182,31 @@ export async function initBunnyDb(): Promise<void> {
                 WHERE isAllDay = 1 AND startDatetime LIKE '%T%';`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS shadow_evaluations (
+            id TEXT PRIMARY KEY,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            timestamp TEXT NOT NULL,
+            opportunity TEXT NOT NULL,
+            trigger_name TEXT NOT NULL,
+            old_ezzy_outcome TEXT,
+            new_ezzy_decision TEXT NOT NULL,
+            new_ezzy_rationale TEXT,
+            cited_memory_ids TEXT NOT NULL DEFAULT '[]',
+            cited_calendar_ids TEXT NOT NULL DEFAULT '[]',
+            model_name TEXT NOT NULL,
+            latency_ms INTEGER NOT NULL DEFAULT 0,
+            prompt_tokens INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            verdict TEXT,
+            verdict_comment TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_shadow_eval_ezzy ON shadow_evaluations(ezzy_id, timestamp DESC);`
+        },
+        {
           sql: `CREATE TABLE IF NOT EXISTS ezzy_instances (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,

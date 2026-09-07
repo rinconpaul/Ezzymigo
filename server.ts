@@ -135,6 +135,14 @@ import {
 } from './server/instances/entitlements';
 import { extractUserId } from './server/instances/identity';
 import { evaluateAnticipatoryResponsePersistence } from './server/anticipatory/persistenceGate';
+import {
+  getLatestShadowEvaluation,
+  getLatestTodayEvaluation,
+  getLatestCheckInEvaluation,
+  getShadowDisplayState,
+  evaluateShadowOpportunity,
+  recordShadowFeedback,
+} from './server/shadow/service';
 
 export { extractUserId };
 
@@ -2091,6 +2099,113 @@ app.post('/api/today-relevance', async (req, res) => {
     if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error computing today relevance:', error);
     return res.status(500).json({ error: 'Failed to compute today relevance' });
+  }
+});
+
+// -------------------------------------------------------------
+// NEW EZZY SHADOW REASONING MODE ENDPOINTS
+// Isolated non-authoritative shadow evaluation
+// -------------------------------------------------------------
+
+// GET /api/shadow/today - Immediate read of latest cached shadow evaluation
+app.get('/api/shadow/today', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const state = await getShadowDisplayState(ezzyId);
+
+    // Non-blocking auto-refresh if no cached today evaluation exists or if older than 10 minutes
+    const now = Date.now();
+    const evalAge = state.todayEvaluation ? now - new Date(state.todayEvaluation.timestamp).getTime() : Infinity;
+    if (!state.todayEvaluation || evalAge > 10 * 60 * 1000) {
+      evaluateShadowOpportunity({
+        ezzyId,
+        opportunity: 'TODAY_ORIENT',
+        trigger: state.todayEvaluation ? 'cache_refresh' : 'initial_load',
+        clientNow: typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined,
+        clientTimeZone: typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined,
+      }).catch((err) => console.warn('[Shadow Background Evaluation Error]:', err));
+    }
+
+    return res.json({
+      evaluation: state.todayEvaluation,
+      todayEvaluation: state.todayEvaluation,
+      checkInEvaluation: state.checkInEvaluation,
+      recentEvaluations: state.recentEvaluations,
+      isEvaluating: false,
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error fetching latest shadow evaluation:', error);
+    return res.status(500).json({ error: 'Failed to fetch latest shadow evaluation' });
+  }
+});
+
+// POST /api/shadow/evaluate - Explicit or triggered evaluation
+app.post('/api/shadow/evaluate', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const {
+      opportunity,
+      trigger,
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      input,
+      targetEventId,
+    } = req.body || {};
+
+    const evaluation = await evaluateShadowOpportunity({
+      ezzyId,
+      opportunity: opportunity || 'TODAY_ORIENT',
+      trigger: trigger || 'manual_refresh',
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      input,
+      targetEventId,
+    });
+
+    return res.json({ evaluation });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error executing shadow evaluation:', error);
+    return res.status(500).json({ error: 'Failed to execute shadow evaluation' });
+  }
+});
+
+// POST /api/shadow/feedback - Record Paul's evaluation verdict & comment
+app.post('/api/shadow/feedback', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { evaluationId, verdict, comment } = req.body || {};
+    if (!evaluationId || !verdict) {
+      return res.status(400).json({ error: 'evaluationId and verdict are required' });
+    }
+
+    const validVerdicts = ['OLD_BETTER', 'NEW_BETTER', 'BOTH_OK', 'NEITHER', 'USEFUL', 'NOT_USEFUL'];
+    if (!validVerdicts.includes(verdict)) {
+      return res.status(400).json({
+        error: `Invalid verdict. Must be one of: ${validVerdicts.join(', ')}`,
+      });
+    }
+
+    const saved = await recordShadowFeedback(evaluationId, verdict, comment, ezzyId);
+    return res.json({ success: saved });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error saving shadow feedback:', error);
+    return res.status(500).json({ error: 'Failed to save shadow feedback' });
   }
 });
 
