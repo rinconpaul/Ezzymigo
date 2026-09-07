@@ -129,13 +129,18 @@ export const memoryItemSchema = {
       items: {
         type: Type.OBJECT,
         properties: {
-          person: { type: Type.STRING, description: 'Name of the person (e.g. "Barb", "Steve", "Naveena", "Peter")' },
-          role: { type: Type.STRING, description: 'Role or relationship with the user (e.g. "wife", "plumber", "doctor", "dentist", "electrician", "husband", "partner", "spouse", "physio", "lawyer", "mechanic", "boss")' },
-          is_active: { type: Type.BOOLEAN, description: 'true if establishing/confirming the relationship (e.g. "Barb is my wife", "Steve is my plumber", "Naveena is my doctor"); false if stating the relationship ended or is no longer current (e.g. "Steve isn\'t my plumber anymore")' },
+          person: { type: Type.STRING, description: 'Name of the person who holds or has the role (e.g. "Sophie", "Julie", "Jack", "Helen", "Barb", "Steve")' },
+          role: { type: Type.STRING, description: 'Role or relationship name (e.g. "daughter", "carer", "apprentice", "wife", "husband", "plumber", "doctor", "dentist", "electrician", "partner", "physio", "lawyer", "mechanic", "boss")' },
+          subject_person: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'The person who has this relative, associate, or employee. Set to "user" (or null) if the relationship is directly with the user (e.g. "Barb is my wife" -> subject_person: "user", role: "wife", person: "Barb"). Set to the specific third-party person if it is a third-party relationship (e.g. "Doug\'s daughter is Sophie" -> subject_person: "Doug", role: "daughter", person: "Sophie"; "Mum\'s carer Julie" -> subject_person: "Mum", role: "carer", person: "Julie"; "Bill\'s apprentice Jack" -> subject_person: "Bill", role: "apprentice", person: "Jack"; "Steve\'s wife Helen" -> subject_person: "Steve", role: "wife", person: "Helen").',
+          },
+          is_active: { type: Type.BOOLEAN, description: 'true if establishing/confirming the relationship; false if stating the relationship ended or is no longer current (e.g. "Steve isn\'t my plumber anymore")' },
         },
         required: ['person', 'role', 'is_active'],
       },
-      description: 'Optional lightweight relationship or role assertions between the user and people mentioned in natural language.',
+      description: 'Optional lightweight relationship or role assertions between people mentioned or between the user and people.',
     },
     prerequisite: {
       type: Type.OBJECT,

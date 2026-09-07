@@ -693,10 +693,11 @@ app.post('/api/memories', async (req, res) => {
       const targetSubject = (m.interpretation?.subject || subject || '').trim();
       let matchedExistingSubjectCluster: string | null = null;
       if (targetSubject) {
+        const normTarget = targetSubject.replace(/\s+/g, ' ').toLowerCase();
         const hasPrior = historicalMemories.some(
           (h: any) => h.id !== m.id &&
                h.interpretation?.subject &&
-               h.interpretation.subject.toLowerCase() === targetSubject.toLowerCase()
+               h.interpretation.subject.replace(/\s+/g, ' ').trim().toLowerCase() === normTarget
         );
         if (hasPrior) {
           matchedExistingSubjectCluster = targetSubject;
@@ -1315,11 +1316,15 @@ app.delete('/api/lists', async (req, res) => {
     }
 
     const targetSubject = subject.trim();
-    console.log(`[API LIST DELETE] DELETE /api/lists - Target subject: "${targetSubject}" in ezzyId "${ezzyId}"`);
+    const normTarget = targetSubject.replace(/\s+/g, ' ').toLowerCase();
+    console.log(`[API LIST DELETE] DELETE /api/lists - Target subject: "${targetSubject}" (norm: "${normTarget}") in ezzyId "${ezzyId}"`);
 
     const allMemories = await readMemories(ezzyId);
     const memoriesToDelete = allMemories.filter(
-      (m) => m.interpretation?.subject?.trim().toLowerCase() === targetSubject.toLowerCase()
+      (m) => {
+        const s = m.interpretation?.subject;
+        return s && typeof s === 'string' && s.replace(/\s+/g, ' ').trim().toLowerCase() === normTarget;
+      }
     );
 
     if (memoriesToDelete.length === 0) {
@@ -2024,10 +2029,12 @@ USER CONTEXT:
 
 USER'S KNOWN RELATIONSHIPS / ROLES:
 ${activeRelationships.length > 0
-  ? activeRelationships.map(r => `- ${r.person} is the user's ${r.role} (${r.normalized_role})`).join('\n')
+  ? activeRelationships.map(r => r.subject_person && r.subject_person.toLowerCase() !== 'user'
+      ? `- ${r.person} is ${r.subject_person}'s ${r.role} (${r.normalized_role})`
+      : `- ${r.person} is the user's ${r.role} (${r.normalized_role})`).join('\n')
   : 'None currently defined.'}
 ${resolvedEntities.length > 0
-  ? `\nRESOLVED QUERY ROLES:\n${resolvedEntities.map(re => `- "${re.roleMatch}" resolves to person "${re.resolvedPerson}"`).join('\n')}`
+  ? `\nRESOLVED QUERY ROLES:\n${resolvedEntities.map(re => `- "${re.roleMatch}" resolves to person "${re.resolvedPerson}"${re.subjectPerson && re.subjectPerson.toLowerCase() !== 'user' ? ` (${re.subjectPerson}'s ${re.normalizedRole})` : ` (${re.normalizedRole})`}`).join('\n')}`
   : ''}
 ${userEntities.length > 0
   ? `\nUSER'S KNOWN CONTACTS & ENTITIES:\n${userEntities.map(e => `- ${e.name}${e.role ? ` (${e.role})` : ''}: ${e.metadata?.phone ? `Phone: ${e.metadata.phone}` : 'No phone saved'}`).join('\n')}`

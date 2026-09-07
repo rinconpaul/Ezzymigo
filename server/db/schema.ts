@@ -78,6 +78,7 @@ export async function initBunnyDb(): Promise<void> {
             person TEXT NOT NULL,
             role TEXT NOT NULL,
             normalized_role TEXT NOT NULL,
+            subject_person TEXT NOT NULL DEFAULT 'user',
             is_active INTEGER NOT NULL DEFAULT 1,
             updated_at TEXT NOT NULL
           );`
@@ -351,6 +352,22 @@ export async function initBunnyDb(): Promise<void> {
           if (!String(colErr?.message || '').includes('duplicate column')) {
             console.warn(`[Bunny DB] Note during created_by check on ${tbl}:`, colErr?.message || colErr);
           }
+        }
+      }
+
+      // Check and add subject_person column to user_relationships
+      try {
+        const rInfo = await executeBunnySql([{ sql: `PRAGMA table_info(user_relationships);` }]);
+        const rCols = (rInfo[0]?.rows || []).map((r: any) => r.name);
+        if (!rCols.includes('subject_person')) {
+          await executeBunnySql([{
+            sql: `ALTER TABLE user_relationships ADD COLUMN subject_person TEXT NOT NULL DEFAULT 'user';`
+          }]);
+          console.log('[Bunny DB] Migrated table "user_relationships" with subject_person column.');
+        }
+      } catch (rErr: any) {
+        if (!String(rErr?.message || '').includes('duplicate column')) {
+          console.warn('[Bunny DB] Note during subject_person check on user_relationships:', rErr?.message || rErr);
         }
       }
 

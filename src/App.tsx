@@ -14,6 +14,7 @@ import { initGoogleAuth, AuthState } from './utils/googleCalendarAuth';
 import { getUserPreferences } from './utils/userPreferences';
 import { defaultDeviceActionLauncher } from './utils/deviceActionLauncher';
 import { ephemeralCallBridge } from './utils/ephemeralCallBridge';
+import { normalizeSubjectKey, cleanDisplaySubject, pickBestDisplayTitle } from './utils/subjectUtils';
 import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship, ImmediateDeviceActionPayload, TodayRelevanceCandidate, ConversationalContextEnvelope } from './types';
 
 import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check, Contact } from 'lucide-react';
@@ -585,7 +586,7 @@ export default function App() {
       }
       const data = await res.json();
       console.log(`[App] Deleted list "${subject}", count: ${data.count}`);
-      if (activeSubject?.trim().toLowerCase() === subject.trim().toLowerCase()) {
+      if (normalizeSubjectKey(activeSubject) === normalizeSubjectKey(subject)) {
         setActiveSubject(null);
         setIsSubjectPaused(false);
       }
@@ -662,24 +663,26 @@ export default function App() {
     const subjectIndexMap = new Map<string, number>();
 
     for (const memory of filteredMemories) {
-      const rawSubject = memory.interpretation?.subject?.trim();
-      if (!rawSubject) {
+      const rawSubject = memory.interpretation?.subject;
+      const normKey = normalizeSubjectKey(rawSubject);
+      if (!normKey) {
         items.push({ type: 'memory', memory });
       } else {
-        if (!subjectMap.has(rawSubject)) {
-          subjectMap.set(rawSubject, [memory]);
+        const memTime = new Date(memory.createdAt).getTime();
+        if (!subjectMap.has(normKey)) {
+          subjectMap.set(normKey, [memory]);
           const index = items.length;
-          subjectIndexMap.set(rawSubject, index);
+          subjectIndexMap.set(normKey, index);
           items.push({
             type: 'list',
-            subject: rawSubject,
+            subject: cleanDisplaySubject(rawSubject),
             memories: [memory],
-            latestTimestamp: new Date(memory.createdAt).getTime(),
+            latestTimestamp: memTime,
           });
         } else {
-          const list = subjectMap.get(rawSubject)!;
+          const list = subjectMap.get(normKey)!;
           list.push(memory);
-          const index = subjectIndexMap.get(rawSubject)!;
+          const index = subjectIndexMap.get(normKey)!;
           const existingItem = items[index] as {
             type: 'list';
             subject: string;
@@ -687,6 +690,11 @@ export default function App() {
             latestTimestamp: number;
           };
           existingItem.memories = list;
+          // Prefer capitalized / more human-readable title across variants
+          existingItem.subject = pickBestDisplayTitle(existingItem.subject, rawSubject);
+          if (memTime > existingItem.latestTimestamp) {
+            existingItem.latestTimestamp = memTime;
+          }
         }
       }
     }
@@ -719,14 +727,16 @@ export default function App() {
 
   // Derive unique list of existing subjects from stored memories for the Same Subject picker
   const existingSubjects = useMemo(() => {
-    const subjects = new Set<string>();
+    const subjectMap = new Map<string, string>(); // normKey -> best displayTitle
     for (const m of memories) {
-      const s = m.interpretation?.subject?.trim();
-      if (s) {
-        subjects.add(s);
+      const raw = m.interpretation?.subject;
+      const normKey = normalizeSubjectKey(raw);
+      if (normKey && raw) {
+        const current = subjectMap.get(normKey) || '';
+        subjectMap.set(normKey, pickBestDisplayTitle(current, raw));
       }
     }
-    return Array.from(subjects);
+    return Array.from(subjectMap.values());
   }, [memories]);
 
   return (

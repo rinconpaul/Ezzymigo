@@ -59,6 +59,7 @@ export interface UserRelationship {
   person: string;
   role: string;
   normalized_role: string;
+  subject_person?: string;
   is_active: boolean;
   updated_at: string;
 }

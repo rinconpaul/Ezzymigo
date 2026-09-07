@@ -87,21 +87,41 @@ export function fallbackInterpretation(
     fallbackAction = { type: 'web_search', label: 'Find this restaurant', query: text };
   }
 
-  // Fallback relationship detection (e.g. "Barb is my wife", "Steve is my plumber", "Steve isn't my plumber anymore")
-  const relationships: Array<{ person: string; role: string; is_active: boolean }> = [];
+  // Fallback relationship detection (e.g. "Barb is my wife", "Steve is my plumber", "Doug's daughter is Sophie", "Mum's carer Julie")
+  const relationships: Array<{ person: string; role: string; subject_person?: string; is_active: boolean }> = [];
   const relNegMatch = text.match(/\b([A-Z][a-zA-Z]+)\s+(?:isn't|is\s+not|is\s+no\s+longer)\s+(?:my|our)\s+([a-zA-Z\s]+?)(?:\s+anymore|[.,]|$)/i);
   if (relNegMatch) {
     relationships.push({
       person: relNegMatch[1].trim(),
       role: relNegMatch[2].trim(),
+      subject_person: 'user',
       is_active: false,
     });
   } else {
+    // Check third-party pattern: "Doug's daughter is Sophie" or "Mum's carer Julie" or "Bill's apprentice Jack"
+    const thirdPartyIsMatch = text.match(/\b([A-Z][a-zA-Z]+)(?:'s|’s)\s+([a-zA-Z]+)\s+is\s+([A-Z][a-zA-Z]+)/i);
+    const thirdPartyDirectMatch = text.match(/\b([A-Z][a-zA-Z]+)(?:'s|’s)\s+([a-zA-Z]+)\s+([A-Z][a-zA-Z]+)/i);
     const relPosMatch = text.match(/\b([A-Z][a-zA-Z]+)\s+is\s+(?:my|our)\s+([a-zA-Z\s]+?)(?:[.,]|$)/i);
-    if (relPosMatch) {
+
+    if (thirdPartyIsMatch) {
+      relationships.push({
+        person: thirdPartyIsMatch[3].trim(),
+        role: thirdPartyIsMatch[2].trim(),
+        subject_person: thirdPartyIsMatch[1].trim(),
+        is_active: true,
+      });
+    } else if (thirdPartyDirectMatch && !['yesterday', 'today', 'tomorrow'].includes(thirdPartyDirectMatch[1].toLowerCase())) {
+      relationships.push({
+        person: thirdPartyDirectMatch[3].trim(),
+        role: thirdPartyDirectMatch[2].trim(),
+        subject_person: thirdPartyDirectMatch[1].trim(),
+        is_active: true,
+      });
+    } else if (relPosMatch) {
       relationships.push({
         person: relPosMatch[1].trim(),
         role: relPosMatch[2].trim(),
+        subject_person: 'user',
         is_active: true,
       });
     }
@@ -283,12 +303,21 @@ export function fallbackInterpretation(
 // Interprets a single split memory unit using the production classification and extraction pipeline
 export async function interpretSingleMemoryUnit(
   unitText: string,
-  fullOriginalText: string,
-  localContext: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date },
-  ai: GoogleGenAI | null,
+  fullOriginalText: string = unitText,
+  rawLocalContext?: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date } | null,
+  ai?: GoogleGenAI | null,
   subject?: string | null,
   contextEnvelope?: ConversationalContextEnvelope | null
 ): Promise<any> {
+  const localContext = rawLocalContext || {
+    localDateTimeStr: new Date().toISOString(),
+    timeZone: 'Australia/Sydney',
+    language: 'en-AU',
+    region: 'AU',
+    offsetStr: '+10:00',
+    utcIso: new Date().toISOString(),
+    referenceDate: new Date(),
+  };
   let structuredData: any = null;
 
   if (ai) {
@@ -376,7 +405,10 @@ Your purpose: Classify each newly captured intention according to the circumstan
 - "retrieval_cues": 3 to 8 search queries, alternate keywords, or retrieval questions in the memory's language. Never return an empty array [].
 
 7. RELATIONSHIPS / ROLES:
-- When the user mentions a relationship or role (e.g. "Barb is my wife", "Steve is no longer my plumber"), extract into "relationships": { person, role, is_active: true/false }. Otherwise return [].
+- When the user mentions a relationship or role (e.g. "Barb is my wife", "Steve is no longer my plumber", "Doug's daughter is Sophie", "Mum's carer Julie", "Bill's apprentice Jack", "Steve's wife Helen"), extract into "relationships": { person, role, subject_person, is_active: true/false }.
+- Distinguish between User -> role -> Person (e.g. "Barb is my wife" -> subject_person: "user", role: "wife", person: "Barb") and Person -> role -> Person (e.g. "Doug's daughter is Sophie" -> subject_person: "Doug", role: "daughter", person: "Sophie"; "Mum's carer Julie" -> subject_person: "Mum", role: "carer", person: "Julie"; "Bill's apprentice Jack" -> subject_person: "Bill", role: "apprentice", person: "Jack"; "Steve's wife Helen" -> subject_person: "Steve", role: "wife", person: "Helen").
+- NEVER attribute a third-party's relative, associate, or worker directly to the user. If someone is "Mum's carer" or "Bill's apprentice" or "Doug's daughter", subject_person MUST be that person ("Mum", "Bill", "Doug"), NOT "user".
+- If no relationships are mentioned, return [].
 
 8. STRUCTURED ITEMS / COLLECTIONS:
 - When the memory is a list, recipe, or multi-item collection under a shared purpose, extract discrete items into "items" array and concise summary into "content". Otherwise return [].

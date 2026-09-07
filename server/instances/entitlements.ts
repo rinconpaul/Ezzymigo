@@ -1,3 +1,17 @@
+/**
+ * ARCHITECTURAL INVARIANT (GATE 10):
+ * An Ezzy is a knowledge boundary. Membership authorizes access to that Ezzy;
+ * it does not federate that Ezzy with any other Ezzy the person can access.
+ * Cross-Ezzy knowledge retrieval is prohibited unless a future product feature
+ * explicitly transfers or shares a specific memory.
+ *
+ * My Ezzy and Our Ezzy are separate Ezzymigo entities with separate knowledge boundaries.
+ * There must NEVER be implicit information leakage, retrieval, anticipation,
+ * Today relevance or Ask synthesis across them.
+ * Membership of both does NOT authorize one Ezzy to silently search the other.
+ * The active ezzy_id defines the knowledge boundary for that interaction.
+ */
+
 import { executeBunnySql } from '../db/client';
 import { initBunnyDb } from '../db/schema';
 

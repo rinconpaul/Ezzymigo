@@ -78,12 +78,9 @@ export async function retrieveBoundedMemoryCandidates(
 
   for (const tok of expandedTokens) {
     const tLower = tok.toLowerCase();
-    const matchedRel = activeRelationships.find(r => r.person.toLowerCase() === tLower);
-    if (matchedRel) {
-      const canonId = `ent_person_${tLower.replace(/[^a-z0-9]/g, '_')}`;
-      if (!matchedEntityIds.includes(canonId)) {
-        matchedEntityIds.push(canonId);
-      }
+    const canonId = `ent_person_${tLower.replace(/[^a-z0-9]/g, '_')}`;
+    if (!matchedEntityIds.includes(canonId)) {
+      matchedEntityIds.push(canonId);
     }
   }
 
@@ -140,7 +137,7 @@ export async function retrieveBoundedMemoryCandidates(
       console.warn('[Bounded Retrieval] Non-fatal error in subject retrieval lane:', subjErr);
       return [] as string[];
     }),
-    retrieveStageBFts(qTrimmed, 40, ezzyId).catch(ftsErr => {
+    retrieveStageBFts(expandedTokens.length > 0 ? `${qTrimmed} ${expandedTokens.join(' ')}` : qTrimmed, 40, ezzyId).catch(ftsErr => {
       console.warn('[Bounded Retrieval] Non-fatal error in FTS retrieval lane:', ftsErr);
       return [] as Array<{ memory_id: string; score: number; content: string }>;
     }),

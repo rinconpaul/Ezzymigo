@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { HelpCircle, Send, Loader2, Sparkles, AlertCircle, Mic, X, List, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
 import { getUserPreferences, formatDateTime } from '../utils/userPreferences';
+import { normalizeSubjectKey, cleanDisplaySubject, pickBestDisplayTitle } from '../utils/subjectUtils';
 import { MemoryItem } from '../types';
 import { MemoryCard } from './MemoryCard';
 
@@ -144,9 +145,9 @@ export const AskEzzymigoPanel: React.FC<AskEzzymigoPanelProps> = ({
   const groupedSupportingItems = useMemo<SupportingGroupItem[]>(() => {
     const subjectCounts = new Map<string, number>();
     for (const m of surfacedMemories) {
-      const s = m.interpretation?.subject?.trim();
-      if (s) {
-        subjectCounts.set(s, (subjectCounts.get(s) || 0) + 1);
+      const normKey = normalizeSubjectKey(m.interpretation?.subject);
+      if (normKey) {
+        subjectCounts.set(normKey, (subjectCounts.get(normKey) || 0) + 1);
       }
     }
 
@@ -154,18 +155,21 @@ export const AskEzzymigoPanel: React.FC<AskEzzymigoPanelProps> = ({
     const listGroupMap = new Map<string, { type: 'list'; subject: string; memories: MemoryItem[] }>();
 
     for (const mem of surfacedMemories) {
-      const s = mem.interpretation?.subject?.trim();
-      if (s && (subjectCounts.get(s) || 0) >= 2) {
-        if (!listGroupMap.has(s)) {
+      const raw = mem.interpretation?.subject;
+      const normKey = normalizeSubjectKey(raw);
+      if (normKey && (subjectCounts.get(normKey) || 0) >= 2) {
+        if (!listGroupMap.has(normKey)) {
           const group: SupportingGroupItem = {
             type: 'list',
-            subject: s,
+            subject: cleanDisplaySubject(raw),
             memories: [mem],
           };
-          listGroupMap.set(s, group);
+          listGroupMap.set(normKey, group);
           items.push(group);
         } else {
-          listGroupMap.get(s)!.memories.push(mem);
+          const existing = listGroupMap.get(normKey)!;
+          existing.memories.push(mem);
+          existing.subject = pickBestDisplayTitle(existing.subject, raw);
         }
       } else {
         items.push({ type: 'memory', memory: mem });

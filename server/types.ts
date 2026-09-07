@@ -34,6 +34,7 @@ export interface RelationshipRow {
   person: string;
   role: string;
   normalized_role: string;
+  subject_person?: string;
   is_active: number | boolean;
   updated_at: string;
 }
