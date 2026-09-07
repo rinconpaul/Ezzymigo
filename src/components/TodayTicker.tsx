@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MemoryItem, TodayRelevanceCandidate, TodayRelevanceResponse } from '../types';
+import { MemoryItem, TodayRelevanceCandidate, TodayRelevanceResponse, ConversationalContextEnvelope } from '../types';
 import { MemoryCard } from './MemoryCard';
 import { getUserPreferences } from '../utils/userPreferences';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
@@ -10,7 +10,16 @@ interface TodayTickerProps {
   onToggleDone?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   onEdit?: (id: string, newText: string) => Promise<void>;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
+  onSaveThought?: (
+    text: string,
+    context?: {
+      linkedEventId?: string;
+      eventTitle?: string;
+      subject?: string;
+      isCaptureFlow?: boolean;
+      contextEnvelope?: ConversationalContextEnvelope;
+    }
+  ) => Promise<any>;
   ephemeralCandidate?: TodayRelevanceCandidate | null;
   onDismissEphemeral?: () => void;
 }
@@ -86,7 +95,16 @@ export const markReflectionDismissed = (eventId: string, occurrenceId?: string) 
 const AnticipatoryPreparationTray: React.FC<{
   candidate: TodayRelevanceCandidate;
   onClose: () => void;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
+  onSaveThought?: (
+    text: string,
+    context?: {
+      linkedEventId?: string;
+      eventTitle?: string;
+      subject?: string;
+      isCaptureFlow?: boolean;
+      contextEnvelope?: ConversationalContextEnvelope;
+    }
+  ) => Promise<any>;
   onItemAdded?: (newItem: string) => void;
   onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
 }> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
@@ -206,6 +224,26 @@ const AnticipatoryPreparationTray: React.FC<{
         linkedEventId: occId,
         eventTitle: candidate.event_title || candidate.display_text,
         isCaptureFlow: true,
+        contextEnvelope: {
+          userUtterance: trimmed,
+          linkedEventId: occId,
+          linkedEventTitle: candidate.event_title || candidate.display_text,
+          linkedEventContent: candidate.display_text,
+          promptHeadline: candidate.event_title,
+          originatingQuestion: isReflection
+            ? `How did ${candidate.event_title || 'the event'} go? Any outcome or notes?`
+            : `Anything you need to remember or prepare for ${candidate.event_title || 'the event'}?`,
+          conversationHistory: [
+            {
+              speaker: 'ezzy',
+              text: candidate.display_text || candidate.event_title || '',
+            },
+            {
+              speaker: 'user',
+              text: trimmed,
+            },
+          ],
+        },
       });
       if (isReflection) {
         markOccurrenceDismissed(candidate);
@@ -359,7 +397,16 @@ const AnticipatoryPreparationTray: React.FC<{
 const AnticipatoryReminderTray: React.FC<{
   candidate: TodayRelevanceCandidate;
   onClose: () => void;
-  onSaveThought?: (text: string, context?: { linkedEventId?: string; eventTitle?: string; subject?: string }) => Promise<any>;
+  onSaveThought?: (
+    text: string,
+    context?: {
+      linkedEventId?: string;
+      eventTitle?: string;
+      subject?: string;
+      isCaptureFlow?: boolean;
+      contextEnvelope?: ConversationalContextEnvelope;
+    }
+  ) => Promise<any>;
   onItemAdded?: (newItem: string) => void;
   onDismissOccurrence?: (candidate: TodayRelevanceCandidate) => void;
 }> = ({ candidate, onClose, onSaveThought, onItemAdded, onDismissOccurrence }) => {
@@ -462,6 +509,24 @@ const AnticipatoryReminderTray: React.FC<{
         linkedEventId: candidate.occurrence_id || candidate.source_id,
         eventTitle: candidate.event_title || candidate.display_text,
         isCaptureFlow: true,
+        contextEnvelope: {
+          userUtterance: trimmed,
+          linkedEventId: candidate.occurrence_id || candidate.source_id,
+          linkedEventTitle: candidate.event_title || candidate.display_text,
+          linkedEventContent: candidate.display_text,
+          promptHeadline: candidate.event_title,
+          originatingQuestion: `Anything you need to remember or prepare for ${candidate.event_title || 'the event'}?`,
+          conversationHistory: [
+            {
+              speaker: 'ezzy',
+              text: candidate.display_text || candidate.event_title || '',
+            },
+            {
+              speaker: 'user',
+              text: trimmed,
+            },
+          ],
+        },
       });
 
       const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);

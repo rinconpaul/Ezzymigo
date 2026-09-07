@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Mic, MicOff, Send, Loader2, Check, X, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react';
 import { getUserPreferences } from '../utils/userPreferences';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
+import { ConversationalContextEnvelope } from '../types';
 
 export type FeedbackVerdict =
   | 'OLD_BETTER'
@@ -60,7 +61,13 @@ export interface CommunicationItem {
 interface NewEzzyShadowCardProps {
   onSaveThought?: (
     text: string,
-    context?: { linkedEventId?: string; eventTitle?: string; subject?: string; isCaptureFlow?: boolean }
+    context?: {
+      linkedEventId?: string;
+      eventTitle?: string;
+      subject?: string;
+      isCaptureFlow?: boolean;
+      contextEnvelope?: ConversationalContextEnvelope;
+    }
   ) => Promise<any>;
 }
 
@@ -478,11 +485,31 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
     setIsSavingResponse(true);
     try {
       let savedMemoryId: string | null = null;
+      const contextEnvelope: ConversationalContextEnvelope = {
+        userUtterance: trimmed,
+        originatingCommunicationId: currentComm?.id || null,
+        originatingQuestion: currentComm?.detailPrompt || currentComm?.tickerText || null,
+        promptHeadline: currentComm?.detailTitle || currentComm?.eventTitle || null,
+        linkedEventId: currentComm?.linkedEventId || null,
+        linkedEventTitle: currentComm?.eventTitle || currentComm?.detailTitle || null,
+        conversationHistory: [
+          {
+            speaker: 'ezzy',
+            text: currentComm?.detailPrompt || currentComm?.tickerText || currentComm?.detailTitle || '',
+          },
+          {
+            speaker: 'user',
+            text: trimmed,
+          },
+        ],
+      };
+
       if (onSaveThought) {
         const savedData = await onSaveThought(trimmed, {
           linkedEventId: currentComm?.linkedEventId,
           eventTitle: currentComm?.eventTitle || currentComm?.detailTitle,
           isCaptureFlow: true,
+          contextEnvelope,
         });
         savedMemoryId = savedData?.memory?.id || savedData?.memories?.[0]?.id || savedData?.id || null;
       } else {
@@ -500,6 +527,7 @@ export function NewEzzyShadowCard({ onSaveThought }: NewEzzyShadowCardProps) {
             linkedEventId: currentComm?.linkedEventId,
             eventTitle: currentComm?.eventTitle || currentComm?.detailTitle,
             isCaptureFlow: true,
+            contextEnvelope,
           }),
         });
         const resJson = await res.json().catch(() => ({}));

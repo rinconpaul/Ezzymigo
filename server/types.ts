@@ -96,3 +96,5 @@ export interface MemoryTodayLifecycleBounds {
   endLocal?: string;
   isRecurringInstance?: boolean;
 }
+
+export type { ConversationalContextEnvelope } from '../src/types';

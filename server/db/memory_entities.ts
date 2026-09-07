@@ -207,7 +207,18 @@ export async function resolvePersonToEntityId(
   }]);
   if (relRes[0]?.rows && relRes[0].rows.length > 0) {
     const personNameMatched = relRes[0].rows[0].person;
-    const canonicalId = `ent_person_${personNameMatched.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    const canonicalId = `ent_${ezzyId ? ezzyId + '_' : ''}person_${personNameMatched.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+    return canonicalId;
+  }
+
+  // 5. Match on calendar_events (e.g. "Dr Marning")
+  const calRes = await executeBunnySql([{
+    sql: `SELECT title FROM calendar_events WHERE LOWER(title) = ?${ezzyClause} ORDER BY updatedAt DESC;`,
+    args: [pLower, ...ezzyArgs],
+  }]);
+  if (calRes[0]?.rows && calRes[0].rows.length > 0) {
+    const titleMatched = calRes[0].rows[0].title;
+    const canonicalId = `ent_${ezzyId ? ezzyId + '_' : ''}person_${titleMatched.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
     return canonicalId;
   }
 

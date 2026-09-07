@@ -306,4 +306,26 @@ export interface ImmediateDeviceActionPayload {
   candidates?: Array<{ name: string; role?: string }>;
 }
 
+export interface ConversationalContextEnvelope {
+  userUtterance?: string;
+  originatingQuestion?: string | null;
+  promptHeadline?: string | null;
+  originatingCommunicationId?: string | null;
+  linkedEventId?: string | null;
+  linkedEventTitle?: string | null;
+  linkedEventContent?: string | null;
+  relevantEntities?: Array<{ name: string; role?: string; relationship?: string }>;
+  activeSubject?: string | null;
+  conversationHistory?: Array<{ speaker: 'ezzy' | 'user'; text: string }>;
+  localContext?: {
+    localDateTimeStr: string;
+    timeZone: string;
+    language: string;
+    region: string;
+    offsetStr: string;
+    utcIso: string;
+    referenceDate?: Date;
+  };
+}
+
 

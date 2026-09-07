@@ -37,6 +37,18 @@ export const memoryItemSchema = {
       items: { type: Type.STRING },
       description: 'Names of people mentioned or involved in the thought.',
     },
+    entity_associations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING, description: 'Name of the person or entity semantically involved in the thought (e.g. "Mum", "Barb", "Doug", "Dr Marning").' },
+          role: { type: Type.STRING, nullable: true, description: 'Optional role or relation if known (e.g. "mother", "wife", "son", "doctor").' },
+        },
+        required: ['name'],
+      },
+      description: 'Optional entities genuinely and semantically involved in the memory.',
+    },
     places: {
       type: Type.ARRAY,
       items: { type: Type.STRING },

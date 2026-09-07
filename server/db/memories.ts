@@ -517,18 +517,36 @@ export async function insertMemories(
   for (const item of items) {
     const people = Array.isArray(item.interpretation?.people) ? item.interpretation.people : [];
     const itemRelationships = Array.isArray(item.interpretation?.relationships) ? item.interpretation.relationships : [];
+    const entityAssocs = Array.isArray(item.interpretation?.entity_associations) ? item.interpretation.entity_associations : [];
     const candidatePersons = Array.from(new Set([
       ...people,
-      ...itemRelationships.map((r: any) => r?.person).filter(Boolean)
+      ...itemRelationships.map((r: any) => r?.person).filter(Boolean),
+      ...entityAssocs.map((ea: any) => ea?.name).filter(Boolean),
     ]));
 
     if (candidatePersons.length > 0) {
       const entityIds: string[] = [];
       for (const p of candidatePersons) {
-        const entId = await resolvePersonToEntityId(p, undefined, scopeEzzyId);
+        if (!p || typeof p !== 'string') continue;
+        const pTrim = p.trim();
+        let entId = await resolvePersonToEntityId(pTrim, undefined, scopeEzzyId);
+        if (!entId && pTrim.length >= 2) {
+          const lower = pTrim.toLowerCase();
+          if (!['i', 'me', 'my', 'we', 'us', 'they', 'them', 'he', 'she', 'it', 'the'].includes(lower)) {
+            try {
+              await saveUserEntity({
+                name: pTrim,
+                entity_type: 'person',
+              }, undefined, scopeEzzyId);
+              entId = await resolvePersonToEntityId(pTrim, undefined, scopeEzzyId);
+            } catch (err) {
+              console.warn(`[Memory Entities] Note creating user entity for "${pTrim}":`, err);
+            }
+          }
+        }
         if (entId) {
           entityIds.push(entId);
-          linkedEntities.push({ memoryId: item.id, entityId: entId, entityName: p });
+          linkedEntities.push({ memoryId: item.id, entityId: entId, entityName: pTrim });
         }
       }
       if (entityIds.length > 0) {

@@ -49,6 +49,7 @@ import {
   interpretSingleMemoryUnit,
   processThoughtCapturePipeline,
 } from './server/ai/interpreter';
+import { ConversationalContextEnvelope } from './server/types';
 import {
   normalizeRoleName,
   extractPhoneNumber,
@@ -464,7 +465,98 @@ app.post('/api/memories', async (req, res) => {
       }
     }
 
-    const { memories: newMemories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, effectiveSubject);
+    // -------------------------------------------------------------
+    // CONVERSATIONAL CONTEXT ENVELOPE RESOLUTION
+    // Unifies ordinary Tell, New Ezzy responses, anticipatory trays,
+    // and calendar event reflections into a single contextual boundary.
+    // Invariant: "CONTEXT MAY RESOLVE MEANING. IT MUST NOT MANUFACTURE INTENT."
+    // -------------------------------------------------------------
+    let effectiveContextEnvelope: ConversationalContextEnvelope | null =
+      (req.body?.contextEnvelope || req.body?.conversationalContext) ? { ...(req.body?.contextEnvelope || req.body?.conversationalContext) } : null;
+
+    if (!effectiveContextEnvelope && (req.body?.originatingQuestion || req.body?.promptHeadline || req.body?.eventTitle || linkedEventId)) {
+      effectiveContextEnvelope = {
+        userUtterance: trimmedText,
+        originatingCommunicationId: req.body?.communicationId || req.body?.originatingCommunicationId,
+        originatingQuestion: req.body?.originatingQuestion || req.body?.promptQuestion,
+        promptHeadline: req.body?.promptHeadline || req.body?.eventTitle,
+        linkedEventId: linkedEventId || req.body?.linkedEventId,
+        linkedEventTitle: req.body?.eventTitle,
+        relevantEntities: req.body?.relevantEntities || [],
+        conversationHistory: req.body?.conversationHistory || [],
+      };
+    }
+
+    // If linked to an event, hydrate context and relevant entities from calendar event if not already populated
+    if (linkedEventId && (!effectiveContextEnvelope?.linkedEventTitle || !effectiveContextEnvelope?.relevantEntities?.length)) {
+      try {
+        const allCalendarEvents = await readCalendarEvents({}, ezzyId);
+        const matchedEvt = allCalendarEvents.find(
+          (e: any) => e.id === linkedEventId || e.source_event_id === linkedEventId
+        );
+        if (matchedEvt) {
+          if (!effectiveContextEnvelope) {
+            effectiveContextEnvelope = { userUtterance: trimmedText };
+          }
+          if (!effectiveContextEnvelope.linkedEventTitle) {
+            effectiveContextEnvelope.linkedEventTitle = matchedEvt.title;
+          }
+          if (!effectiveContextEnvelope.linkedEventContent) {
+            effectiveContextEnvelope.linkedEventContent = matchedEvt.notes || matchedEvt.location || undefined;
+          }
+          if (!effectiveContextEnvelope.promptHeadline && matchedEvt.title) {
+            effectiveContextEnvelope.promptHeadline = matchedEvt.title;
+          }
+          if (!effectiveContextEnvelope.originatingQuestion && matchedEvt.title) {
+            effectiveContextEnvelope.originatingQuestion = `How did ${matchedEvt.title} go? Any outcome or notes?`;
+          }
+        }
+      } catch (err) {
+        console.warn('[Context Envelope] Error enriching calendar event context:', err);
+      }
+    }
+
+    // Hydrate known relevant people from user_entities and active relationships if Mum / doctor / etc. mentioned
+    if (effectiveContextEnvelope) {
+      try {
+        const [activeRels, userEnts] = await Promise.all([
+          readActiveRelationships(ezzyId),
+          getUserEntities(ezzyId),
+        ]);
+        const knownEntitiesList: Array<{ name: string; role?: string }> = [];
+        for (const rel of activeRels) {
+          if (rel.person) {
+            knownEntitiesList.push({ name: rel.person, role: rel.role });
+          }
+        }
+        for (const ent of userEnts) {
+          if (ent.name && !knownEntitiesList.some(k => k.name.toLowerCase() === ent.name.toLowerCase())) {
+            knownEntitiesList.push({ name: ent.name, role: ent.role || ent.normalized_role || undefined });
+          }
+        }
+        if (!effectiveContextEnvelope.relevantEntities || effectiveContextEnvelope.relevantEntities.length === 0) {
+          const searchContext = `${effectiveContextEnvelope.originatingQuestion || ''} ${effectiveContextEnvelope.promptHeadline || ''} ${effectiveContextEnvelope.linkedEventTitle || ''}`.toLowerCase();
+          const matchedEntities = knownEntitiesList.filter(ke => {
+            const re = new RegExp(`\\b${ke.name.toLowerCase()}\\b`, 'i');
+            return re.test(searchContext);
+          });
+          if (matchedEntities.length > 0) {
+            effectiveContextEnvelope.relevantEntities = matchedEntities;
+          }
+        }
+      } catch (err) {
+        console.warn('[Context Envelope] Error hydrating relevant entities:', err);
+      }
+    }
+
+    const { memories: newMemories } = await processThoughtCapturePipeline(
+      trimmedText,
+      localContext,
+      ai,
+      linkedEventId,
+      effectiveSubject,
+      effectiveContextEnvelope
+    );
 
 
     // Initial phoneOffer computation from newMemories (deterministic in-memory)
