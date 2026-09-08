@@ -8,7 +8,6 @@ import {
   ShadowEvaluationRecord,
   FeedbackVerdict,
 } from '../snapshot/types';
-import { computeTodayRelevance } from '../today/relevance';
 import {
   getLatestActiveAttentionChannel,
   runUnifiedAttentionReview,
@@ -211,38 +210,10 @@ export async function evaluateShadowOpportunity(
         input: options.input,
       });
 
-      // 2. Measure Old Ezzy actual outcome on the exact same snapshot context
-      let oldEzzyOutcome: any = null;
-      try {
-        const oldTodayRes = await computeTodayRelevance(
-          options.clientNow,
-          options.clientTimeZone,
-          options.clientLanguage,
-          options.clientRegion,
-          [],
-          eid
-        );
-        const topCandidate = oldTodayRes.candidates?.[0] || null;
-        oldEzzyOutcome = {
-          candidatesCount: oldTodayRes.candidates?.length || 0,
-          topCandidate: topCandidate
-            ? {
-                source_type: topCandidate.source_type,
-                source_id: topCandidate.source_id,
-                display_text: topCandidate.display_text,
-                relevance_reason: topCandidate.relevance_reason,
-                anticipatory_stage: topCandidate.anticipatory_stage,
-                headlines: topCandidate.ticker_headlines,
-              }
-            : null,
-          allHeadlines: (oldTodayRes.candidates || []).map((c: any) => c.display_text),
-        };
-      } catch (oldErr) {
-        console.warn('[Shadow Service] Error capturing Old Ezzy comparison outcome:', oldErr);
-        oldEzzyOutcome = { error: 'Failed to compute Old Ezzy outcome' };
-      }
+      // Old Ezzy comparison is decommissioned. New Ezzy is the sole behavioural engine.
+      const oldEzzyOutcome: any = null;
 
-      // 3. Execute New Ezzy Unified Reasoning Loop (isolated, cannot mutate database)
+      // 2. Execute New Ezzy Unified Reasoning Loop (isolated, cannot mutate database)
       const reasoningResult = await executeNewEzzyReasoningLoop(
         opportunity,
         snapshot,

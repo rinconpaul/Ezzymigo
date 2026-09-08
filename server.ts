@@ -72,20 +72,8 @@ import {
 } from './server/relationships/index';
 import { routeUserIntent } from './server/intent/router';
 import { resolveContactAction, resolveContactQuery } from './server/contacts/resolver';
-
-import {
-  buildDynamicRetrievalContext,
-  detectRequestedDaypartWindow,
-  doesOccurrenceOverlapWindow,
-  ASK_STOP_WORDS,
-  RETRIEVAL_MONTHS,
-  KNOWN_PLACE_KEYWORDS,
-  DynamicRetrievalResult,
-  RequestedTimeWindow,
-} from './server/retrieval/dcr';
-import { executeNativeRetrievalPipeline } from './server/retrieval/native_search';
-import { executeArchitectureDRetrieval } from './server/retrieval/architecture_d';
-import { retrieveBoundedMemoryCandidates } from './server/retrieval/bounded_retrieval';
+import { assembleEzzyWorldSnapshot } from './server/snapshot/assembler';
+import { executeNewEzzyReasoningLoop } from './server/reasoning/loop';
 import { backfillMemoryEntities } from './server/db/memory_entities';
 import {
   initVapidKeys,
@@ -115,10 +103,6 @@ import {
   deleteCalendarEventFromDb,
 } from './server/calendar/store';
 import {
-  computeTodayRelevance,
-  evaluateMemoryTodayLifecycle,
-} from './server/today/relevance';
-import {
   DEFAULT_EZZY_ID,
   getEzzyInstance,
   createEzzyInstance,
@@ -142,7 +126,6 @@ import {
   getLatestCheckInEvaluation,
   getShadowDisplayState,
   evaluateShadowOpportunity,
-  recordShadowFeedback,
 } from './server/shadow/service';
 import {
   recordShadowInteraction,
@@ -1750,32 +1733,7 @@ app.post('/api/occasions/preferences', async (req, res) => {
   }
 });
 
-const askResponseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    answer: {
-      type: Type.STRING,
-      description: "The concise, natural-language, helpful answer (1-3 sentences) in the user's language based on the user's personal knowledge (memories, calendar, relationships, lists). If general knowledge, web search, shopping, current news, general advice, or unrelated chatbot assistance is requested, briefly and conversationally explain that Ezzy works with the user's personal information rather than being a general search engine (vary wording naturally). If personal knowledge was sought but not found, state that you couldn't find anything in saved memories or calendar.",
-    },
-    is_out_of_scope: {
-      type: Type.BOOLEAN,
-      description: "Set to true if the question was asking for general knowledge, internet search, product shopping, current news, general advice, or unrelated chatbot assistance outside the user's personal stored data.",
-    },
-    memory_ids: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "MANDATORY: Array containing the exact string 'id' of every stored memory in 'User's Stored Intention Memories' that materially supported, answered, or is referenced by the answer. If no memories were used, relevant, or if out-of-scope, return [].",
-    },
-    calendar_event_ids: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "Array containing the exact string 'id' of every imported calendar event in 'User's Imported Calendar Events' that materially supported the answer. If no calendar events were used, relevant, or if out-of-scope, return [].",
-    },
-  },
-  required: ['answer', 'memory_ids', 'calendar_event_ids'],
-};
-
-// POST /api/ask - Ask Ezzymigo retrieval endpoint
+// POST /api/ask - Ask Ezzymigo retrieval endpoint (Powered by New Ezzy Unified Reasoning Loop)
 app.post('/api/ask', async (req, res) => {
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
@@ -1790,12 +1748,8 @@ app.post('/api/ask', async (req, res) => {
     const trimmedQuestion = question.trim();
     console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
 
-    // Phase A: Concurrent database retrieval for relationships, calendar events, and user entities
-    const [activeRelationships, calendarEvents, userEntities] = await Promise.all([
-      readActiveRelationships(ezzyId),
-      readCalendarEvents({}, ezzyId),
-      getUserEntities(ezzyId),
-    ]);
+    // Phase A: Database retrieval for relationships
+    const activeRelationships = await readActiveRelationships(ezzyId);
 
     // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
     const ai = getGeminiClient();
@@ -1811,344 +1765,36 @@ app.post('/api/ask', async (req, res) => {
       });
     }
 
-    const { resolvedEntities, ambiguousEntities, expandedTokens } = resolveRelationshipsInQuery(trimmedQuestion, activeRelationships);
-
-    if (resolvedEntities.length > 0) {
-      console.log(`[Relationships] Resolved query cues:`, resolvedEntities);
-    }
-    if (ambiguousEntities.length > 0) {
-      console.log(`[Relationships] Ambiguous query cues:`, ambiguousEntities);
-    }
-
-    const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
-
-    // Phase B: Bounded Memory Candidate Retrieval (Entity Links + Exact Subject + FTS BM25 + Recency)
-    // Ask never executes an unbounded SELECT * across the entire memories table.
-    const boundedRetrieval = await retrieveBoundedMemoryCandidates({
-      question: trimmedQuestion,
-      localContext,
-      activeRelationships,
-      userEntities,
+    // Phase B: Assemble bounded Personal World Snapshot for ASK_QUERY
+    const snapshot = await assembleEzzyWorldSnapshot({
       ezzyId,
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      opportunity: 'ASK_QUERY',
+      trigger: 'ask_query',
+      input: trimmedQuestion,
     });
-    const boundedMemories = boundedRetrieval.candidateMemories;
 
-    // Run Context Builder Stage (DYNAMIC CONTEXT RETRIEVAL v1) on bounded candidate pool
-    const dynamicRetrieval = buildDynamicRetrievalContext(
-      trimmedQuestion,
-      boundedMemories,
-      calendarEvents,
-      activeRelationships,
-      localContext
+    // Phase C: Execute New Ezzy Unified Reasoning Loop (isolated, cannot mutate database)
+    const reasoningResult = await executeNewEzzyReasoningLoop(
+      'ASK_QUERY',
+      snapshot,
+      { input: trimmedQuestion },
+      ai
     );
 
-    const { candidateMemories, candidateCalendarEvents, retrievalMetadata } = dynamicRetrieval;
-    console.log(`[Dynamic Retrieval v1] Built focused candidate set: ${candidateMemories.length}/${boundedMemories.length} candidates, ${candidateCalendarEvents.length}/${calendarEvents.length} calendar events. Anchors: people=[${retrievalMetadata.resolvedPeople.join(', ')}], roles=[${retrievalMetadata.resolvedRoles.join(', ')}], places=[${retrievalMetadata.detectedPlaces.join(', ')}], topics=[${retrievalMetadata.topicsAndKeywords.join(', ')}], temporal=[${retrievalMetadata.temporalAnchors.months.concat(retrievalMetadata.temporalAnchors.relativeExpressions).join(', ')}]`);
+    const { decision } = reasoningResult;
+    const answer =
+      decision.communication.body?.trim() ||
+      decision.communication.headline?.trim() ||
+      "I couldn't find anything relevant in your saved memories or calendar.";
+    const memory_ids: string[] = Array.isArray(decision.citedMemoryIds) ? decision.citedMemoryIds : [];
+    const calendar_event_ids: string[] = Array.isArray(decision.citedCalendarIds) ? decision.citedCalendarIds : [];
 
-    // -------------------------------------------------------------
-    // SHADOW ARCHITECTURE D & NATIVE RETRIEVAL (Step 2.2B)
-    // Non-blocking shadow execution for diagnostic comparison only.
-    // Legacy DCR candidateMemories remains strictly authoritative for prompt synthesis.
-    // GATED: Disabled during normal user Ask requests to eliminate ~7.6s latency overhead.
-    // Preserved for deliberate testing/comparison via ENABLE_ARCH_D_SHADOW env var or enableArchDShadow flag.
-    // -------------------------------------------------------------
-    const enableArchDShadow = process.env.ENABLE_ARCH_D_SHADOW === 'true' || Boolean((req.body as any)?.enableArchDShadow);
-    if (enableArchDShadow) {
-      try {
-        const archDResult = await executeArchitectureDRetrieval({
-          question: trimmedQuestion,
-          nowIso: localContext.referenceDate.toISOString(),
-          activeRoleLabels: activeRelationships.map(r => r.role),
-          legacyCandidateIds: candidateMemories.map(m => m.id),
-          ezzyId,
-        });
-        const ad = archDResult.shadowTelemetry;
-        console.log(`[Architecture D Shadow Telemetry] Query: "${trimmedQuestion}" (${ad.query_language_script}) | Route: ${ad.route_taken} | Top: ${ad.top_candidate_id} (Sim: ${ad.top_cosine_similarity?.toFixed(4) ?? 'N/A'}) | Ambiguity Rescue: ${ad.ambiguity_rescue_triggered ? `YES (${ad.ambiguity_rescue_reason})` : 'NO'} | Counts: Legacy=${ad.legacy_ids.length}, ArchD=${ad.architecture_d_ids.length}, Inter=${ad.intersection_ids.length}, LegacyOnly=${ad.legacy_only_ids.length}, ArchDOnly=${ad.architecture_d_only_ids.length} | Latency: Total=${ad.timings.total_architecture_d_ms}ms (Embed=${ad.timings.embedding_api_ms}ms, VecSQL=${ad.timings.vector_sql_ms}ms, Arb=${ad.timings.arbitration_ms}ms, Rescue=${ad.timings.ambiguity_rescue_ms}ms, Hydrate=${ad.timings.hydration_ms}ms)`);
-      } catch (shadowErr) {
-        console.warn('[Architecture D Shadow Non-Fatal Error]:', shadowErr);
-      }
-    }
-
-    if (!ai) {
-      const qLower = trimmedQuestion.toLowerCase();
-
-      // Direct relationship question fallback (e.g. "Who is Peter?", "Who is my doctor?")
-      const whoIsMatch = trimmedQuestion.match(/^who is (?:my\s+|the\s+)?([a-z0-9\s]+?)\??$/i);
-      if (whoIsMatch) {
-        const rawTarget = whoIsMatch[1].trim();
-        const target = rawTarget.toLowerCase();
-        const normTarget = normalizeRoleName(target);
-        // Check by person
-        const personMatch = activeRelationships.find(r => r.person.toLowerCase() === target);
-        if (personMatch) {
-          return res.json({
-            answer: `${personMatch.person} is your ${personMatch.role}.`,
-            memory_ids: [],
-            calendar_event_ids: []
-          });
-        }
-        // Check by role
-        const roleMatch = activeRelationships.find(r => r.normalized_role === normTarget);
-        if (roleMatch) {
-          return res.json({
-            answer: `Your ${roleMatch.role} is ${roleMatch.person}.`,
-            memory_ids: [],
-            calendar_event_ids: []
-          });
-        }
-        // If not in active relationships:
-        return res.json({
-          answer: `I don't have any record of who ${rawTarget} is.`,
-          memory_ids: [],
-          calendar_event_ids: []
-        });
-      }
-
-      if (candidateMemories.length === 0 && candidateCalendarEvents.length === 0) {
-        return res.json({
-          answer: "I couldn't find anything relevant in your saved memories or calendar.",
-          memory_ids: [],
-          calendar_event_ids: []
-        });
-      }
-
-      const parts: string[] = [];
-      if (candidateCalendarEvents.length > 0) {
-        parts.push(`Calendar events: ${candidateCalendarEvents.map(e => {
-          if (e.is_all_day) {
-            const startYMD = (e.start_datetime || '').slice(0, 10);
-            const endYMDExcl = (e.end_datetime || '').slice(0, 10) || startYMD;
-            const span = formatAllDayCivilDateSpan(startYMD, endYMDExcl, localContext.language || 'en-AU');
-            return `${e.title} (${span} All Day)`;
-          }
-          return `${e.title} (${e.start_datetime} to ${e.end_datetime})`;
-        }).join('; ')}`);
-      }
-      if (candidateMemories.length > 0) {
-        parts.push(`Memories: ${candidateMemories.map(m => m.interpretation?.content || m.originalText).join('; ')}`);
-      }
-      return res.json({
-        answer: parts.join(' | '),
-        memory_ids: candidateMemories.map(m => m.id),
-        calendar_event_ids: candidateCalendarEvents.map(e => e.id)
-      });
-    }
-
-    const clientTodayYMD = getYMDInTz(localContext.referenceDate, localContext.timeZone);
-
-    const memoryContext = candidateMemories.map(m => {
-      const lifecycle = evaluateMemoryTodayLifecycle(m, localContext, clientTodayYMD, getTimeStrInTz);
-      let todayOccurrenceStr: string | null = null;
-      if (lifecycle && lifecycle.isScheduledToday) {
-        if (lifecycle.startTimeFormatted && lifecycle.endTimeFormatted) {
-          todayOccurrenceStr = `Scheduled for today (${localContext.weekday} ${clientTodayYMD}): ${lifecycle.startTimeFormatted} to ${lifecycle.endTimeFormatted}`;
-        } else if (lifecycle.startTimeFormatted) {
-          todayOccurrenceStr = `Scheduled for today (${localContext.weekday} ${clientTodayYMD}) at ${lifecycle.startTimeFormatted}`;
-        } else {
-          todayOccurrenceStr = `Scheduled for today (${localContext.weekday} ${clientTodayYMD}) (all-day / untimed)`;
-        }
-      }
-
-      return {
-        id: m.id,
-        content: m.interpretation?.content || m.originalText,
-        kind: m.interpretation?.kind || 'thought',
-        intent: m.interpretation?.intent || m.interpretation?.kind || 'thought',
-        status: m.isDone ? 'done' : 'active',
-        people: m.interpretation?.people || [],
-        places: m.interpretation?.places || [],
-        topics: m.interpretation?.topics || [],
-        contexts: m.interpretation?.contexts || [],
-        retrieval_cues: m.interpretation?.retrieval_cues || [],
-        relationships: m.interpretation?.relationships || [],
-        prerequisite: m.interpretation?.prerequisite || null,
-        subject: m.interpretation?.subject || null,
-        today_occurrence: todayOccurrenceStr,
-        original_time_expression: m.interpretation?.original_time_expression || null,
-        resolved_datetime: m.interpretation?.resolved_datetime || null,
-        resolved_datetime_local: formatIsoToLocal(m.interpretation?.resolved_datetime, localContext.timeZone),
-        event_time_expression: m.interpretation?.event_time_expression || null,
-        event_datetime: m.interpretation?.event_datetime || null,
-        event_datetime_local: formatIsoToLocal(m.interpretation?.event_datetime, localContext.timeZone),
-        reminder_time_expression: m.interpretation?.reminder_time_expression || null,
-        reminder_datetime: m.interpretation?.reminder_datetime || null,
-        reminder_datetime_local: formatIsoToLocal(m.interpretation?.reminder_datetime, localContext.timeZone),
-        resurfacing: m.interpretation?.resurfacing || {},
-        originalCapture: m.originalText || '',
-        createdAt: m.createdAt,
-        created_at_local: formatIsoToLocal(m.createdAt, localContext.timeZone)
-      };
-    });
-
-    const calendarContext = candidateCalendarEvents.map(e => {
-      if (e.is_all_day) {
-        const startYMD = (e.start_datetime || '').slice(0, 10);
-        const endYMDExcl = (e.end_datetime || '').slice(0, 10) || startYMD;
-        const formattedSpan = formatAllDayCivilDateSpan(startYMD, endYMDExcl, localContext.language || 'en-AU');
-        const displayTiming = `${formattedSpan} (All Day)`;
-
-        return {
-          id: e.id,
-          title: e.title,
-          is_all_day: true,
-          date_local: displayTiming,
-          timing: 'All Day',
-          start_datetime: startYMD,
-          start_datetime_local: displayTiming,
-          end_datetime: endYMDExcl,
-          end_datetime_local: displayTiming,
-          location: e.location || null,
-          description: e.description || null,
-          attendees: e.attendees || [],
-          status: e.status || 'confirmed',
-          source: e.source || 'google_calendar',
-        };
-      }
-
-      return {
-        id: e.id,
-        title: e.title,
-        is_all_day: false,
-        start_datetime: e.start_datetime,
-        start_datetime_local: formatIsoToLocal(e.start_datetime, localContext.timeZone, localContext.language),
-        end_datetime: e.end_datetime,
-        end_datetime_local: formatIsoToLocal(e.end_datetime, localContext.timeZone, localContext.language),
-        location: e.location || null,
-        description: e.description || null,
-        attendees: e.attendees || [],
-        status: e.status || 'confirmed',
-        source: e.source || 'google_calendar',
-      };
-    });
-
-    const systemInstruction = `You are Ezzymigo (Ezzy), the user's personal intention and memory companion.
-Your task is to answer user questions using their stored memories, relationships, lists, and imported calendar events.
-
-USER CONTEXT:
-- Preferred Language: ${localContext.language} | Region: ${localContext.region} | TimeZone: ${localContext.timeZone}
-- Reference Local Time: ${localContext.localDateTimeStr}
-
-USER'S KNOWN RELATIONSHIPS / ROLES:
-${activeRelationships.length > 0
-  ? activeRelationships.map(r => r.subject_person && r.subject_person.toLowerCase() !== 'user'
-      ? `- ${r.person} is ${r.subject_person}'s ${r.role} (${r.normalized_role})`
-      : `- ${r.person} is the user's ${r.role} (${r.normalized_role})`).join('\n')
-  : 'None currently defined.'}
-${resolvedEntities.length > 0
-  ? `\nRESOLVED QUERY ROLES:\n${resolvedEntities.map(re => `- "${re.roleMatch}" resolves to person "${re.resolvedPerson}"${re.subjectPerson && re.subjectPerson.toLowerCase() !== 'user' ? ` (${re.subjectPerson}'s ${re.normalizedRole})` : ` (${re.normalizedRole})`}`).join('\n')}`
-  : ''}
-${userEntities.length > 0
-  ? `\nUSER'S KNOWN CONTACTS & ENTITIES:\n${userEntities.map(e => `- ${e.name}${e.role ? ` (${e.role})` : ''}: ${e.metadata?.phone ? `Phone: ${e.metadata.phone}` : 'No phone saved'}`).join('\n')}`
-  : ''}
-
-
-OPERATIONAL RULES:
-1. PERSONAL KNOWLEDGE & REASONING (IN-SCOPE):
-   - Answer queries using stored memories, lists, relationships, and calendar events.
-   - Summaries, comparisons, list calculations/aggregations (e.g. summing item costs), and pattern recognition over user data are squarely within scope.
-   - Cross-synthesize memories and calendar events seamlessly (e.g., checking calendar for appointments and memories for related preparations).
-
-2. OUT-OF-SCOPE REDIRECTION & BOUNDARIES:
-   - For general knowledge (world trivia, geography), internet searches, stock/market data, weather forecasts, or general chatbot requests (coding, generic roleplay):
-     * Do NOT use external training data to answer.
-     * Warmly and conversationally state that you help with their personal memories, calendar, and lists rather than searching the web for general knowledge.
-     * Return "memory_ids": [], "calendar_event_ids": [], and "is_out_of_scope": true.
-
-3. PERSONAL KNOWLEDGE NOT FOUND:
-   - If the query is about personal data/events but no relevant record exists:
-     * State conversationally that you couldn't find relevant records in their saved memories or calendar.
-     * Return "memory_ids": [], "calendar_event_ids": [], and "is_out_of_scope": false.
-
-4. RELATIONSHIPS & IDENTITY:
-   - Use active relationships and resolved query roles as retrieval cues (e.g. "my plumber" -> lookup Dave's quotes/notes).
-   - For "Who is [Role]?" or "Who is [Person]?": answer only from active relationships listed above. If unlisted or forgotten, state you have no record of that relationship; do NOT assume or revive historical unlisted relationships.
-   - STRICT TONE RULE: Do NOT use patronising labels such as "Barb, your wife" or "Steve, your plumber". Refer to persons naturally (e.g., "You wanted to get Barb the book...").
-
-5. TEMPORAL & HUMAN TIME GROUNDING:
-   - Respect localized dates/times ('created_at_local', 'resolved_datetime_local') and 'today_occurrence' (active routines/scheduled items for today).
-   - Interpret relative historical expressions ("yesterday afternoon", "last weekend", "before my doctor appointment") against the reference time and event timestamps. Stored resolved timestamps remain permanently anchored to their captured dates.
-   - For prerequisites: dependent user actions belong to the user once the condition clears; timing on the prerequisite belongs to the condition, not the user's task.
-   - CALENDAR ALL-DAY EVENTS ('is_all_day': true): These are untimed civil calendar-date events belonging strictly to the specified calendar date(s). They are 'All Day' events with NO specific start/end clock time. Never invent or display pseudo-times (such as 10:00 am, 9:59 am, or 12:00 am). Describe them naturally as taking place on that day (e.g. "On Friday, 4 September, it's Doug's birthday").
-
-6. STRICT CITATION & GROUNDING:
-   - Ground answers strictly in provided data with zero hallucinations.
-   - Return all supporting memory IDs in "memory_ids" and calendar event IDs in "calendar_event_ids". If a calculation uses multiple memories, include all of them.
-   - Keep answers natural, concise (1-3 sentences), and formatted for the user's locale.`;
-
-    const promptContent = `Current Reference Time: ${localContext.localDateTimeStr} (${localContext.timeZone})
-
-User Question: "${trimmedQuestion}"
-
-User's Stored Intention Memories:
-${JSON.stringify(memoryContext, null, 2)}
-
-User's Imported Calendar Events:
-${JSON.stringify(calendarContext, null, 2)}
-
-Please answer the user's question accurately and concisely based strictly on the stored memories and imported calendar events above according to your system instructions, and output valid JSON matching the schema with all supporting memory_ids.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
-      contents: promptContent,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: askResponseSchema,
-        temperature: 0.2,
-      },
-    });
-
-    let answer = "I couldn't find anything relevant in your saved memories or calendar.";
-    let memory_ids: string[] = [];
-    let calendar_event_ids: string[] = [];
-    let is_out_of_scope = false;
-
-    const rawResponseText = response.text || '{}';
-    console.log(`[API ASK] Raw LLM response: ${rawResponseText}`);
-
-    try {
-      const parsed = JSON.parse(rawResponseText);
-      if (parsed.answer && typeof parsed.answer === 'string') {
-        answer = parsed.answer.trim();
-      }
-      if (parsed.is_out_of_scope === true) {
-        is_out_of_scope = true;
-      }
-
-      const validMemoryMap = new Map(candidateMemories.map(m => [m.id, m]));
-      const validEventMap = new Map(calendarEvents.map(e => [e.id, e]));
-
-      if (Array.isArray(parsed.memory_ids)) {
-        for (const rawId of parsed.memory_ids) {
-          const strId = String(rawId).trim();
-          if (validMemoryMap.has(strId)) {
-            if (!memory_ids.includes(strId)) memory_ids.push(strId);
-          } else {
-            // Handle numeric index or partial ID returned by model
-            const numIndex = parseInt(strId.replace(/\D/g, ''), 10);
-            if (!isNaN(numIndex) && candidateMemories[numIndex]) {
-              const matchedId = candidateMemories[numIndex].id;
-              if (!memory_ids.includes(matchedId)) memory_ids.push(matchedId);
-            }
-          }
-        }
-      }
-
-      if (Array.isArray(parsed.calendar_event_ids)) {
-        for (const rawId of parsed.calendar_event_ids) {
-          const strId = String(rawId).trim();
-          if (validEventMap.has(strId)) {
-            if (!calendar_event_ids.includes(strId)) calendar_event_ids.push(strId);
-          }
-        }
-      }
-    } catch (parseErr) {
-      console.warn('[Ask Ezzymigo] JSON parse error on response, fallback:', parseErr);
-      answer = response.text?.trim() || answer;
-    }
-
-    console.log(`[API ASK] Final result - Answer: "${answer}", is_out_of_scope: ${is_out_of_scope}, Supporting memory_ids: ${JSON.stringify(memory_ids)}, calendar_event_ids: ${JSON.stringify(calendar_event_ids)}`);
-    return res.json({ answer, memory_ids, calendar_event_ids, is_out_of_scope });
+    console.log(`[API ASK] Final New Ezzy result - Answer: "${answer}", Supporting memory_ids: ${JSON.stringify(memory_ids)}, calendar_event_ids: ${JSON.stringify(calendar_event_ids)}`);
+    return res.json({ answer, memory_ids, calendar_event_ids, is_out_of_scope: false });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error answering question with Ezzymigo:', error);
@@ -2156,64 +1802,13 @@ Please answer the user's question accurately and concisely based strictly on the
   }
 });
 
-// GET /api/today-relevance - Diagnostic endpoint (query params)
-app.get('/api/today-relevance', async (req, res) => {
-  const ezzyId = extractEzzyId(req);
-  const userId = extractUserId(req);
-  try {
-    await assertEzzyAccess(ezzyId, userId, 'read');
-
-    const { clientNow, clientTimeZone, clientLanguage, clientRegion, dismissed } = req.query;
-    const dismissedList = typeof dismissed === 'string' ? dismissed.split(',').filter(Boolean) : [];
-    const result = await computeTodayRelevance(
-      typeof clientNow === 'string' ? clientNow : undefined,
-      typeof clientTimeZone === 'string' ? clientTimeZone : undefined,
-      typeof clientLanguage === 'string' ? clientLanguage : undefined,
-      typeof clientRegion === 'string' ? clientRegion : undefined,
-      dismissedList,
-      ezzyId,
-      userId
-    );
-    return res.json(result);
-  } catch (error: any) {
-    if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error computing today relevance:', error);
-    return res.status(500).json({ error: 'Failed to compute today relevance' });
-  }
-});
-
-// POST /api/today-relevance - Diagnostic endpoint (JSON body)
-app.post('/api/today-relevance', async (req, res) => {
-  const ezzyId = extractEzzyId(req);
-  const userId = extractUserId(req);
-  try {
-    await assertEzzyAccess(ezzyId, userId, 'read');
-
-    const { clientNow, clientTimeZone, clientLanguage, clientRegion, dismissedReflectionIds } = req.body || {};
-    const result = await computeTodayRelevance(
-      typeof clientNow === 'string' ? clientNow : undefined,
-      typeof clientTimeZone === 'string' ? clientTimeZone : undefined,
-      typeof clientLanguage === 'string' ? clientLanguage : undefined,
-      typeof clientRegion === 'string' ? clientRegion : undefined,
-      Array.isArray(dismissedReflectionIds) ? dismissedReflectionIds : [],
-      ezzyId,
-      userId
-    );
-    return res.json(result);
-  } catch (error: any) {
-    if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error computing today relevance:', error);
-    return res.status(500).json({ error: 'Failed to compute today relevance' });
-  }
-});
-
 // -------------------------------------------------------------
-// NEW EZZY SHADOW REASONING MODE ENDPOINTS
-// Isolated non-authoritative shadow evaluation
+// NEW EZZY TODAY & ATTENTION API ENDPOINTS
+// Unified Reasoning Loop - Canonical Today Orientation & Review
 // -------------------------------------------------------------
 
-// GET /api/shadow/today - Immediate read of latest cached shadow evaluation
-app.get('/api/shadow/today', async (req, res) => {
+// GET /api/today - Canonical New Ezzy Today Evaluation & Attention Review
+app.get('/api/today', async (req, res) => {
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
@@ -2231,7 +1826,7 @@ app.get('/api/shadow/today', async (req, res) => {
         trigger: state.todayEvaluation ? 'cache_refresh' : 'initial_load',
         clientNow: typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined,
         clientTimeZone: typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined,
-      }).catch((err) => console.warn('[Shadow Background Evaluation Error]:', err));
+      }).catch((err) => console.warn('[Today Background Evaluation Error]:', err));
     }
 
     return res.json({
@@ -2245,13 +1840,50 @@ app.get('/api/shadow/today', async (req, res) => {
     });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error fetching latest shadow evaluation:', error);
-    return res.status(500).json({ error: 'Failed to fetch latest shadow evaluation' });
+    console.error('Error fetching latest today evaluation:', error);
+    return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
   }
 });
 
-// POST /api/shadow/interactions - Record authoritative user interaction with communication provenance
-app.post('/api/shadow/interactions', async (req, res) => {
+// GET /api/shadow/today - Compatibility alias for GET /api/today
+app.get('/api/shadow/today', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const state = await getShadowDisplayState(ezzyId);
+
+    const now = Date.now();
+    const evalAge = state.todayEvaluation ? now - new Date(state.todayEvaluation.timestamp).getTime() : Infinity;
+    if (!state.todayEvaluation || evalAge > 10 * 60 * 1000) {
+      evaluateShadowOpportunity({
+        ezzyId,
+        opportunity: 'TODAY_ORIENT',
+        trigger: state.todayEvaluation ? 'cache_refresh' : 'initial_load',
+        clientNow: typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined,
+        clientTimeZone: typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined,
+      }).catch((err) => console.warn('[Today Background Evaluation Error]:', err));
+    }
+
+    return res.json({
+      evaluation: state.todayEvaluation,
+      todayEvaluation: state.todayEvaluation,
+      checkInEvaluation: state.checkInEvaluation,
+      recentEvaluations: state.recentEvaluations,
+      attentionReview: state.attentionReview,
+      attentionChannel: state.attentionReview?.active_channel || [],
+      isEvaluating: false,
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error fetching latest today evaluation:', error);
+    return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
+  }
+});
+
+// POST /api/interactions (and legacy /api/shadow/interactions) - Record authoritative user interaction with communication provenance
+const handleRecordInteraction = async (req: express.Request, res: express.Response) => {
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
@@ -2285,13 +1917,15 @@ app.post('/api/shadow/interactions', async (req, res) => {
     return res.status(201).json({ success: true, interactionId });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error recording shadow interaction:', error);
+    console.error('Error recording interaction:', error);
     return res.status(500).json({ error: 'Failed to record interaction' });
   }
-});
+};
+app.post('/api/interactions', handleRecordInteraction);
+app.post('/api/shadow/interactions', handleRecordInteraction);
 
-// POST /api/shadow/review - Explicitly trigger executive Attention Review
-app.post('/api/shadow/review', async (req, res) => {
+// POST /api/review (and legacy /api/shadow/review) - Explicitly trigger executive Attention Review
+const handleAttentionReview = async (req: express.Request, res: express.Response) => {
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
@@ -2311,10 +1945,12 @@ app.post('/api/shadow/review', async (req, res) => {
     console.error('Error running attention review:', error);
     return res.status(500).json({ error: 'Failed to run attention review' });
   }
-});
+};
+app.post('/api/review', handleAttentionReview);
+app.post('/api/shadow/review', handleAttentionReview);
 
-// POST /api/shadow/evaluate - Explicit or triggered evaluation
-app.post('/api/shadow/evaluate', async (req, res) => {
+// POST /api/evaluate (and legacy /api/shadow/evaluate) - Explicit or triggered evaluation
+const handleEvaluateOpportunity = async (req: express.Request, res: express.Response) => {
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
@@ -2346,38 +1982,12 @@ app.post('/api/shadow/evaluate', async (req, res) => {
     return res.json({ evaluation });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error executing shadow evaluation:', error);
-    return res.status(500).json({ error: 'Failed to execute shadow evaluation' });
+    console.error('Error executing evaluation:', error);
+    return res.status(500).json({ error: 'Failed to execute evaluation' });
   }
-});
-
-// POST /api/shadow/feedback - Record Paul's evaluation verdict & comment
-app.post('/api/shadow/feedback', async (req, res) => {
-  const ezzyId = extractEzzyId(req);
-  const userId = extractUserId(req);
-  try {
-    await assertEzzyAccess(ezzyId, userId, 'read');
-
-    const { evaluationId, verdict, comment } = req.body || {};
-    if (!evaluationId || !verdict) {
-      return res.status(400).json({ error: 'evaluationId and verdict are required' });
-    }
-
-    const validVerdicts = ['OLD_BETTER', 'NEW_BETTER', 'BOTH_OK', 'NEITHER', 'USEFUL', 'NOT_USEFUL'];
-    if (!validVerdicts.includes(verdict)) {
-      return res.status(400).json({
-        error: `Invalid verdict. Must be one of: ${validVerdicts.join(', ')}`,
-      });
-    }
-
-    const saved = await recordShadowFeedback(evaluationId, verdict, comment, ezzyId);
-    return res.json({ success: saved });
-  } catch (error: any) {
-    if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error saving shadow feedback:', error);
-    return res.status(500).json({ error: 'Failed to save shadow feedback' });
-  }
-});
+};
+app.post('/api/evaluate', handleEvaluateOpportunity);
+app.post('/api/shadow/evaluate', handleEvaluateOpportunity);
 
 // -------------------------------------------------------------
 // Ezzy Instance & Entitlement Boundaries API Endpoints

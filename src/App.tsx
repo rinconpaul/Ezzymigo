@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Header } from './components/Header';
-import { TodayTicker } from './components/TodayTicker';
-import { NewEzzyShadowCard } from './components/NewEzzyShadowCard';
+import { TodayCard } from './components/TodayCard';
 import { ThoughtInput } from './components/ThoughtInput';
 import { MemoryCard } from './components/MemoryCard';
 import { ListCard } from './components/ListCard';
@@ -771,23 +770,9 @@ export default function App() {
           </div>
         )}
 
-        {/* TODAY TICKER - Quiet passive resurfacing of today-relevant items */}
+        {/* CANONICAL TODAY TICKER - New Ezzy Unified Attention & Today Orientation */}
         <div id="today-engines-container" className="space-y-2">
-          <TodayTicker
-            memories={memories}
-            onToggleDone={handleToggleDone}
-            onDelete={handleDelete}
-            onEdit={handleEditMemory}
-            onSaveThought={handleSaveThought}
-            ephemeralCandidate={ephemeralCandidate}
-            onDismissEphemeral={() => {
-              ephemeralCallBridge.dismissCandidate();
-              setEphemeralCandidate(null);
-            }}
-          />
-
-          {/* NEW EZZY 🧪 - Compact Shadow Ticker & Detail Interaction */}
-          <NewEzzyShadowCard onSaveThought={handleSaveThought} />
+          <TodayCard onSaveThought={handleSaveThought} />
         </div>
 
         {/* PRIMARY INTERFACE: COMPACT TELL & ASK EZZYMIGO ENGINE */}

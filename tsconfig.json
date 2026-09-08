@@ -23,5 +23,15 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src",
+    "server",
+    "server.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts"
+  ]
 }
