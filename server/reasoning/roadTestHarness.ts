@@ -106,7 +106,11 @@ CORE BEHAVIOURAL PRINCIPLES:
 6. RESPECT TENSE & ASPECT: Never turn completed past actions or reports into future obligations (e.g. NEVER say "You were going to speak with X" if the note says they already spoke).
 7. DO NOT REPEAT COMPLETED MATTERS: If an event or occasion (like Father's Day) was already discussed in recent interactions, it is resolved. Do not bring it up again.
 8. DISTINGUISH INTENTIONS FROM FACTS: In inbound capture, distinguish passive observations/comments from future intentions. If a user comments on a past TV show, do not create a reminder or appointment to watch it.
-9. FOR "ASK_QUERY" ONLY: Directly and helpfully answer the user's question from context. The silence bias applies to unsolicited prompts (TODAY_ORIENT, PRE_EVENT, POST_EVENT), NOT to direct questions asked by the user.
+9. FOR "ASK_QUERY" ONLY:
+   - When the user asks a question and relevant personal information exists in your snapshot, directly and substantively answer their question in "communication.body" (1–3 sentences or a clear list of items as appropriate).
+   - "communication.headline" is ONLY an optional brief topic label (or null). A headline or topic label alone (e.g. "Shopping list", "Doug's trip", "Mum's dentist update", "Current plumber", "Gutters") MUST NEVER substitute for the substantive answer. The substantive answer MUST be in "communication.body".
+   - If no relevant personal records exist in your snapshot: set mode to "SPEAK" and state conversationally in "communication.body" that you have no record of that in their saved memories or calendar.
+   - The silence bias applies to unsolicited prompts (TODAY_ORIENT, PRE_EVENT, POST_EVENT), NOT to direct user questions.
 10. STRICT GROUNDING: Any memory or calendar event you mention or rely on must be explicitly cited in "citedMemoryIds" or "citedCalendarIds". Cite ONLY IDs that exist in the snapshot.
 
 OUTPUT FORMAT:
@@ -178,12 +182,22 @@ Conform strictly to the JSON schema.`;
     throw new Error(`Failed to parse JSON response from Gemini 3.8 Flash: ${err.message}\nRaw: ${response.text}`);
   }
 
+  let cleanHeadline = parsed.communication?.headline?.trim() || null;
+  let cleanBody = parsed.communication?.body?.trim() || null;
+  const cleanMode = parsed.communication?.mode || 'SILENT';
+
+  if (invocation.opportunity === 'ASK_QUERY' && cleanMode === 'SPEAK') {
+    if (!cleanBody && cleanHeadline) {
+      cleanBody = cleanHeadline;
+    }
+  }
+
   const decision: ReasoningDecision = {
     communication: {
-      mode: parsed.communication?.mode || 'SILENT',
-      headline: parsed.communication?.headline || null,
-      body: parsed.communication?.body || null,
-      closingQuestion: parsed.communication?.closingQuestion || null,
+      mode: cleanMode,
+      headline: cleanHeadline,
+      body: cleanBody,
+      closingQuestion: parsed.communication?.closingQuestion?.trim() || null,
     },
     proposedMutations: {
       memoriesToPersist: Array.isArray(parsed.proposedMutations?.memoriesToPersist)

@@ -167,8 +167,11 @@ export async function assembleEzzyWorldSnapshot(
   });
 
   for (const m of sortedMemories) {
-    const isDone = Boolean(m.isDone || m.interpretation?.status === 'completed');
-    const isDismissed = m.interpretation?.status === 'dismissed';
+    const memStatus = m.status || m.interpretation?.status || 'active';
+    if (memStatus === 'superseded') continue;
+
+    const isDone = Boolean(m.isDone || memStatus === 'completed');
+    const isDismissed = memStatus === 'dismissed';
     if (isDismissed) continue;
 
     const item: SnapshotMemoryItem = {
@@ -176,7 +179,7 @@ export async function assembleEzzyWorldSnapshot(
       originalText: m.originalText || '',
       content: m.interpretation?.content || m.content || m.originalText || '',
       kind: m.interpretation?.kind || m.kind || 'note',
-      status: m.interpretation?.status || m.status || 'active',
+      status: memStatus,
       isDone,
       createdAt: m.createdAt || '',
       people: m.interpretation?.people || m.people || [],

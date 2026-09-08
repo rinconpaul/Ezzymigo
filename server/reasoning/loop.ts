@@ -35,7 +35,11 @@ CORE PRINCIPLES:
 8. RESPECT TENSE & COMPLETED MATTERS:
    - Never turn completed past actions or reports into future obligations.
    - If an event, topic, or occasion was already discussed in recent interactions or marked done, it is resolved. Do not repeat completed matters.
-9. FOR "ASK_QUERY" ONLY: Directly and helpfully answer the user's question from context. The silence bias applies to unsolicited prompts (TODAY_ORIENT, PRE_EVENT, POST_EVENT), NOT to direct questions asked by the user.
+9. FOR "ASK_QUERY" ONLY:
+   - When the user asks a question and relevant personal information exists in your snapshot, directly and substantively answer their question in "communication.body" (1–3 sentences or a clear list of items as appropriate).
+   - "communication.headline" is ONLY an optional brief topic label (or null). A headline or topic label alone (e.g. "Shopping list", "Doug's trip", "Mum's dentist update", "Current plumber", "Gutters") MUST NEVER substitute for the substantive answer. The substantive answer MUST be in "communication.body".
+   - If no relevant personal records exist in your snapshot: set mode to "SPEAK" and state conversationally in "communication.body" that you have no record of that in their saved memories or calendar.
+   - The silence bias applies to unsolicited prompts (TODAY_ORIENT, PRE_EVENT, POST_EVENT), NOT to direct user questions.
 10. STRICT GROUNDING: Any memory or calendar event you mention or rely on must be explicitly cited in "citedMemoryIds" or "citedCalendarIds". Cite ONLY IDs that exist in the snapshot.`;
 
 const REASONING_SCHEMA: Schema = {
@@ -52,12 +56,13 @@ const REASONING_SCHEMA: Schema = {
         headline: {
           type: Type.STRING,
           nullable: true,
-          description: 'Brief, clean summary headline (null if mode is SILENT)',
+          description: 'Brief, clean summary headline or topic label (optional; null if mode is SILENT)',
         },
         body: {
           type: Type.STRING,
           nullable: true,
-          description: 'Helpful contextual explanation or detail (null if mode is SILENT)',
+          description:
+            'Substantive message or explanation. For ASK_QUERY, this MUST contain the complete, direct answer to the user question (cannot be null when mode is SPEAK).',
         },
         question: {
           type: Type.STRING,
@@ -65,7 +70,7 @@ const REASONING_SCHEMA: Schema = {
           description: 'Optional follow-up or check-in question (null if none or mode is SILENT)',
         },
       },
-      required: ['mode'],
+      required: ['mode', 'body'],
     },
     proposedMutations: {
       type: Type.ARRAY,
@@ -134,7 +139,24 @@ export async function executeNewEzzyReasoningLoop(
 
   const modelName = 'gemini-3.8-flash';
 
-  const userPrompt = `CURRENT OPPORTUNITY: ${opportunity}
+  const userPrompt =
+    opportunity === 'ASK_QUERY'
+      ? `CURRENT OPPORTUNITY: ASK_QUERY
+USER QUESTION: "${options.input || snapshot.trigger}"
+CIVIL TIME: ${snapshot.civilTime.dayOfWeek}, ${snapshot.civilTime.dateYMD} at ${snapshot.civilTime.timeStr} (${snapshot.civilTime.timeZone})
+
+INSTRUCTIONS FOR ASK_QUERY:
+You are directly answering the user's explicit question.
+1. In communication.mode, output "SPEAK".
+2. In communication.body, output the complete, direct, substantive answer from the facts in EZZY WORLD SNAPSHOT (1–3 sentences or a clear list of items as appropriate).
+3. In communication.headline, output an optional short topic label or null. A topic label alone MUST NEVER substitute for the substantive answer.
+
+EZZY WORLD SNAPSHOT:
+${JSON.stringify(snapshot, null, 2)}
+
+Directly and helpfully answer the user's question in communication.body using the facts from the snapshot.
+Conform strictly to the JSON schema.`
+      : `CURRENT OPPORTUNITY: ${opportunity}
 TRIGGER: ${options.trigger || snapshot.trigger || 'system_evaluation'}
 CIVIL TIME: ${snapshot.civilTime.dayOfWeek}, ${snapshot.civilTime.dateYMD} at ${snapshot.civilTime.timeStr} (${snapshot.civilTime.timeZone})
 ${options.targetEventId ? `TARGET EVENT ID: ${options.targetEventId}\n` : ''}${options.input ? `CURRENT USER INPUT: "${options.input}"\n` : ''}
@@ -179,12 +201,26 @@ Conform strictly to the JSON schema.`;
   const mode = (parsed.communication?.mode || 'SILENT').toUpperCase();
   const validMode = mode === 'SPEAK' || mode === 'PROMPT' ? mode : 'SILENT';
 
+  let cleanHeadline = validMode === 'SILENT' ? null : parsed.communication?.headline?.trim() || null;
+  let cleanBody = validMode === 'SILENT' ? null : parsed.communication?.body?.trim() || null;
+  const cleanQuestion = validMode === 'SILENT' ? null : parsed.communication?.question?.trim() || null;
+
+  // Surgical Invariant for ASK_QUERY:
+  // A headline alone must never substitute for a substantive answer in body.
+  // If the model produced a headline but left body null/blank on ASK_QUERY (e.g. "Doug is going to Sydney"),
+  // promote the text to body so that the consumer receives the substantive answer.
+  if (opportunity === 'ASK_QUERY' && validMode === 'SPEAK') {
+    if (!cleanBody && cleanHeadline) {
+      cleanBody = cleanHeadline;
+    }
+  }
+
   const decision: ReasoningDecision = {
     communication: {
       mode: validMode,
-      headline: validMode === 'SILENT' ? null : parsed.communication?.headline || null,
-      body: validMode === 'SILENT' ? null : parsed.communication?.body || null,
-      question: validMode === 'SILENT' ? null : parsed.communication?.question || null,
+      headline: cleanHeadline,
+      body: cleanBody,
+      question: cleanQuestion,
     },
     proposedMutations: Array.isArray(parsed.proposedMutations)
       ? parsed.proposedMutations

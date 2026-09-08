@@ -555,7 +555,8 @@ app.post('/api/memories', async (req, res) => {
       ai,
       linkedEventId,
       effectiveSubject,
-      effectiveContextEnvelope
+      effectiveContextEnvelope,
+      ezzyId
     );
 
 

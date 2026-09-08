@@ -5,6 +5,7 @@ import { getYMDInTz, parseTimeStringToHM, parseReminderTriggerTime } from '../ut
 import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
 import { classifyAnticipatoryMode } from '../anticipatory/classifier';
 import { ConversationalContextEnvelope } from '../types';
+import { getRecentActiveMemoriesForCorrection } from '../db/memories';
 
 // Extracts structured item entries from collection text if needed
 export function extractItemsFromText(content: string, originalText: string): string[] {
@@ -296,8 +297,29 @@ export function fallbackInterpretation(
       resolved_datetime: resDatetime,
       reminder_datetime: remDatetime,
     }, text),
+    superseded_memory_id: null,
     anticipatory_opted_in: false,
   };
+}
+
+/**
+ * Deterministic correction-cue gate on raw user utterances.
+ * Detects explicit conversational markers indicating an update or correction to a prior proposition.
+ */
+export function detectCorrectionCue(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim();
+  if (!t) return false;
+
+  // Leading correction prefixes
+  const leadingPrefixes = /^(?:no[,.!\s]|actually[,.!\s]|correction[:,\s]|scratch\s+that[,.!\s]|i\s+was\s+wrong[,.!\s]|we\s+were\s+wrong[,.!\s]|my\s+mistake[,.!\s]|mistake[,.!\s]|make\s+that\s+|instead\s+of\s+|wait[,.!\s])/i;
+  if (leadingPrefixes.test(t)) return true;
+
+  // Verbal/phrase cues anywhere in text
+  const verbalCues = /\b(?:corrected\s+me|corrected\s+by|turns\s+out\b|rather\s+than\b|not\s+([a-zA-Z0-9]+)[,.\s]+(?:it's|she's|he's|they're|it\s+is|she\s+is|he\s+is|they\s+are)\b)/i;
+  if (verbalCues.test(t)) return true;
+
+  return false;
 }
 
 // Interprets a single split memory unit using the production classification and extraction pipeline
@@ -307,7 +329,8 @@ export async function interpretSingleMemoryUnit(
   rawLocalContext?: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date } | null,
   ai?: GoogleGenAI | null,
   subject?: string | null,
-  contextEnvelope?: ConversationalContextEnvelope | null
+  contextEnvelope?: ConversationalContextEnvelope | null,
+  candidateActiveMemories?: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | null
 ): Promise<any> {
   const localContext = rawLocalContext || {
     localDateTimeStr: new Date().toISOString(),
@@ -356,6 +379,14 @@ export async function interpretSingleMemoryUnit(
         if (convLines.length > 0) {
           contentsText += `\n\nConversational Context & Personal World Grounding (Use for reference/pronoun resolution and entity grounding):\n${convLines.join('\n')}`;
         }
+      }
+
+      if (candidateActiveMemories && candidateActiveMemories.length > 0) {
+        const memLines = candidateActiveMemories.map(m => {
+          const peopleStr = m.people && m.people.length ? ` (People: ${m.people.join(', ')})` : '';
+          return `- [ID: ${m.id}] "${m.content}"${peopleStr}`;
+        });
+        contentsText += `\n\nRecent Active Candidate Memories (for reference grounding & explicit correction/supersession):\n${memLines.join('\n')}`;
       }
 
       contentsText += `\n\nAnalyze and interpret this memory unit:\n"${unitText}"`;
@@ -480,7 +511,23 @@ D. AMBIGUITY HANDLING:
   -> content: "Barb chose the blue one."
   -> people: ["Barb"]
   -> kind: "fact"
-  -> Do NOT guess or invent what the blue object was!`,
+  -> Do NOT guess or invent what the blue object was!
+
+13. REFERENCE GROUNDING & EXPLICIT FACTUAL CORRECTION / SUPERSESSION:
+When Recent Active Candidate Memories are provided:
+A. REFERENCE RESOLUTION & ELLIPTICAL GROUNDING:
+- Use candidate memories to resolve pronouns (e.g. "she", "he", "they", "it") and elliptical corrections (e.g. "No, Doug corrected me. She's turning 13" -> "she" refers to Sophie from the candidate memory; "No, make that Friday" -> refers to Bill's visit from the candidate memory).
+- Write "content" as a complete, self-contained proposition (e.g. "Sophie is turning 13 years old"; "Bill is coming on Friday, 11 September 2026").
+- Extract the resolved person/entity into "people" (e.g. "Sophie" must be in "people" for "She's turning 13", and "Bill" must be in "people" for "No, make that Friday").
+
+B. EXPLICIT FACTUAL CORRECTION & SUPERSESSION:
+- If and ONLY IF the user's statement clearly and explicitly corrects or updates a specific active prior memory regarding the SAME proposition/entity/slot (e.g. Sophie's age/birthday, the spare key's location, Bill's arrival date), set "superseded_memory_id" to that exact memory's ID.
+- STRICT NEGATIVE CONSTRAINTS (MUST return superseded_memory_id: null):
+  * Additional or compatible facts (e.g. "Sophie likes art" followed by "Sophie likes tennis too"): Both facts are compatible. Do NOT supersede; return null.
+  * Uncertainty or speculative statements (e.g. "Maybe she's actually 13", "It might be 12 or 13"): The user is expressing uncertainty or speculation, NOT asserting a confirmed correction. Do NOT supersede the confirmed fact; return null.
+  * Historical truth or past states (e.g. "The spare key used to be in the drawer" followed by "It's in the safe now"): The earlier statement describes historical truth, not an erroneous current proposition. Do NOT supersede; return null.
+  * Different contexts, different events, or unrelated people: Do NOT supersede; return null.
+  * If there is ANY uncertainty about whether the user intended to supersede a specific memory, return null. False supersession is worse than retaining a contradiction.`,
           responseMimeType: 'application/json',
           responseSchema: memoriesResponseSchema,
         },
@@ -829,6 +876,7 @@ function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
       original_time_expression: cleanOriginalTime,
       contexts,
     }, unitText),
+    superseded_memory_id: typeof item.superseded_memory_id === 'string' && item.superseded_memory_id.trim() ? item.superseded_memory_id.trim() : null,
     anticipatory_opted_in: false,
   };
 }
@@ -975,13 +1023,33 @@ export async function processThoughtCapturePipeline(
   ai: any,
   linkedEventId?: string | null,
   subject?: string | null,
-  contextEnvelope?: ConversationalContextEnvelope | null
+  contextEnvelope?: ConversationalContextEnvelope | null,
+  candidateActiveMemoriesOrEzzyId?: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | string | null
 ): Promise<{ splitUnits: string[]; memories: any[] }> {
+  // Determine candidate active memories if correction cue is detected
+  let candidateActiveMemories: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | null = null;
+  if (Array.isArray(candidateActiveMemoriesOrEzzyId)) {
+    candidateActiveMemories = candidateActiveMemoriesOrEzzyId;
+  } else if (typeof candidateActiveMemoriesOrEzzyId === 'string' && candidateActiveMemoriesOrEzzyId.trim()) {
+    if (detectCorrectionCue(trimmedText)) {
+      try {
+        candidateActiveMemories = await getRecentActiveMemoriesForCorrection(candidateActiveMemoriesOrEzzyId.trim(), 6);
+      } catch (cErr) {
+        console.warn('[Correction Cue] Error fetching candidate active memories:', cErr);
+      }
+    }
+  }
+
   // STAGE 1: Dedicated Splitter Stage
   // If contextEnvelope is provided and user utterance is a concise conversational reply,
-  // do not inappropriately fragment the conversational response across clause boundaries.
+  // or if a correction cue is detected, do not inappropriately fragment across clause boundaries.
   let splitUnits: string[];
-  if (contextEnvelope && (contextEnvelope.originatingQuestion || contextEnvelope.promptHeadline) && trimmedText.length < 120 && !trimmedText.includes(';')) {
+  const isCorrection = detectCorrectionCue(trimmedText);
+  if (
+    ((contextEnvelope && (contextEnvelope.originatingQuestion || contextEnvelope.promptHeadline)) || isCorrection) &&
+    trimmedText.length < 150 &&
+    !trimmedText.includes(';')
+  ) {
     splitUnits = [trimmedText];
   } else {
     splitUnits = await splitCaptureIntoUnits(trimmedText, ai, localContext);
@@ -998,7 +1066,7 @@ export async function processThoughtCapturePipeline(
   const now = new Date().toISOString();
 
   const interpretationPromises = splitUnits.map((unitText) =>
-    interpretSingleMemoryUnit(unitText, unitText, localContext, ai, subject, contextEnvelope)
+    interpretSingleMemoryUnit(unitText, unitText, localContext, ai, subject, contextEnvelope, candidateActiveMemories)
   );
 
   const interpretations = await Promise.all(interpretationPromises);
@@ -1066,7 +1134,10 @@ export async function processThoughtCapturePipeline(
       originalText: unitText, // Unit-specific original text matching user's wording for this unit
       createdAt: now,
       isDone: false,
-      interpretation,
+      interpretation: {
+        ...interpretation,
+        superseded_memory_id: interpretation.superseded_memory_id || null,
+      },
       is_reflection_response: effectiveLinkedEventId ? true : undefined,
     };
   });

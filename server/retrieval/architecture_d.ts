@@ -235,8 +235,8 @@ export async function executeArchitectureDRetrieval(options: {
         try {
           const ftsRes = await executeBunnySql([
             {
-              sql: `SELECT f.memory_id FROM memories_fts f JOIN memory_search_projection msp ON f.memory_id = msp.memory_id WHERE memories_fts MATCH ? AND msp.ezzy_id = ? LIMIT 15;`,
-              args: [cleanFtsQuery, scopeEzzyId],
+              sql: `SELECT f.memory_id FROM memories_fts f JOIN memory_search_projection msp ON f.memory_id = msp.memory_id WHERE memories_fts MATCH ? AND msp.ezzy_id = ? AND msp.status = ? LIMIT 15;`,
+              args: [cleanFtsQuery, scopeEzzyId, targetStatus],
             },
           ]);
           ftsIds = (ftsRes[0]?.rows || []).map((r: any) => r.memory_id);

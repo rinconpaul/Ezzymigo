@@ -15,12 +15,16 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const loadStoredEvents = async () => {
+  const loadStoredEvents = async (retryCount = 0) => {
     setIsLoading(true);
     try {
       const list = await getStoredCalendarEvents();
       setEvents(list);
     } catch (err: any) {
+      if (retryCount < 3) {
+        setTimeout(() => loadStoredEvents(retryCount + 1), 1500 * (retryCount + 1));
+        return;
+      }
       console.error('Failed to read calendar events:', err);
     } finally {
       setIsLoading(false);

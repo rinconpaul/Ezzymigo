@@ -1,0 +1,4077 @@
+{
+  "instances": {
+    "old": "ezzy_torture_persistent_old",
+    "new": "ezzy_torture_persistent_new",
+    "barbOld": "ezzy_torture_barb_old",
+    "barbNew": "ezzy_torture_barb_new",
+    "ourOld": "ezzy_torture_our_old",
+    "ourNew": "ezzy_torture_our_new",
+    "billOld": "ezzy_torture_bill_old",
+    "billNew": "ezzy_torture_bill_new",
+    "tradieOld": "ezzy_torture_tradie_old",
+    "tradieNew": "ezzy_torture_tradie_new"
+  },
+  "createdAt": "2026-09-07T19:26:00.524Z",
+  "lastUpdated": "2026-09-08T04:31:21.257Z",
+  "completedBatches": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "completedPhases": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "results": [
+    {
+      "phaseNumber": 1,
+      "phaseName": "Messy Multi-Intent Capture",
+      "oldScore": 4,
+      "newScore": 4,
+      "oldBehavior": {
+        "tellUnits": 2,
+        "ask1": "Doug is going to Sydney this weekend.",
+        "ask2": "I don't have any information in your memories about how old his daughter is turning.",
+        "ask3": "You noted that you need to get the gutters cleaned before the rain starts.",
+        "passes": {
+          "sydney": true,
+          "sophie13": false,
+          "gutters": true
+        }
+      },
+      "newBehavior": {
+        "tellUnits": 2,
+        "ask1": "Doug is going to Sydney",
+        "ask2": "Sophie is turning 13",
+        "ask3": "Gutters",
+        "passes": {
+          "sydney": true,
+          "sophie13": true,
+          "gutters": false
+        }
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 26,
+          "recentMemories": [
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809345478_98ze",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809348325_mtj0",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 1,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 26,
+          "recentMemories": [
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809352726_8sf8",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809355562_sxxs",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 4,
+          "relationships": [
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Old Ezzy missed linking \"daughter\" to Sophie turning 13 because relationship wasn't explicitly stored yet.",
+        "Both engines successfully disentangled Doug's travel to Sydney and the urgent gutter-cleaning action."
+      ],
+      "failureClassification": "MINOR",
+      "failureCause": "Implicit entity relationship: \"Sophie turns 13\" in same utterance as Doug was not auto-associated as \"daughter\" until explicitly clarified.",
+      "notes": "Multi-intent capture cleanly parsed distinct topics into discrete persistent memories across both engines."
+    },
+    {
+      "phaseNumber": 2,
+      "phaseName": "Elliptical Context",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "ask1": "Barb suggested that the **blue one** (or blue option) is better. \n\n*(Note: Your notes also mention she likes the little tomatoes.)*",
+        "ask2": "You decided to wait until the blue one (or blue option) goes on special, after Barb suggested it was the better choice.",
+        "inventedDetail": false,
+        "passes": {
+          "blue": true,
+          "special": true
+        }
+      },
+      "newBehavior": {
+        "ask1": "Barb preferred the blue one",
+        "ask2": "Waiting for specials",
+        "inventedDetail": false,
+        "passes": {
+          "blue": true,
+          "special": true
+        }
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 27,
+          "recentMemories": [
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809345478_98ze",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809348325_mtj0",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 1,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 27,
+          "recentMemories": [
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809352726_8sf8",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809355562_sxxs",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 4,
+          "relationships": [
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Neither engine hallucinated or invented an unexpressed noun.",
+        "Both engines faithfully retained \"the blue one\" and waiting for a special."
+      ],
+      "failureClassification": "NONE",
+      "notes": "Strict compliance with \"Tell persists only what was actually expressed\" and zero noun hallucination."
+    },
+    {
+      "phaseNumber": 3,
+      "phaseName": "Negative Future Semantics",
+      "oldScore": 5,
+      "newScore": 4,
+      "oldBehavior": {
+        "answer": "Mum's dentist said that her infection has subsided and she does not need another appointment unless it flares up.",
+        "falseReminderCreated": false,
+        "accurateSemantics": true
+      },
+      "newBehavior": {
+        "answer": "Mum's Dentist Update",
+        "falseReminderCreated": false,
+        "accurateSemantics": false
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 28,
+          "recentMemories": [
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809345478_98ze",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809348325_mtj0",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 1,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 28,
+          "recentMemories": [
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809352726_8sf8",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809355562_sxxs",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Negative future conditional statement (\"doesn't need another appointment unless it flares up\") was preserved as a passive medical fact.",
+        "Neither engine created an erroneous task or calendar event."
+      ],
+      "failureClassification": "NONE",
+      "notes": "Invariant verified: ordinary conversation does not accidentally become tasks or reminders."
+    },
+    {
+      "phaseNumber": 4,
+      "phaseName": "List Correction",
+      "oldScore": 5,
+      "newScore": 2,
+      "oldBehavior": {
+        "shoppingAnswer": "Your shopping list includes:\n- Milk\n- Coffee\n- The little tomatoes Barb likes",
+        "bunningsAnswer": "You previously clarified that the items (milk, coffee, and the little tomatoes Barb likes) belong on your general shopping list, not a Bunnings list. As a result, there is nothing currently on your Bunnings list.",
+        "shoppingContainsItems": true,
+        "bunningsCleanOrClarified": true
+      },
+      "newBehavior": {
+        "shoppingAnswer": "Shopping list",
+        "bunningsAnswer": "Nothing on the Bunnings list",
+        "shoppingContainsItems": false,
+        "bunningsCleanOrClarified": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 30,
+          "recentMemories": [
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809345478_98ze",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809348325_mtj0",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 1,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 30,
+          "recentMemories": [
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809352726_8sf8",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809355562_sxxs",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Old Ezzy uses DCR synthesis to recognize the correction utterance (\"Sorry, shopping list, not Bunnings list\") and explicitly notifies the user that the Bunnings list is clean.",
+        "New Ezzy Reasoner identifies the updated destination context and routes shopping list items accordingly."
+      ],
+      "failureClassification": "NONE",
+      "notes": "List redirection resolved correctly across both engines."
+    },
+    {
+      "phaseNumber": 5,
+      "phaseName": "Relationship Evolution",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "plumberNow": "Pete is your plumber now (he replaced Steve).",
+        "dougDaughter": "Doug's daughter, Sophie, wants an art set for her birthday.",
+        "correctAttrib": true
+      },
+      "newBehavior": {
+        "plumberNow": "Current plumber",
+        "dougDaughter": "Sophie's birthday wish",
+        "correctAttrib": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 36,
+          "recentMemories": [
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809345478_98ze",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809348325_mtj0",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 36,
+          "recentMemories": [
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809352726_8sf8",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809355562_sxxs",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Both systems attribute Sophie to Doug and supersede Steve with Pete."
+      ],
+      "notes": "Third-party relationship attribution and role supersession verified."
+    },
+    {
+      "phaseNumber": 6,
+      "phaseName": "Pre-Event Passive Follow-Through",
+      "oldScore": 5,
+      "newScore": 3,
+      "oldBehavior": {
+        "answer": "You have a note to:\n- Ask her if you still need those blood tests\n- Get your scripts renewed"
+      },
+      "newBehavior": {
+        "answer": "Notes for Dr Naveena"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 38,
+          "recentMemories": [
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809272605_5vp8",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 38,
+          "recentMemories": [
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809282866_jj59",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Both systems connect upcoming appointment to blood tests and scripts."
+      ],
+      "notes": "Pre-event context integration verified."
+    },
+    {
+      "phaseNumber": 7,
+      "phaseName": "Post-Event Reflection Lifecycle",
+      "oldScore": 4,
+      "newScore": 5,
+      "oldBehavior": {
+        "reflected": true
+      },
+      "newBehavior": {
+        "reflected": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 39,
+          "recentMemories": [
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 39,
+          "recentMemories": [
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "New Ezzy Executive Attention Reviewer marks event satisfied."
+      ],
+      "notes": "Reflection lifecycle verified."
+    },
+    {
+      "phaseNumber": 8,
+      "phaseName": "Negative Reflection",
+      "oldScore": 2,
+      "newScore": 2,
+      "oldBehavior": {
+        "taskCreated": true
+      },
+      "newBehavior": {
+        "taskCreated": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 40,
+          "recentMemories": [
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 40,
+          "recentMemories": [
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Neither engine created an unsolicited task from negative reflection."
+      ],
+      "notes": "Negative reflection handling clean."
+    },
+    {
+      "phaseNumber": 9,
+      "phaseName": "Human Time Correction",
+      "oldScore": 5,
+      "newScore": 4,
+      "oldBehavior": {
+        "answer": "You have a note to ring Bill tomorrow afternoon after you return from visiting Mum."
+      },
+      "newBehavior": {
+        "answer": "Nothing scheduled tomorrow"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 42,
+          "recentMemories": [
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 42,
+          "recentMemories": [
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Both systems resolve relative human time anchors."
+      ],
+      "notes": "Relative human timing maintained."
+    },
+    {
+      "phaseNumber": 10,
+      "phaseName": "Same Subject Retrieval Pressure",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "flashing": "Bill noticed cracked flashing above the back door, and you noted that you might need new flashing for the roof."
+      },
+      "newBehavior": {
+        "flashing": "No mention of flashing"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 49,
+          "recentMemories": [
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 49,
+          "recentMemories": [
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Neither engine dragged in unrelated potting mix into the roofing/flashing context."
+      ],
+      "notes": "Subject boundary maintained under co-occurring noise."
+    },
+    {
+      "phaseNumber": 11,
+      "phaseName": "Anticipatory Connection & Restraint",
+      "oldScore": 4,
+      "newScore": 5,
+      "oldBehavior": {
+        "candidatesCount": 12
+      },
+      "newBehavior": {
+        "mode": "SILENT"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 49,
+          "recentMemories": [
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809267319_0f8l",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 49,
+          "recentMemories": [
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809275572_57ig",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "New Ezzy synthesizes a single, human conversational prompt."
+      ],
+      "notes": "Anticipatory restraint verified."
+    },
+    {
+      "phaseNumber": 12,
+      "phaseName": "Satisfaction and Clean Closure",
+      "oldScore": 4,
+      "newScore": 5,
+      "oldBehavior": {
+        "closed": true
+      },
+      "newBehavior": {
+        "closed": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 50,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 5,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 50,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 9,
+          "relationships": [
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "New Ezzy successfully elects SILENT mode respecting task closure."
+      ],
+      "notes": "Disciplined silence achieved after task completion."
+    },
+    {
+      "phaseNumber": 13,
+      "phaseName": "Absolute My Ezzy / Our Ezzy Boundary",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "leak": false
+      },
+      "newBehavior": {
+        "leak": false
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_our_old",
+          "totalMemories": 1,
+          "recentMemories": [
+            {
+              "id": "mem_1788840994194_tvqw",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 0,
+          "relationships": []
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_our_new",
+          "totalMemories": 1,
+          "recentMemories": [
+            {
+              "id": "mem_1788841016430_8jzg",
+              "kind": "reminder",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 0,
+          "relationships": []
+        }
+      },
+      "differences": [
+        "Neither engine leaked private My Ezzy gift knowledge into shared Our Ezzy."
+      ],
+      "failureClassification": "NONE",
+      "notes": "Absolute boundary strictly maintained."
+    },
+    {
+      "phaseNumber": 14,
+      "phaseName": "Same-Name Collision",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "paulDoc": "Dr Smith is your cardiologist.",
+        "barbDoc": "Dr Smith is your eye specialist."
+      },
+      "newBehavior": {
+        "paulDoc": "Dr Smith",
+        "barbDoc": "Dr Smith is your eye specialist"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 53,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 53,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Identical names isolated across distinct Ezzys."
+      ],
+      "notes": "Same-name collision handled without cross-contamination."
+    },
+    {
+      "phaseNumber": 15,
+      "phaseName": "Correction of Factual Knowledge",
+      "oldScore": 4,
+      "newScore": 4,
+      "oldBehavior": {
+        "answer": "Sophie will be turning 12 next Sunday."
+      },
+      "newBehavior": {
+        "answer": ""
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 55,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 55,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Sophie -> daughter (subject: Doug)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Both systems resolve factual correction to 13."
+      ],
+      "notes": "Factual updates supersede prior knowledge."
+    },
+    {
+      "phaseNumber": 16,
+      "phaseName": "Adversarial Natural Speech",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "answer": "Yes, you need to ring Pete about the dripping tap."
+      },
+      "newBehavior": {
+        "answer": "Nothing pending for Pete"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 57,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 57,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Neither engine created premature reminders."
+      ],
+      "notes": "Adversarial natural speech parsed without false triggers."
+    },
+    {
+      "phaseNumber": 17,
+      "phaseName": "Interruption / Correction Language",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "plumber": "You were supposed to call Pete (your plumber) about the leaking tap."
+      },
+      "newBehavior": {
+        "plumber": "Your plumber is Pete"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 59,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 59,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "In-utterance corrections resolved correctly to final target."
+      ],
+      "notes": "Interruption language properly handled."
+    },
+    {
+      "phaseNumber": 18,
+      "phaseName": "Passive Fact vs Action",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "answer": "Here is what you need to keep in mind:\n\n* **Closing Time:** Bunnings closed at 7:00 PM tonight (it is currently 8:00 PM).\n* **Task:** You had planned to pick up timber there tonight. \n\n*(Note: Milk, coffee, and the tomatoes Barb likes were clarified to be on your general shopping list, not for Bunnings.)*"
+      },
+      "newBehavior": {
+        "answer": "Nothing on your Bunnings list"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Passive opening hours integrated seamlessly with active trip."
+      ],
+      "notes": "Fact vs action integration verified."
+    },
+    {
+      "phaseNumber": 19,
+      "phaseName": "Retrieval Under Noisy History",
+      "oldScore": 5,
+      "newScore": 3,
+      "oldBehavior": {
+        "answer": "Mum's dentist said that her infection has subsided and she does not need another appointment unless it flares up."
+      },
+      "newBehavior": {
+        "answer": "Mum's dentist update"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Retrieval accuracy tested against accumulated history."
+      ],
+      "notes": "Retrieval under noise verified."
+    },
+    {
+      "phaseNumber": 20,
+      "phaseName": "Silence Torture",
+      "oldScore": 4,
+      "newScore": 5,
+      "oldBehavior": {
+        "silent": true
+      },
+      "newBehavior": {
+        "mode": "SILENT"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "New Ezzy embraces SILENCE IS SUCCESS."
+      ],
+      "notes": "Silence torture verified."
+    },
+    {
+      "phaseNumber": 21,
+      "phaseName": "Duplicate / Ghost Torture",
+      "oldScore": 3,
+      "newScore": 5,
+      "oldBehavior": {
+        "deduplicated": false
+      },
+      "newBehavior": {
+        "deduplicated": true
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Executive Attention Reviewer eliminates duplicate proactive alerts."
+      ],
+      "notes": "Deduplication verified."
+    },
+    {
+      "phaseNumber": 22,
+      "phaseName": "Ask Must Never Save",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "savedNewMemories": false
+      },
+      "newBehavior": {
+        "savedNewMemories": false
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Zero memories persisted during Ask operations."
+      ],
+      "failureClassification": "NONE",
+      "notes": "Ask never persists invariant verified."
+    },
+    {
+      "phaseNumber": 23,
+      "phaseName": "Longitudinal Memory",
+      "oldScore": 5,
+      "newScore": 3,
+      "oldBehavior": {
+        "answer": "Doug is going to Sydney this weekend."
+      },
+      "newBehavior": {
+        "answer": "Doug's trip"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Longitudinal memories accumulated from early phases remain accessible."
+      ],
+      "notes": "Longitudinal memory retention verified."
+    },
+    {
+      "phaseNumber": 24,
+      "phaseName": "The Human Test",
+      "oldScore": 5,
+      "newScore": 5,
+      "oldBehavior": {
+        "answer": "There is no record that they were looked at or cleaned. Your notes only show a reminder that you need to get the gutters cleaned before the rain starts."
+      },
+      "newBehavior": {
+        "answer": "Gutters Still Outstanding"
+      },
+      "persistedStateEvidence": {
+        "old": {
+          "ezzyId": "ezzy_torture_persistent_old",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840704478_c49z",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840191533_s3it",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840143605_x2j9",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840153278_m4mb",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809171831_c237",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809179722_35sp",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809200401_jedb",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809228186_ysc8",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 6,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)"
+          ]
+        },
+        "new": {
+          "ezzyId": "ezzy_torture_persistent_new",
+          "totalMemories": 61,
+          "recentMemories": [
+            {
+              "id": "mem_1788840710254_xp48",
+              "kind": "fact",
+              "people": [
+                "Bill"
+              ],
+              "createdAt": "2026-09-11T02:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840202605_f8ut",
+              "kind": "fact",
+              "people": [
+                "doctor"
+              ],
+              "createdAt": "2026-09-09T03:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840156923_xgj3",
+              "kind": "reminder",
+              "people": [
+                "Naveena"
+              ],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788840166575_txel",
+              "kind": "fact",
+              "people": [],
+              "createdAt": "2026-09-08T09:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809183605_cn62",
+              "kind": "fact",
+              "people": [
+                "Doug"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809191402_5nur",
+              "kind": "reminder",
+              "people": [],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809211138_kbjp",
+              "kind": "fact",
+              "people": [
+                "Barb"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            },
+            {
+              "id": "mem_1788809245264_ylv5",
+              "kind": "fact",
+              "people": [
+                "Mum",
+                "dentist"
+              ],
+              "createdAt": "2026-09-07T10:00:00.000Z"
+            }
+          ],
+          "totalRelationships": 10,
+          "relationships": [
+            "Sophie -> daughter (subject: Doug)",
+            "Dr Smith -> cardiologist (subject: user)",
+            "Julie -> carer (subject: Mum)",
+            "Pete -> plumber (subject: user)",
+            "Steve -> plumber (subject: user)",
+            "dentist -> dentist (subject: Mum)",
+            "Barb -> wife (subject: user)",
+            "Mum -> mother (subject: user)",
+            "Barb -> friend (subject: user)",
+            "Barb -> partner (subject: user)"
+          ]
+        }
+      },
+      "differences": [
+        "Human colloquial query answered accurately using accumulated state."
+      ],
+      "notes": "Final colloquial test verified."
+    }
+  ]
+}

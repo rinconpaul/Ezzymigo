@@ -112,9 +112,11 @@ export default function App() {
   });
 
   // Fetch memories from persistent backend storage on mount
-  const fetchMemories = async () => {
+  const fetchMemories = async (retryCount = 0) => {
     setIsFetching(true);
-    setError(null);
+    if (retryCount === 0) {
+      setError(null);
+    }
     try {
       const res = await fetch('/api/memories');
       if (!res.ok) {
@@ -122,7 +124,12 @@ export default function App() {
       }
       const data = await res.json();
       setMemories(deduplicateMemories(data.memories || []));
+      setError(null);
     } catch (err: any) {
+      if (retryCount < 3) {
+        setTimeout(() => fetchMemories(retryCount + 1), 1500 * (retryCount + 1));
+        return;
+      }
       console.error('Fetch error:', err);
       setError(err?.message || 'Could not connect to storage server.');
     } finally {

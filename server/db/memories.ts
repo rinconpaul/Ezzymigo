@@ -125,6 +125,45 @@ export function parseStoredResurfacing(rawTiming: string | null, rawMode: string
   };
 }
 
+// Fetch bounded recent active memories for explicit correction grounding within the exact same ezzy_id
+export async function getRecentActiveMemoriesForCorrection(ezzyId: string, limit: number = 6): Promise<Array<{
+  id: string;
+  content: string;
+  originalText?: string;
+  people?: string[];
+  places?: string[];
+  createdAt?: string;
+}>> {
+  await initBunnyDb();
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  const res = await executeBunnySql([{
+    sql: `SELECT id, content, originalText, people, places, createdAt 
+          FROM memories 
+          WHERE ezzy_id = ? AND status = 'active' AND isDone = 0 
+          ORDER BY createdAt DESC LIMIT ?;`,
+    args: [scopeEzzyId, limit]
+  }]);
+  if (!res[0]?.rows) return [];
+  return res[0].rows.map((r: any) => {
+    let people: string[] = [];
+    let places: string[] = [];
+    try {
+      people = typeof r.people === 'string' ? JSON.parse(r.people) : (r.people || []);
+    } catch {}
+    try {
+      places = typeof r.places === 'string' ? JSON.parse(r.places) : (r.places || []);
+    } catch {}
+    return {
+      id: r.id,
+      content: r.content || r.originalText || '',
+      originalText: r.originalText || '',
+      people,
+      places,
+      createdAt: r.createdAt
+    };
+  });
+}
+
 // Read memories from Bunny Database (durable source of truth)
 export async function readMemories(ezzyId?: string): Promise<any[]> {
   try {
@@ -416,6 +455,35 @@ export async function insertMemories(
       reminder_time_expression: item.interpretation.reminder_time_expression || null,
       reminder_datetime: item.interpretation.reminder_datetime || null,
     };
+
+    // Repair 2: Explicit Factual Correction & Supersession
+    const supersededId = item.interpretation?.superseded_memory_id;
+    if (supersededId && typeof supersededId === 'string' && supersededId.trim()) {
+      const targetId = supersededId.trim();
+      try {
+        // Verify target belongs to the exact same scopeEzzyId and is currently active
+        const checkRes = await executeBunnySql([{
+          sql: `SELECT id, status FROM memories WHERE id = ? AND ezzy_id = ?;`,
+          args: [targetId, scopeEzzyId]
+        }]);
+        const targetRow = checkRes[0]?.rows?.[0];
+        if (targetRow && targetRow.status === 'active') {
+          stmts.push({
+            sql: `UPDATE memories SET status = 'superseded' WHERE id = ? AND ezzy_id = ?;`,
+            args: [targetId, scopeEzzyId]
+          });
+          stmts.push({
+            sql: `UPDATE memory_search_projection SET status = 'superseded' WHERE memory_id = ? AND ezzy_id = ?;`,
+            args: [targetId, scopeEzzyId]
+          });
+          console.log(`[Supersession] Memory ${targetId} superseded by new memory in ezzy ${scopeEzzyId}`);
+        } else {
+          console.log(`[Supersession] Target memory ${targetId} not active or not in ezzy ${scopeEzzyId}; supersession skipped.`);
+        }
+      } catch (sErr) {
+        console.warn(`[Supersession] Error checking supersession target ${targetId}:`, sErr);
+      }
+    }
 
     stmts.push({
       sql: `INSERT INTO memories (id, originalText, createdAt, isDone, content, kind, status, people, places, topics, resurfacingMode, resurfacingTiming, ezzy_id)

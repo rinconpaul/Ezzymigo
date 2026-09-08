@@ -178,6 +178,11 @@ export const memoryItemSchema = {
       enum: ['NONE', 'POST_ONLY', 'PRE_AND_POST'],
       description: 'Anticipatory class: "NONE" for undated/perpetual reminders and tasks (e.g. "Sharpen the knives", "Trim the hedge") and general facts/notes; "POST_ONLY" for recurring routines (e.g. "Visit Mum every Monday, Wednesday and Friday 9–11am"); "PRE_AND_POST" for one-off dated appointments/events (e.g. doctor, dentist, birthday, dinner, meeting, appointment).',
     },
+    superseded_memory_id: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Exact ID of an active prior memory explicitly corrected or superseded by this statement (from the provided Recent Active Candidate Memories), or null if not an explicit correction.',
+    },
   },
   required: ['content', 'kind', 'intent', 'status', 'people', 'places', 'topics', 'contexts', 'retrieval_cues', 'resurfacing'],
 };
