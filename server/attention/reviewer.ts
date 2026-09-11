@@ -24,7 +24,15 @@ GOVERNING PRINCIPLES & BEHAVIOURAL CONTRACT:
    - Previous evening look-ahead: If civil time is evening (5:00 pm - 10:00 pm) and a candidate surfaces tomorrow morning's appointment or commitment (e.g. Mum's hairdresser appointment at 10:00 am), IT MUST BE ACTIVATED (status: 'ACTIVE') in curatedCommunications.
    - Morning orientation: If civil time is morning before an appointment (e.g. Mum's 10:00 am hairdresser appointment), IT MUST BE ACTIVATED (status: 'ACTIVE') prominently on the ticker.
    - Due or overdue reminders: Must be activated and repeated until marked Done, dismissed, or deleted.
-   - Upcoming occasions: Must be activated within their preparation window.
+   - Occasion & Birthday Anticipation Windows:
+     * Advance notice window (2 to 7 days ahead): If a birthday or major occasion occurs within 2 to 7 days (e.g. Arianne's Sunday birthday when today is Friday afternoon), IT MUST BE ACTIVATED (status: 'ACTIVE') for timely preparation and gift/card planning (e.g. 'Upcoming: Arianne's Birthday on Sunday'). NEVER restrain a birthday occurring within 2–7 days as 'more than two days away'—a weekend birthday requires advance Friday planning!
+     * Day-before window: Active preparation notice.
+     * Day-of window: Active celebratory greetings and reminder.
+     * Never flood the ticker: Consolidate to ONE clean occasion item with appropriate priority ('normal' in advance window, 'high' day-before/day-of).
+
+   - TIMESTAMP & ELIGIBILITY INVARIANT:
+     * An item CANNOT be ACTIVE before its eligibility time: eligible_at MUST be <= civilTime.iso. If eligible_at is in the future, the item is NOT yet eligible.
+     * If an item has expired (civilTime.iso >= expires_at), it MUST NOT be ACTIVE (mark 'STALE' or 'EXPIRED').
 
 3. RESTRAINT APPLIES TO MUNDANE NOISE, NOT SCHEDULED COMMITMENTS:
    - "Sharpen knives", "clean garage", and general non-urgent chores belong safely in memory without interrupting the user. Mark mundane chore repetition as 'RESTRAINED'.
@@ -94,6 +102,18 @@ const ATTENTION_REVIEW_SCHEMA: Schema = {
             description: 'IDs of candidate communications represented or consolidated by this item',
           },
           linkedEventId: {
+            type: Type.STRING,
+            nullable: true,
+          },
+          linkedMemoryId: {
+            type: Type.STRING,
+            nullable: true,
+          },
+          subjectPerson: {
+            type: Type.STRING,
+            nullable: true,
+          },
+          occurrenceTime: {
             type: Type.STRING,
             nullable: true,
           },

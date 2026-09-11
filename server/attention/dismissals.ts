@@ -9,28 +9,31 @@ export interface DismissalRecord {
   communicationId: string;
   reason?: string;
   dismissedAt: string;
+  ttlHours?: number;
 }
 
 export async function recordShadowDismissal(params: {
   ezzyId?: string;
   communicationId: string;
   reason?: string;
+  ttlHours?: number;
 }): Promise<string> {
   const eid = (params.ezzyId || DEFAULT_EZZY_ID).trim();
   await initBunnyDb();
 
   const id = `dismiss_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const nowIso = new Date().toISOString();
+  const ttl = typeof params.ttlHours === 'number' && params.ttlHours > 0 ? params.ttlHours : 48;
 
   try {
     await executeBunnySql([
       {
-        sql: `INSERT INTO shadow_dismissals (id, ezzy_id, communication_id, reason, dismissed_at)
-              VALUES (?, ?, ?, ?, ?);`,
-        args: [id, eid, params.communicationId, params.reason || null, nowIso],
+        sql: `INSERT INTO shadow_dismissals (id, ezzy_id, communication_id, reason, dismissed_at, ttl_hours)
+              VALUES (?, ?, ?, ?, ?, ?);`,
+        args: [id, eid, params.communicationId, params.reason || null, nowIso, ttl],
       },
     ]);
-    console.log(`[Dismissal] Recorded dismissal ${id} for comm ${params.communicationId} in ${eid}`);
+    console.log(`[Dismissal] Recorded dismissal ${id} (ttl ${ttl}h) for comm ${params.communicationId} in ${eid}`);
     invalidateEzzyCaches(eid);
   } catch (err) {
     console.error('[Dismissal] Failed to record dismissal:', err);
@@ -41,30 +44,39 @@ export async function recordShadowDismissal(params: {
 
 export async function getRecentDismissals(
   ezzyId: string = DEFAULT_EZZY_ID,
-  hoursWindow: number = 48
-): Promise<Array<{ communicationId: string; dismissedAt: string; reason?: string }>> {
+  referenceNow?: string
+): Promise<Array<{ communicationId: string; dismissedAt: string; ttlHours?: number; reason?: string }>> {
   const eid = ezzyId.trim();
   await initBunnyDb();
 
-  const windowStartIso = new Date(Date.now() - hoursWindow * 3600 * 1000).toISOString();
+  const nowMs = referenceNow ? new Date(referenceNow).getTime() : Date.now();
 
   try {
     const res = await executeBunnySql([
       {
-        sql: `SELECT communication_id, reason, dismissed_at
+        sql: `SELECT communication_id, reason, dismissed_at, ttl_hours
               FROM shadow_dismissals
-              WHERE ezzy_id = ? AND dismissed_at >= ?
+              WHERE ezzy_id = ?
               ORDER BY dismissed_at DESC;`,
-        args: [eid, windowStartIso],
+        args: [eid],
       },
     ]);
 
     const rows = res[0]?.rows || [];
-    return rows.map((r: any) => ({
-      communicationId: r.communication_id,
-      dismissedAt: r.dismissed_at,
-      reason: r.reason || undefined,
-    }));
+    return rows
+      .filter((r: any) => {
+        const dismissedMs = new Date(r.dismissed_at).getTime();
+        if (isNaN(dismissedMs)) return false;
+        const ttl = typeof r.ttl_hours === 'number' && r.ttl_hours > 0 ? r.ttl_hours : 48;
+        const expiryMs = dismissedMs + ttl * 3600 * 1000;
+        return nowMs < expiryMs;
+      })
+      .map((r: any) => ({
+        communicationId: r.communication_id,
+        dismissedAt: r.dismissed_at,
+        ttlHours: r.ttl_hours || 48,
+        reason: r.reason || undefined,
+      }));
   } catch (err) {
     console.error('[Dismissal] Error fetching dismissals:', err);
     return [];

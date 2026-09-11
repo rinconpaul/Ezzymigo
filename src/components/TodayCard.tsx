@@ -438,7 +438,7 @@ export function TodayCard({ onSaveThought }: TodayCardProps) {
 
     try {
       const contextEnvelope: ConversationalContextEnvelope = {
-        originatingCommunicationId: currentComm?.evaluation?.id || 'today_interaction',
+        originatingCommunicationId: currentComm?.id || currentComm?.evaluation?.id || 'today_interaction',
         originatingQuestion: currentComm?.detailPrompt || currentComm?.tickerText,
         promptHeadline: currentComm?.detailTitle,
         linkedEventId: currentComm?.linkedEventId,

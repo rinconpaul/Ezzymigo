@@ -5,7 +5,7 @@ import { formatLocalTimeContext, getYMDInTz, getTimeStrInTz } from '../utils/tim
 import { readCalendarEvents } from '../calendar/store';
 import { readMemories } from '../db/memories';
 import { executeAttentionReview } from './reviewer';
-import { registerInvalidationListener } from './freshness';
+import { registerInvalidationListener, invalidateEzzyCaches } from './freshness';
 import { getRecentDismissals } from './dismissals';
 import {
   CandidateCommunication,
@@ -73,6 +73,16 @@ export async function recordShadowInteraction(params: RecordInteractionParams): 
   } catch (err) {
     console.error('[Attention Service] Failed to record shadow interaction:', err);
   }
+
+  // Invalidate in-memory channel cache and freshness so prompt disappears immediately
+  const currentRecord = activeChannelCache.get(eid);
+  if (currentRecord) {
+    currentRecord.active_channel = currentRecord.active_channel.filter(
+      (item) => item.id !== params.communicationId && !item.sourceCandidateIds?.includes(params.communicationId)
+    );
+    activeChannelCache.set(eid, currentRecord);
+  }
+  invalidateEzzyCaches(eid);
 
   // Event-driven: immediately trigger executive attention review upon interaction
   runUnifiedAttentionReview(eid, 'user_response_captured').catch((err) => {
@@ -220,7 +230,7 @@ export async function runUnifiedAttentionReview(
         getRecentInteractions(eid, 10),
         readCalendarEvents(undefined, eid).catch(() => []),
         readMemories(eid).catch(() => []),
-        getRecentDismissals(eid, 48).catch(() => []),
+        getRecentDismissals(eid).catch(() => []),
       ]);
 
       // Seed historical interaction if memory exists but wasn't yet in shadow_interactions
@@ -365,6 +375,36 @@ export async function runUnifiedAttentionReview(
       // Execute model review
       const reviewResult = await executeAttentionReview(input);
 
+      // Ensure durable provenance: enrich curated communications with candidate pool metadata
+      const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+      const enrichedCurated = reviewResult.decision.curatedCommunications.map((curated) => {
+        let linkedEvtId = curated.linkedEventId || null;
+        let linkedMemId = curated.linkedMemoryId || null;
+        let subject = curated.subjectPerson || null;
+        let occTime = curated.occurrenceTime || null;
+
+        for (const cid of curated.sourceCandidateIds || []) {
+          const cand = candidateMap.get(cid);
+          if (cand) {
+            if (!linkedEvtId && cand.citedCalendarIds?.[0]) linkedEvtId = cand.citedCalendarIds[0];
+            if (!linkedMemId && cand.citedMemoryIds?.[0]) linkedMemId = cand.citedMemoryIds[0];
+            if (!subject) {
+              const fullText = `${cand.headline || ''} ${cand.body || ''} ${cand.question || ''}`;
+              if (/\b(?:mum|mother)\b/i.test(fullText)) subject = 'Mum';
+              else if (/\barianne\b/i.test(fullText)) subject = 'Arianne';
+            }
+          }
+        }
+
+        return {
+          ...curated,
+          linkedEventId: linkedEvtId,
+          linkedMemoryId: linkedMemId,
+          subjectPerson: subject,
+          occurrenceTime: occTime,
+        };
+      });
+
       const reviewId = `review_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const nowIso = new Date().toISOString();
 
@@ -373,7 +413,7 @@ export async function runUnifiedAttentionReview(
         ezzy_id: eid,
         timestamp: nowIso,
         trigger_name: triggerName,
-        active_channel: reviewResult.decision.curatedCommunications,
+        active_channel: enrichedCurated,
         candidate_resolutions: reviewResult.decision.candidateResolutions,
         overall_rationale: reviewResult.decision.overallRationale,
         model_name: reviewResult.modelName,
@@ -426,54 +466,123 @@ export async function runUnifiedAttentionReview(
 }
 
 /**
+ * Enforces strict temporal and interaction invariants on active channel items:
+ * 1. An item cannot be ACTIVE if now < eligible_at (future eligibility)
+ * 2. An item cannot be ACTIVE if now >= expires_at (expired)
+ * 3. An item cannot be ACTIVE if user already answered/satisfied it
+ */
+export function filterActiveChannelByTimeAndStatus(
+  channel: CuratedChannelCommunication[],
+  clientNow?: string,
+  interactions?: ChannelInteraction[]
+): CuratedChannelCommunication[] {
+  const nowMs = clientNow ? new Date(clientNow).getTime() : Date.now();
+  const satisfiedCommIds = new Set<string>();
+  if (interactions) {
+    for (const inter of interactions) {
+      if (inter.communicationId) satisfiedCommIds.add(inter.communicationId);
+      if (inter.evaluationId) satisfiedCommIds.add(inter.evaluationId);
+    }
+  }
+
+  return channel.filter((item) => {
+    // 1. If explicitly satisfied by interaction, suppress
+    if (satisfiedCommIds.has(item.id)) return false;
+    if (item.sourceCandidateIds?.some((cid) => satisfiedCommIds.has(cid))) return false;
+    if (
+      item.suppression_state === 'satisfied' ||
+      item.suppression_state === 'expired' ||
+      item.suppression_state === 'suppressed'
+    ) {
+      return false;
+    }
+
+    // 2. Strict Invariant: now < eligible_at -> CANNOT BE ACTIVE
+    if (item.eligible_at) {
+      const eligibleMs = new Date(item.eligible_at).getTime();
+      if (!isNaN(eligibleMs) && nowMs < eligibleMs) {
+        return false;
+      }
+    }
+
+    // 3. Strict Invariant: now >= expires_at -> CANNOT BE ACTIVE
+    if (item.expires_at) {
+      const expiresMs = new Date(item.expires_at).getTime();
+      if (!isNaN(expiresMs) && nowMs >= expiresMs) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
  * Ultra-fast presentation read (<2ms).
  * Reads directly from in-memory cache or latest SQLite record.
+ * Applies time-window invariants and interaction satisfaction filters.
  * Never calls Gemini on screen refresh.
  */
 export async function getLatestActiveAttentionChannel(
-  ezzyId: string = DEFAULT_EZZY_ID
+  ezzyId: string = DEFAULT_EZZY_ID,
+  clientNow?: string
 ): Promise<ShadowAttentionReviewRecord | null> {
   const eid = ezzyId.trim();
-  const cached = activeChannelCache.get(eid);
-  if (cached) {
-    return cached;
+  let baseRecord = activeChannelCache.get(eid) || null;
+
+  if (!baseRecord) {
+    await initBunnyDb();
+    try {
+      const res = await executeBunnySql([
+        {
+          sql: `SELECT id, ezzy_id, timestamp, trigger_name, active_channel_json, candidate_resolutions_json, overall_rationale, model_name, latency_ms, prompt_tokens, output_tokens, created_at
+                FROM shadow_attention_reviews
+                WHERE ezzy_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1;`,
+          args: [eid],
+        },
+      ]);
+
+      const row = res[0]?.rows?.[0];
+      if (row) {
+        baseRecord = {
+          id: row.id,
+          ezzy_id: row.ezzy_id,
+          timestamp: row.timestamp,
+          trigger_name: row.trigger_name,
+          active_channel: JSON.parse(row.active_channel_json || '[]'),
+          candidate_resolutions: JSON.parse(row.candidate_resolutions_json || '[]'),
+          overall_rationale: row.overall_rationale,
+          model_name: row.model_name,
+          latency_ms: Number(row.latency_ms || 0),
+          prompt_tokens: Number(row.prompt_tokens || 0),
+          output_tokens: Number(row.output_tokens || 0),
+          created_at: row.created_at,
+        };
+        activeChannelCache.set(eid, baseRecord);
+      }
+    } catch (err) {
+      console.error('[Attention Service] Error fetching latest attention channel:', err);
+      return null;
+    }
   }
 
-  await initBunnyDb();
+  if (!baseRecord) return null;
+
+  // Filter active channel against recent interactions and strict eligibility invariants
   try {
-    const res = await executeBunnySql([
-      {
-        sql: `SELECT id, ezzy_id, timestamp, trigger_name, active_channel_json, candidate_resolutions_json, overall_rationale, model_name, latency_ms, prompt_tokens, output_tokens, created_at
-              FROM shadow_attention_reviews
-              WHERE ezzy_id = ?
-              ORDER BY timestamp DESC
-              LIMIT 1;`,
-        args: [eid],
-      },
-    ]);
-
-    const row = res[0]?.rows?.[0];
-    if (!row) return null;
-
-    const record: ShadowAttentionReviewRecord = {
-      id: row.id,
-      ezzy_id: row.ezzy_id,
-      timestamp: row.timestamp,
-      trigger_name: row.trigger_name,
-      active_channel: JSON.parse(row.active_channel_json || '[]'),
-      candidate_resolutions: JSON.parse(row.candidate_resolutions_json || '[]'),
-      overall_rationale: row.overall_rationale,
-      model_name: row.model_name,
-      latency_ms: Number(row.latency_ms || 0),
-      prompt_tokens: Number(row.prompt_tokens || 0),
-      output_tokens: Number(row.output_tokens || 0),
-      created_at: row.created_at,
+    const recentInteractions = await getRecentInteractions(eid, 10);
+    const filteredActiveChannel = filterActiveChannelByTimeAndStatus(
+      baseRecord.active_channel,
+      clientNow,
+      recentInteractions
+    );
+    return {
+      ...baseRecord,
+      active_channel: filteredActiveChannel,
     };
-
-    activeChannelCache.set(eid, record);
-    return record;
   } catch (err) {
-    console.error('[Attention Service] Error fetching latest attention channel:', err);
-    return null;
+    return baseRecord;
   }
 }

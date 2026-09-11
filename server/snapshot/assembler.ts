@@ -298,14 +298,26 @@ export async function assembleEzzyWorldSnapshot(
   }));
 
   // 5. Process Occasions
-  const occasions: SnapshotOccasion[] = (occasionOccurrences || []).map((occ: any) => ({
-    id: occ.id,
-    name: occ.name,
-    targetYMD: occ.target_ymd,
-    daysUntil: occ.days_until,
-    temporalDescription: occ.temporal_description || (occ.days_until === 0 ? 'today' : `${occ.days_until} days`),
-    isToday: occ.is_today,
-  }));
+  const occasions: SnapshotOccasion[] = (occasionOccurrences || []).map((occ: any) => {
+    const targetYMD = occ.startDate || occ.target_ymd || '';
+    let daysUntil = typeof occ.days_until === 'number' ? occ.days_until : 0;
+    if (targetYMD && todayYMD) {
+      const targetD = new Date(targetYMD + 'T00:00:00Z');
+      const todayD = new Date(todayYMD + 'T00:00:00Z');
+      daysUntil = Math.round((targetD.getTime() - todayD.getTime()) / (24 * 3600 * 1000));
+    }
+    const isToday = daysUntil === 0;
+    const temporalDescription = isToday ? 'today' : daysUntil === 1 ? 'tomorrow' : `${daysUntil} days`;
+
+    return {
+      id: occ.occurrenceId || occ.occasionId || occ.id,
+      name: occ.title || occ.name || 'Occasion',
+      targetYMD,
+      daysUntil,
+      temporalDescription,
+      isToday,
+    };
+  });
 
   // 6. Current Screen Context (Auto-hydrate if not provided)
   let currentScreenContext = options.currentScreenContext;

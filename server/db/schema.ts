@@ -249,7 +249,8 @@ export async function initBunnyDb(): Promise<void> {
             ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
             communication_id TEXT NOT NULL,
             reason TEXT,
-            dismissed_at TEXT NOT NULL
+            dismissed_at TEXT NOT NULL,
+            ttl_hours INTEGER DEFAULT 48
           );`
         },
         {
@@ -380,6 +381,22 @@ export async function initBunnyDb(): Promise<void> {
       } catch (rErr: any) {
         if (!String(rErr?.message || '').includes('duplicate column')) {
           console.warn('[Bunny DB] Note during subject_person check on user_relationships:', rErr?.message || rErr);
+        }
+      }
+
+      // Check and add ttl_hours column to shadow_dismissals
+      try {
+        const dInfo = await executeBunnySql([{ sql: `PRAGMA table_info(shadow_dismissals);` }]);
+        const dCols = (dInfo[0]?.rows || []).map((r: any) => r.name);
+        if (!dCols.includes('ttl_hours')) {
+          await executeBunnySql([{
+            sql: `ALTER TABLE shadow_dismissals ADD COLUMN ttl_hours INTEGER DEFAULT 48;`
+          }]);
+          console.log('[Bunny DB] Migrated table "shadow_dismissals" with ttl_hours column.');
+        }
+      } catch (dErr: any) {
+        if (!String(dErr?.message || '').includes('duplicate column')) {
+          console.warn('[Bunny DB] Note during ttl_hours check on shadow_dismissals:', dErr?.message || dErr);
         }
       }
 

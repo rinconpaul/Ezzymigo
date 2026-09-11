@@ -14,6 +14,8 @@ async function main() {
   const ai = getGeminiClient();
   const canberraTz = 'Australia/Sydney';
   const nowCanberraIso = '2026-09-11T14:31:00+10:00'; // Friday 2:31 pm Canberra time
+  const morningCanberraIso = '2026-09-11T08:00:00+10:00'; // Friday 8:00 am Canberra time
+  const eveningCanberraIso = '2026-09-10T20:00:00+10:00'; // Thursday 8:00 pm Canberra time
 
   console.log('================================================================');
   console.log('EZZYMIGO LIVE PROACTIVITY VERIFICATION SUITE');
@@ -27,18 +29,80 @@ async function main() {
     headers: { 'x-ezzy-id': 'ezzy_default' }
   });
   const todayPayload = await response.json();
-  console.log('Status:', response.status);
-  console.log('Active Ticker Channel items count:', todayPayload.attentionChannel?.length || 0);
-  console.log('Active Ticker Items:', JSON.stringify(todayPayload.attentionChannel, null, 2));
-  console.log('Today Evaluation Communication:', JSON.stringify(todayPayload.todayEvaluation?.new_ezzy_decision?.communication, null, 2));
-  console.log('Selection Reason / Rationale:', todayPayload.attentionReview?.overall_rationale || todayPayload.todayEvaluation?.new_ezzy_decision?.rationale);
+  console.log('HTTP Status:', response.status);
+  console.log('Active Ticker Items Count:', todayPayload.attentionChannel?.length || 0);
+  console.log('Active Ticker Channel Payload:', JSON.stringify(todayPayload.attentionChannel, null, 2));
+
+  // Strict temporal invariant validation:
+  const nowMs = new Date(nowCanberraIso).getTime();
+  for (const item of todayPayload.attentionChannel || []) {
+    if (item.eligible_at) {
+      const elMs = new Date(item.eligible_at).getTime();
+      if (nowMs < elMs) {
+        throw new Error(`INVARIANT VIOLATION: Item ${item.id} is ACTIVE but now (${nowCanberraIso}) < eligible_at (${item.eligible_at})`);
+      }
+    }
+    if (item.expires_at) {
+      const expMs = new Date(item.expires_at).getTime();
+      if (nowMs >= expMs) {
+        throw new Error(`INVARIANT VIOLATION: Item ${item.id} is ACTIVE but now (${nowCanberraIso}) >= expires_at (${item.expires_at})`);
+      }
+    }
+  }
+  console.log('Strict Temporal Invariant: PASSED (all active items satisfy eligible_at <= now < expires_at)');
+  console.log('Today Evaluation Decision:', JSON.stringify(todayPayload.todayEvaluation?.new_ezzy_decision?.communication, null, 2));
+  console.log('Attention Review Overall Rationale:', todayPayload.attentionReview?.overall_rationale);
+  console.log('Candidate Resolutions:', JSON.stringify(todayPayload.attentionReview?.candidate_resolutions, null, 2));
 
   // -------------------------------------------------------------
-  // 2. POST-EVENT ELIGIBILITY (Mum Hairdresser @ 10:00 am)
+  // 2. EVENING LOOK-AHEAD VERIFICATION (Thursday 8:00 pm)
   // -------------------------------------------------------------
-  console.log('\n--- TEST 2: POST-EVENT ELIGIBILITY CHECK ---');
-  await new Promise((r) => setTimeout(r, 1500));
-  // Snapshot at 14:31 Canberra time (4.5 hours after 10:00 am appointment)
+  console.log('\n--- TEST 2: EVENING LOOK-AHEAD VERIFICATION (Thursday 20:00) ---');
+  await new Promise((r) => setTimeout(r, 1200));
+  const snapshotEvening = await assembleEzzyWorldSnapshot({
+    ezzyId: 'ezzy_default',
+    opportunity: 'TODAY_ORIENT',
+    trigger: 'evening_lookahead_test',
+    clientNow: eveningCanberraIso,
+    clientTimeZone: canberraTz,
+  });
+  console.log('Civil Time Phase at 20:00:', snapshotEvening.civilTime.timePhase);
+  console.log('Tomorrow Morning Commitments in Snapshot:', snapshotEvening.commitments.tomorrowMorningDatedMemories.map((m: any) => m.originalText));
+  const eveningReasoning = await executeNewEzzyReasoningLoop(
+    'TODAY_ORIENT',
+    snapshotEvening,
+    {},
+    ai
+  );
+  console.log('Evening Look-Ahead Decision Communication:', JSON.stringify(eveningReasoning.decision.communication, null, 2));
+
+  // -------------------------------------------------------------
+  // 3. MORNING-OF APPOINTMENT VERIFICATION (Friday 8:00 am)
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 3: MORNING-OF APPOINTMENT VERIFICATION (Friday 08:00) ---');
+  await new Promise((r) => setTimeout(r, 1200));
+  const snapshotMorning = await assembleEzzyWorldSnapshot({
+    ezzyId: 'ezzy_default',
+    opportunity: 'TODAY_ORIENT',
+    trigger: 'morning_of_test',
+    clientNow: morningCanberraIso,
+    clientTimeZone: canberraTz,
+  });
+  console.log('Civil Time Phase at 08:00:', snapshotMorning.civilTime.timePhase);
+  console.log("Today's Commitments in Snapshot:", snapshotMorning.commitments.todayDatedMemories.map((m: any) => m.originalText));
+  const morningReasoning = await executeNewEzzyReasoningLoop(
+    'TODAY_ORIENT',
+    snapshotMorning,
+    {},
+    ai
+  );
+  console.log('Morning-of Decision Communication:', JSON.stringify(morningReasoning.decision.communication, null, 2));
+
+  // -------------------------------------------------------------
+  // 4. POST-EVENT EXPIRY & FOLLOW-UP (Friday 2:31 pm)
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 4: POST-EVENT EXPIRY & FOLLOW-UP (Friday 14:31) ---');
+  await new Promise((r) => setTimeout(r, 1200));
   const snapshotPost = await assembleEzzyWorldSnapshot({
     ezzyId: 'ezzy_default',
     opportunity: 'TODAY_ORIENT',
@@ -46,14 +110,7 @@ async function main() {
     clientNow: nowCanberraIso,
     clientTimeZone: canberraTz,
   });
-  console.log('Time Phase at 14:31:', snapshotPost.civilTime.timePhase);
-  console.log('Dated Memories in snapshot:', snapshotPost.commitments.todayDatedMemories.map((m: any) => ({
-    id: m.id,
-    originalText: m.originalText,
-    timingExpression: m.timingExpression,
-  })));
-
-  // Test reasoning loop evaluation
+  console.log('Civil Time Phase at 14:31:', snapshotPost.civilTime.timePhase);
   const postReasoning = await executeNewEzzyReasoningLoop(
     'TODAY_ORIENT',
     snapshotPost,
@@ -63,11 +120,10 @@ async function main() {
   console.log('Post-event decision communication:', JSON.stringify(postReasoning.decision.communication, null, 2));
 
   // -------------------------------------------------------------
-  // 3. REMINDERS: SUCCESSIVE DAY RESURFACING & DISAPPEARANCE ON DONE
+  // 5. REMINDERS: SUCCESSIVE DAY RESURFACING & DISAPPEARANCE ON DONE
   // -------------------------------------------------------------
-  console.log('\n--- TEST 3: REMINDERS RESURFACING & COMPLETION ---');
+  console.log('\n--- TEST 5: REMINDERS RESURFACING & IMMEDIATE DONE COMPLETION ---');
   const testEzzyId = 'test_reminders_instance';
-  // Clean any old test reminder
   await executeBunnySql([{
     sql: `DELETE FROM memories WHERE id = 'mem_test_due_reminder_123' AND ezzy_id = ?;`,
     args: [testEzzyId]
@@ -76,16 +132,16 @@ async function main() {
     args: [testEzzyId]
   }]);
 
-  // Insert an unfinished reminder due yesterday with notified = 1
+  // Reminder due yesterday with notified = 1
   const yesterdayIso = '2026-09-10T09:00:00+10:00';
   await executeBunnySql([{
-    sql: `INSERT INTO memories (id, originalText, content, kind, createdAt, isDone, status, ezzy_id)
-          VALUES ('mem_test_due_reminder_123', 'Pay electricity bill', 'Pay electricity bill', 'reminder', ?, 0, 'active', ?);`,
+    sql: `INSERT INTO memories (id, originalText, content, kind, createdAt, isDone, status, people, places, topics, resurfacingMode, resurfacingTiming, ezzy_id)
+          VALUES ('mem_test_due_reminder_123', 'Pay electricity bill', 'Pay electricity bill', 'reminder', ?, 0, 'active', '[]', '[]', '[]', 'smart', 'immediate', ?);`,
     args: [yesterdayIso, testEzzyId]
   }, {
-    sql: `INSERT INTO scheduled_reminders (id, memoryId, text, triggerTime, notified, isCompleted, ezzy_id)
-          VALUES ('rem_test_123', 'mem_test_due_reminder_123', 'Pay electricity bill', ?, 1, 0, ?);`,
-    args: [yesterdayIso, testEzzyId]
+    sql: `INSERT INTO scheduled_reminders (id, memoryId, title, body, remindAt, notified, createdAt, ezzy_id)
+          VALUES ('rem_test_123', 'mem_test_due_reminder_123', 'Pay electricity bill', 'Electricity bill is due', ?, 1, ?, ?);`,
+    args: [yesterdayIso, yesterdayIso, testEzzyId]
   }]);
 
   // Check snapshot on successive day (today 2026-09-11)
@@ -97,14 +153,10 @@ async function main() {
     clientTimeZone: canberraTz,
   });
   const foundRemDay2 = snapshotRemDay2.commitments.dueOrOverdueReminders.find((r: any) => r.id === 'rem_test_123' || r.memoryId === 'mem_test_due_reminder_123');
-  console.log('Successive Day Resurfacing (notified=1, isCompleted=0):', foundRemDay2 ? 'RESURFACED AS OVERDUE' : 'FAILED');
+  console.log('Successive Day Resurfacing (notified=1, isDone=0):', foundRemDay2 ? `RESURFACED AS OVERDUE (${foundRemDay2.title})` : 'FAILED');
 
-  // Now mark it Done
+  // Mark Done
   await toggleMemoryInDb('mem_test_due_reminder_123', testEzzyId);
-  await executeBunnySql([{
-    sql: `UPDATE scheduled_reminders SET isCompleted = 1 WHERE memoryId = 'mem_test_due_reminder_123' AND ezzy_id = ?;`,
-    args: [testEzzyId]
-  }]);
 
   const snapshotRemDone = await assembleEzzyWorldSnapshot({
     ezzyId: testEzzyId,
@@ -120,9 +172,9 @@ async function main() {
   await deleteMemoryFromDb('mem_test_due_reminder_123', testEzzyId);
 
   // -------------------------------------------------------------
-  // 4. OCCASIONS: ADVANCE NOTICE & DAY-OF BEHAVIOR
+  // 6. OCCASIONS: ADVANCE NOTICE & DAY-OF BEHAVIOR
   // -------------------------------------------------------------
-  console.log('\n--- TEST 4: OCCASIONS ADVANCE NOTICE & DAY-OF BEHAVIOR ---');
+  console.log('\n--- TEST 6: OCCASIONS ADVANCE NOTICE & DAY-OF BEHAVIOR ---');
   // 14 days ahead of Mid-Autumn Festival (25 Sept 2026): current date is 11 Sept 2026
   const snapshotOccAdvance = await assembleEzzyWorldSnapshot({
     ezzyId: 'ezzy_default',
@@ -131,7 +183,13 @@ async function main() {
     clientNow: '2026-09-11T14:31:00+10:00',
     clientTimeZone: canberraTz,
   });
-  console.log('Occasions available on 11 Sept (Advance):', snapshotOccAdvance.occasions);
+  console.log('Occasions available on 11 Sept (Advance):', snapshotOccAdvance.occasions.map((o: any) => ({
+    name: o.name,
+    targetYMD: o.targetYMD,
+    daysUntil: o.daysUntil,
+    temporalDescription: o.temporalDescription,
+    isToday: o.isToday,
+  })));
 
   // Day-of: 25 Sept 2026
   const snapshotOccDayOf = await assembleEzzyWorldSnapshot({
@@ -141,12 +199,18 @@ async function main() {
     clientNow: '2026-09-25T08:00:00+10:00',
     clientTimeZone: canberraTz,
   });
-  console.log('Occasions available on 25 Sept (Day-of):', snapshotOccDayOf.occasions);
+  console.log('Occasions available on 25 Sept (Day-of):', snapshotOccDayOf.occasions.map((o: any) => ({
+    name: o.name,
+    targetYMD: o.targetYMD,
+    daysUntil: o.daysUntil,
+    temporalDescription: o.temporalDescription,
+    isToday: o.isToday,
+  })));
 
   // -------------------------------------------------------------
-  // 5. SUPPRESSION & DISMISSAL BEHAVIOR
+  // 7. SUPPRESSION & DISMISSAL BEHAVIOR
   // -------------------------------------------------------------
-  console.log('\n--- TEST 5: SUPPRESSION & DISMISSAL BEHAVIOR ---');
+  console.log('\n--- TEST 7: SUPPRESSION & DISMISSAL BEHAVIOR ---');
   const dismissId = await recordShadowDismissal({
     ezzyId: 'test_dismiss_instance',
     communicationId: 'test_dismiss_comm_999',
@@ -154,13 +218,12 @@ async function main() {
   });
   const recentDismissals = await getRecentDismissals('test_dismiss_instance', 48);
   console.log('Dismissal Recorded ID:', dismissId);
-  console.log('Recent Dismissals List:', recentDismissals);
+  console.log('Recent Dismissals for test instance:', recentDismissals);
 
   // -------------------------------------------------------------
-  // 6. FALLBACK THROTTLING: "How are you doing?" COOLDOWN
+  // 8. FALLBACK THROTTLING & TIME PHASE RESOLUTION
   // -------------------------------------------------------------
-  console.log('\n--- TEST 6: FALLBACK THROTTLING & COOLDOWN ---');
-  // Verify checkAttentionFreshness time-phase logic
+  console.log('\n--- TEST 8: FALLBACK THROTTLING & TIME PHASE RESOLUTION ---');
   const phaseMorning = getTimePhase(new Date('2026-09-11T08:00:00+10:00'), canberraTz);
   const phaseAfternoon = getTimePhase(new Date('2026-09-11T14:00:00+10:00'), canberraTz);
   const phaseEvening = getTimePhase(new Date('2026-09-11T17:05:00+10:00'), canberraTz);
@@ -168,10 +231,10 @@ async function main() {
   console.log('Time phases verified:', { phaseMorning, phaseAfternoon, phaseEvening, phaseNight });
 
   // -------------------------------------------------------------
-  // 7. CONTEXTUAL ASK REGRESSION ("Why isn't that showing in the TODAY ticker?")
+  // 9. CONTEXTUAL ASK REGRESSION ("Why isn't that showing in the TODAY ticker?")
   // -------------------------------------------------------------
-  console.log('\n--- TEST 7: CONTEXTUAL ASK REGRESSION ---');
-  await new Promise((r) => setTimeout(r, 1500));
+  console.log('\n--- TEST 9: CONTEXTUAL ASK REGRESSION ---');
+  await new Promise((r) => setTimeout(r, 1200));
   const askRes = await fetch('http://localhost:3000/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-ezzy-id': 'ezzy_default' },
@@ -184,34 +247,80 @@ async function main() {
   const askData = await askRes.json();
   console.log('Ask Answer:', askData.answer);
   console.log('Ask Confirmation Required:', askData.confirmation_required);
-  console.log('Ask Citations:', askData.memory_ids);
 
   // Verify that NO new memory was inserted for this question
   const latestMems = await executeBunnySql([{
-    sql: `SELECT id, originalText, createdAt FROM memories WHERE ezzy_id = 'ezzy_default' ORDER BY createdAt DESC LIMIT 3;`,
+    sql: `SELECT id, originalText, createdAt FROM memories WHERE ezzy_id = 'ezzy_default' ORDER BY createdAt DESC LIMIT 2;`,
     args: []
   }]);
-  console.log('Latest 3 Memories in DB (proving no question stored):', latestMems[0]?.rows);
+  console.log('Latest 2 Memories in DB (proving no question stored as memory):', latestMems[0]?.rows);
 
   // -------------------------------------------------------------
-  // 8. MULTI-INSTANCE ISOLATION
+  // 10. MULTI-INSTANCE ISOLATION (Ezzy A vs Ezzy B Populated Proof)
   // -------------------------------------------------------------
-  console.log('\n--- TEST 8: MULTI-INSTANCE ISOLATION ---');
-  const isolatedSnapshot = await assembleEzzyWorldSnapshot({
-    ezzyId: 'ezzy_isolated_test_instance_999',
+  console.log('\n--- TEST 10: MULTI-INSTANCE ISOLATION (Populated Ezzy A vs Ezzy B) ---');
+  const ezzyA = 'test_ezzy_a';
+  const ezzyB = 'test_ezzy_b';
+
+  // Clean test tables
+  await executeBunnySql([
+    { sql: `DELETE FROM memories WHERE ezzy_id IN (?, ?);`, args: [ezzyA, ezzyB] },
+    { sql: `DELETE FROM calendar_events WHERE ezzy_id IN (?, ?);`, args: [ezzyA, ezzyB] },
+  ]);
+
+  // Populate Ezzy A (Alice)
+  await executeBunnySql([
+    {
+      sql: `INSERT INTO memories (id, originalText, content, kind, createdAt, isDone, status, people, places, topics, resurfacingMode, ezzy_id)
+            VALUES ('mem_alice_1', 'Dentist appointment tomorrow at 10am', 'Dentist appointment', 'appointment', '2026-09-11T10:00:00+10:00', 0, 'active', '[]', '[]', '[]', 'smart', ?);`,
+      args: [ezzyA],
+    },
+  ]);
+
+  // Populate Ezzy B (Bob)
+  await executeBunnySql([
+    {
+      sql: `INSERT INTO memories (id, originalText, content, kind, createdAt, isDone, status, people, places, topics, resurfacingMode, ezzy_id)
+            VALUES ('mem_bob_1', 'Quarterly board meeting with investors', 'Board meeting', 'task', '2026-09-11T10:00:00+10:00', 0, 'active', '[]', '[]', '[]', 'smart', ?);`,
+      args: [ezzyB],
+    },
+  ]);
+
+  const snapshotA = await assembleEzzyWorldSnapshot({
+    ezzyId: ezzyA,
     opportunity: 'TODAY_ORIENT',
-    trigger: 'isolation_test',
+    trigger: 'isolation_test_a',
     clientNow: nowCanberraIso,
     clientTimeZone: canberraTz,
   });
-  console.log('Isolated Snapshot Active Memories:', isolatedSnapshot.activeMemories.length);
-  console.log('Isolated Snapshot Today Commitments:', isolatedSnapshot.commitments.todayDatedMemories.length);
-  console.log('Isolated Snapshot Calendar Events:', isolatedSnapshot.calendar.todayEvents.length);
+
+  const snapshotB = await assembleEzzyWorldSnapshot({
+    ezzyId: ezzyB,
+    opportunity: 'TODAY_ORIENT',
+    trigger: 'isolation_test_b',
+    clientNow: nowCanberraIso,
+    clientTimeZone: canberraTz,
+  });
+
+  const hasAliceInA = snapshotA.activeMemories.some((m: any) => m.originalText.includes('Dentist'));
+  const hasBobInA = snapshotA.activeMemories.some((m: any) => m.originalText.includes('board meeting'));
+  const hasAliceInB = snapshotB.activeMemories.some((m: any) => m.originalText.includes('Dentist'));
+  const hasBobInB = snapshotB.activeMemories.some((m: any) => m.originalText.includes('board meeting'));
+
+  console.log('Ezzy A Memories:', snapshotA.activeMemories.map((m: any) => m.originalText));
+  console.log('Ezzy B Memories:', snapshotB.activeMemories.map((m: any) => m.originalText));
+  console.log('Isolation Check A (Alice present, Bob absent):', hasAliceInA && !hasBobInA ? 'PERFECT ISOLATION' : 'LEAK DETECTED');
+  console.log('Isolation Check B (Bob present, Alice absent):', hasBobInB && !hasAliceInB ? 'PERFECT ISOLATION' : 'LEAK DETECTED');
+
+  // Clean test tables
+  await executeBunnySql([
+    { sql: `DELETE FROM memories WHERE ezzy_id IN (?, ?);`, args: [ezzyA, ezzyB] },
+  ]);
 
   // -------------------------------------------------------------
-  // 9. FRESHNESS & INVALIDATION RULES
+  // 11. FRESHNESS & INVALIDATION RULES
   // -------------------------------------------------------------
-  console.log('\n--- TEST 9: FRESHNESS & INVALIDATION ---');
+  console.log('\n--- TEST 11: FRESHNESS & INVALIDATION RULES ---');
   const testFreshnessSamePhase = checkAttentionFreshness({
     evaluation: {
       id: 'eval_test_1',
@@ -227,7 +336,6 @@ async function main() {
   });
   console.log('Same phase freshness (14:10 vs 14:25):', testFreshnessSamePhase);
 
-  // Phase transition (4:55 pm vs 5:01 pm evening)
   const testFreshnessPhaseTransition = checkAttentionFreshness({
     evaluation: {
       id: 'eval_test_2',
@@ -248,4 +356,11 @@ async function main() {
   console.log('================================================================');
 }
 
-main().catch(console.error);
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error('Fatal verification error:', err);
+    process.exit(1);
+  });

@@ -171,13 +171,14 @@ export interface ShadowDisplayState {
 }
 
 export async function getShadowDisplayState(
-  ezzyId?: string
+  ezzyId?: string,
+  clientNow?: string
 ): Promise<ShadowDisplayState> {
   const [todayEvaluation, checkInEvaluation, recentEvaluations, attentionReview] = await Promise.all([
     getLatestTodayEvaluation(ezzyId),
     getLatestCheckInEvaluation(ezzyId),
     getRecentShadowEvaluations(ezzyId, 6),
-    getLatestActiveAttentionChannel(ezzyId),
+    getLatestActiveAttentionChannel(ezzyId, clientNow),
   ]);
   return { todayEvaluation, checkInEvaluation, recentEvaluations, attentionReview };
 }

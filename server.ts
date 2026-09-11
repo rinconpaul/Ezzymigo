@@ -363,7 +363,7 @@ app.post('/api/memories', async (req, res) => {
   }
 
   const rawInput = req.body?.originalText || req.body?.text;
-  const { clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body || {};
+  let { clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body || {};
 
   if (!rawInput || typeof rawInput !== 'string' || !rawInput.trim()) {
     return res.status(400).json({ error: 'Original thought text is required' });
@@ -473,6 +473,37 @@ app.post('/api/memories', async (req, res) => {
         relevantEntities: req.body?.relevantEntities || [],
         conversationHistory: req.body?.conversationHistory || [],
       };
+    }
+
+    // Contextual continuity: If no envelope was explicitly passed (e.g. user typed into Tell while prompt active),
+    // check if there is an active PROMPT on the ticker right now for this ezzyId and attach it as outcome context
+    if (!effectiveContextEnvelope && !linkedEventId) {
+      try {
+        const clientNowStr = typeof req.body?.clientNow === 'string' ? req.body.clientNow : undefined;
+        const activeRecord = await getLatestActiveAttentionChannel(ezzyId, clientNowStr);
+        const activePrompt = activeRecord?.active_channel?.find(
+          (c) => c.mode === 'PROMPT' || Boolean(c.question)
+        );
+        if (activePrompt) {
+          effectiveContextEnvelope = {
+            userUtterance: trimmedText,
+            originatingCommunicationId: activePrompt.id,
+            originatingQuestion: activePrompt.question || activePrompt.body || activePrompt.headline || undefined,
+            promptHeadline: activePrompt.headline || undefined,
+            linkedEventId: activePrompt.linkedEventId || undefined,
+            relevantEntities: activePrompt.subjectPerson ? [{ name: activePrompt.subjectPerson }] : [],
+            conversationHistory: [
+              { speaker: 'ezzy', text: activePrompt.question || activePrompt.body || activePrompt.headline || '' },
+              { speaker: 'user', text: trimmedText },
+            ],
+          };
+          if (activePrompt.linkedEventId) {
+            linkedEventId = activePrompt.linkedEventId;
+          }
+        }
+      } catch (promptErr) {
+        console.warn('[Context Envelope] Error checking active prompt for Tell:', promptErr);
+      }
     }
 
     // If linked to an event, hydrate context and relevant entities from calendar event if not already populated
@@ -742,6 +773,19 @@ app.post('/api/memories', async (req, res) => {
     });
 
     const compositeAck = compositeAcknowledgement(memoryAckResults);
+
+    // If this memory was in response to a ticker prompt (either through ticker interaction or contextual Tell):
+    // Record interaction and invalidate cache immediately so ticker updates within 0ms!
+    if (effectiveContextEnvelope?.originatingCommunicationId) {
+      recordShadowInteraction({
+        ezzyId,
+        communicationId: effectiveContextEnvelope.originatingCommunicationId,
+        promptHeadline: effectiveContextEnvelope.promptHeadline,
+        promptQuestion: effectiveContextEnvelope.originatingQuestion,
+        userResponse: trimmedText,
+        capturedMemoryId: newMemories[0]?.id || null,
+      }).catch((intErr) => console.warn('[Auto-Interaction] Failed to record interaction:', intErr));
+    }
 
     return res.status(201).json({
       memory: newMemories[0],
@@ -1819,10 +1863,11 @@ app.get('/api/today', async (req, res) => {
   try {
     await assertEzzyAccess(ezzyId, userId, 'read');
 
-    const state = await getShadowDisplayState(ezzyId);
     const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
     const clientTzStr = typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined;
     const forceRefresh = req.query.force === 'true';
+
+    const state = await getShadowDisplayState(ezzyId, clientNowStr);
 
     const freshness = checkAttentionFreshness({
       evaluation: state.todayEvaluation,
@@ -1848,7 +1893,7 @@ app.get('/api/today', async (req, res) => {
           clientNowStr,
           clientTzStr
         );
-        const freshState = await getShadowDisplayState(ezzyId);
+        const freshState = await getShadowDisplayState(ezzyId, clientNowStr);
         return res.json({
           evaluation: freshState.todayEvaluation,
           todayEvaluation: freshState.todayEvaluation,
@@ -1887,7 +1932,7 @@ app.post('/api/today/dismiss', async (req, res) => {
   const userId = extractUserId(req);
   try {
     await assertEzzyAccess(ezzyId, userId, 'write');
-    const { communicationId, reason } = req.body || {};
+    const { communicationId, reason, ttlHours } = req.body || {};
     if (!communicationId) {
       return res.status(400).json({ error: 'communicationId is required' });
     }
@@ -1895,6 +1940,7 @@ app.post('/api/today/dismiss', async (req, res) => {
       ezzyId,
       communicationId,
       reason,
+      ttlHours: typeof ttlHours === 'number' ? ttlHours : undefined,
     });
     // Immediately re-run attention review to curate next item
     const clientNow = typeof req.body?.clientNow === 'string' ? req.body.clientNow : undefined;
@@ -1925,7 +1971,8 @@ app.get('/api/shadow/today', async (req, res) => {
   try {
     await assertEzzyAccess(ezzyId, userId, 'read');
 
-    const state = await getShadowDisplayState(ezzyId);
+    const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
+    const state = await getShadowDisplayState(ezzyId, clientNowStr);
 
     const now = Date.now();
     const evalAge = state.todayEvaluation ? now - new Date(state.todayEvaluation.timestamp).getTime() : Infinity;

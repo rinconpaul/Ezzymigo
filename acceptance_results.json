@@ -1,0 +1,81 @@
+{
+  "liveToday": {
+    "status": 200,
+    "activeChannel": [],
+    "candidateResolutions": [
+      {
+        "candidateId": "cand_eval_1789104247702_l991kl",
+        "status": "ACTIVE",
+        "reason": "Selected as the single consolidated advance notice for Arianne's birthday on Sunday."
+      },
+      {
+        "candidateId": "cand_eval_1789104181359_bxywon",
+        "status": "SUPERSEDED",
+        "reason": "Consolidated into the primary active birthday candidate."
+      },
+      {
+        "candidateId": "cand_eval_1789104121804_gkg5wc",
+        "status": "SUPERSEDED",
+        "reason": "Consolidated into the primary active birthday candidate."
+      },
+      {
+        "candidateId": "cand_eval_1789102435322_qmsj9v",
+        "status": "SUPERSEDED",
+        "reason": "Consolidated into the primary active birthday candidate."
+      },
+      {
+        "candidateId": "cand_eval_1789102297875_gvkgha",
+        "status": "SATISFIED",
+        "reason": "User already responded with an outcome note regarding Mum's hairdresser appointment."
+      },
+      {
+        "candidateId": "cand_eval_1789102196944_13mqg9",
+        "status": "SATISFIED",
+        "reason": "User answered this follow-up prompt in recent interactions."
+      },
+      {
+        "candidateId": "cand_eval_1789071676366_gdqam7",
+        "status": "STALE",
+        "reason": "Morning preparation reminder for a 10:00 am appointment that has already concluded."
+      }
+    ],
+    "overallRationale": "Mum's morning hairdresser appointment and its post-event check-in are fully satisfied following the user's update. With no further commitments on Friday afternoon, advance orientation for Arianne's birthday on Sunday evening is kept active within the 2–7 day window, consolidated into a single clean item.",
+    "modelName": "gemini-3.8-flash",
+    "temporalInvariantPassed": true
+  },
+  "contextualAsk": {
+    "status": 200,
+    "answer": "Mum's 10:00 am hairdresser appointment concluded this morning, so the preparation prompt expired and was satisfied once you noted that she had a good chat with Mel. With that completed, the ticker has moved on to upcoming weekend events, such as Arianne's birthday on Sunday.",
+    "citedMemories": [
+      "mem_1789103231286_0_ys91g69"
+    ],
+    "citedCalendar": [
+      "cal_google_primary_ckrj2e34c5im2b9n6cq32b9kccr62b9oc9hmcb9ocgo68cr66oo64cpj6o_20260913T093000Z"
+    ],
+    "zeroMemoriesInserted": true
+  },
+  "roleDeduplication": {
+    "normalizedMatches": true,
+    "hasAmbiguityPrompt": true
+  },
+  "isolation": {
+    "snapAHasAlice": true,
+    "snapAHasBob": false,
+    "snapBHasBob": true,
+    "snapBHasAlice": false
+  },
+  "reminders": {
+    "resurfacesDailyWhenUnfinished": true,
+    "disappearsWhenMarkedDone": true
+  },
+  "dismissals": {
+    "dismissId": "dismiss_1789104421770_dadns",
+    "foundInRecent": false
+  },
+  "dataIntegrity": {
+    "memoriesCount": "41",
+    "calendarEventsCount": "13",
+    "userEntitiesCount": "18",
+    "userRelationshipsCount": "19"
+  }
+}

@@ -848,10 +848,25 @@ function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
     event_datetime: eventDatetime,
     reminder_time_expression: (cleanOriginalTime && hasTimeOfDayLanguage(unitText, cleanOriginalTime)) ? (item.reminder_time_expression || null) : null,
     reminder_datetime: reminderDatetime,
-    resurfacing: {
-      mode: item.resurfacing?.mode || (resolvedDatetime ? 'date_based' : 'contextual'),
-      timing: item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval',
-    },
+    resurfacing: (() => {
+      const isPastOutcome = Boolean(
+        contextEnvelope?.originatingQuestion ||
+        contextEnvelope?.linkedEventId ||
+        (canonicalKind === 'fact' && resolvedDatetime && new Date(resolvedDatetime).getTime() <= localContext.referenceDate.getTime()) ||
+        (canonicalKind === 'fact' && cleanOriginalTime && /\b(this morning|earlier|yesterday|last night|past)\b/i.test(cleanOriginalTime))
+      );
+
+      if (isPastOutcome) {
+        return {
+          mode: 'contextual' as const,
+          timing: 'Contextual / On retrieval',
+        };
+      }
+
+      const mode = item.resurfacing?.mode || (resolvedDatetime && new Date(resolvedDatetime).getTime() > localContext.referenceDate.getTime() ? 'date_based' : 'contextual');
+      const timing = item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval';
+      return { mode, timing };
+    })(),
     temporal_ambiguity: item.temporal_ambiguity || null,
     subject_resolved_date: null,
     suggested_action: (item.suggested_action && typeof item.suggested_action === 'object' && item.suggested_action.label && item.suggested_action.query && !isProductOrShoppingSuggestedAction(item.suggested_action))

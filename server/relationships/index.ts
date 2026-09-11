@@ -25,8 +25,14 @@ export function normalizeRoleName(role: string): string {
   if (['mecánico', 'mecanico', 'mécanicien', 'mecanicien', 'mechaniker'].includes(cleaned)) return 'mechanic';
   if (['hermana', 'soeur', 'sœur', 'schwester'].includes(cleaned)) return 'sister';
   if (['hermano', 'frère', 'frere', 'bruder'].includes(cleaned)) return 'brother';
-  if (['madre', 'mamá', 'mama', 'maman', 'mère', 'mere', 'mutter'].includes(cleaned)) return 'mum';
-  if (['padre', 'papá', 'papa', 'père', 'pere', 'vater'].includes(cleaned)) return 'dad';
+  if (['madre', 'mamá', 'mama', 'maman', 'mère', 'mere', 'mutter', 'mum', 'mom', 'mother', 'mummy'].includes(cleaned) ||
+      /\b(?:mother|mum|mom|madre|mutter)\b/i.test(cleaned)) {
+    return 'mother';
+  }
+  if (['padre', 'papá', 'papa', 'père', 'pere', 'vater', 'dad', 'daddy', 'father'].includes(cleaned) ||
+      /\b(?:father|dad|padre|vater)\b/i.test(cleaned)) {
+    return 'father';
+  }
   if (['esposo', 'hubby', 'mari', 'ehemann'].includes(cleaned)) return 'husband';
   if (['esposa', 'wifey', 'femme', 'ehefrau'].includes(cleaned)) return 'wife';
   return cleaned;
@@ -1005,10 +1011,20 @@ export async function detectAmbiguityInSavedMemories(
       }
 
       // Search active relationships for this person
-      const matches = activeRelationships.filter(r => r.person.toLowerCase() === person.toLowerCase());
+      const rawMatches = activeRelationships.filter(r => r.person.toLowerCase() === person.toLowerCase());
+
+      // Deduplicate candidate matches by normalized role to prevent duplicate UI choices and artificial ambiguity
+      const uniqueByNormalizedRole = new Map<string, typeof rawMatches[0]>();
+      for (const m of rawMatches) {
+        const norm = normalizeRoleName(m.normalized_role || m.role);
+        if (!uniqueByNormalizedRole.has(norm)) {
+          uniqueByNormalizedRole.set(norm, m);
+        }
+      }
+      const matches = Array.from(uniqueByNormalizedRole.values());
 
       if (matches.length === 1) {
-        // 1 Confident Match: Silently associate!
+        // 1 Confident Match (all records agree on role): Silently associate!
         console.log(`[Ambiguity Rule] Confidently matched "${person}" to known role "${matches[0].role}". Silently associating without asking.`);
         await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role);
         if (enrichedOut) {
@@ -1016,14 +1032,15 @@ export async function detectAmbiguityInSavedMemories(
         }
         continue;
       } else if (matches.length > 1) {
-        // Multiple known matches: Disambiguate! (e.g. "Which Peter? Peter — brother, Peter — plumber")
-        console.log(`[Ambiguity Rule] Multiple candidates for person "${person}". Asking disambiguation question.`);
+        // Multiple known matches with distinct roles: Disambiguate! (e.g. "Which Peter? Peter — brother, Peter — plumber")
+        console.log(`[Ambiguity Rule] Multiple distinct candidates for person "${person}". Asking disambiguation question.`);
+        const options = Array.from(new Set(matches.map(m => `${m.person} — ${m.role}`)));
         return {
           id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           question: `Which ${person}?`,
           entityName: person,
           entityType: 'person',
-          candidateOptions: matches.map(m => `${m.person} — ${m.role}`),
+          candidateOptions: options,
           memoryId: memory.id,
           context: memory.interpretation?.content || memory.originalText,
         };

@@ -47,6 +47,9 @@ export interface CuratedChannelCommunication {
   question: string | null;
   sourceCandidateIds: string[];
   linkedEventId?: string | null;
+  linkedMemoryId?: string | null;
+  subjectPerson?: string | null;
+  occurrenceTime?: string | null;
   priorityRationale: string;
   reason?: string;
   source?: 'calendar_event' | 'dated_memory' | 'scheduled_reminder' | 'occasion' | 'post_event' | 'human_checkin' | string;
