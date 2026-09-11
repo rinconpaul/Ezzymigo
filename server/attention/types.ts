@@ -48,6 +48,12 @@ export interface CuratedChannelCommunication {
   sourceCandidateIds: string[];
   linkedEventId?: string | null;
   priorityRationale: string;
+  reason?: string;
+  source?: 'calendar_event' | 'dated_memory' | 'scheduled_reminder' | 'occasion' | 'post_event' | 'human_checkin' | string;
+  priority?: 'urgent' | 'high' | 'normal' | 'low';
+  eligible_at?: string;
+  expires_at?: string | null;
+  suppression_state?: 'active' | 'suppressed' | 'satisfied' | 'expired';
 }
 
 export interface AttentionReviewDecision {

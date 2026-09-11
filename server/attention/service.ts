@@ -5,6 +5,8 @@ import { formatLocalTimeContext, getYMDInTz, getTimeStrInTz } from '../utils/tim
 import { readCalendarEvents } from '../calendar/store';
 import { readMemories } from '../db/memories';
 import { executeAttentionReview } from './reviewer';
+import { registerInvalidationListener } from './freshness';
+import { getRecentDismissals } from './dismissals';
 import {
   CandidateCommunication,
   ChannelInteraction,
@@ -17,6 +19,12 @@ import {
 // In-memory cache for zero-cost presentation reads (<2ms)
 const activeChannelCache = new Map<string, ShadowAttentionReviewRecord>();
 const inFlightReviews = new Map<string, Promise<ShadowAttentionReviewRecord>>();
+
+// Register cache invalidator upon mutations or phase transitions
+registerInvalidationListener((eid: string) => {
+  activeChannelCache.delete(eid);
+  console.log(`[Attention Service] Flushed active channel cache for ${eid}`);
+});
 
 export interface RecordInteractionParams {
   ezzyId?: string;
@@ -207,11 +215,12 @@ export async function runUnifiedAttentionReview(
       const timeStr = getTimeStrInTz(now, timeZone);
 
       // 1. Gather all inputs in parallel
-      const [candidates, interactions, calendarEvents, allMemories] = await Promise.all([
+      const [candidates, interactions, calendarEvents, allMemories, dismissals] = await Promise.all([
         gatherCandidateCommunications(eid, 12),
         getRecentInteractions(eid, 10),
         readCalendarEvents(undefined, eid).catch(() => []),
         readMemories(eid).catch(() => []),
+        getRecentDismissals(eid, 48).catch(() => []),
       ]);
 
       // Seed historical interaction if memory exists but wasn't yet in shadow_interactions
@@ -259,15 +268,27 @@ export async function runUnifiedAttentionReview(
         ]).catch(() => {});
       }
 
-      // Format calendar context
+      // Format calendar context: today's events + tomorrow morning events for lookahead
+      const tomorrowDate = new Date(now.getTime() + 24 * 3600 * 1000);
+      const tomorrowYMD = getYMDInTz(tomorrowDate, timeZone);
+
       const relevantCalendarContext = calendarEvents
         .filter((ev: any) => {
-          const evStart = ev.startDatetime || '';
-          return evStart.startsWith(todayYMD);
+          const evStart = ev.startDatetime || ev.start_datetime || '';
+          if (evStart.startsWith(todayYMD)) return true;
+          if (evStart.startsWith(tomorrowYMD)) {
+            // Include tomorrow morning events (< 13:00)
+            const evDate = new Date(evStart);
+            const hour = parseInt(getTimeStrInTz(evDate, timeZone).slice(0, 2), 10);
+            return hour < 13;
+          }
+          return false;
         })
         .map((ev: any) => {
-          const evStart = new Date(ev.startDatetime).getTime();
-          const evEnd = new Date(ev.endDatetime || ev.startDatetime).getTime();
+          const evStartStr = ev.startDatetime || ev.start_datetime;
+          const evEndStr = ev.endDatetime || ev.end_datetime || evStartStr;
+          const evStart = new Date(evStartStr).getTime();
+          const evEnd = new Date(evEndStr).getTime();
           const nowMs = now.getTime();
           let status: 'upcoming' | 'current' | 'recently_ended' = 'upcoming';
           if (nowMs >= evStart && nowMs <= evEnd) {
@@ -278,19 +299,48 @@ export async function runUnifiedAttentionReview(
           return {
             id: ev.id,
             title: ev.title,
-            start: ev.startDatetime,
-            end: ev.endDatetime || ev.startDatetime,
+            start: evStartStr,
+            end: evEndStr,
             status,
           };
         });
 
-      // Prepare recently presented items
-      const recentlyPresentedItems = candidates.map((c) => ({
-        communicationId: c.id,
-        headline: c.headline,
-        question: c.question,
-        presentedAt: c.generatedAt,
-      }));
+      // Prepare genuine recently presented items from actual past attention reviews (NOT fresh candidates!)
+      const pastReviewsRes = await executeBunnySql([
+        {
+          sql: `SELECT active_channel_json, timestamp FROM shadow_attention_reviews
+                WHERE ezzy_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 5;`,
+          args: [eid],
+        },
+      ]).catch(() => []);
+
+      const pastReviewRows = pastReviewsRes[0]?.rows || [];
+      const recentlyPresentedItems: Array<{
+        communicationId: string;
+        headline?: string | null;
+        question?: string | null;
+        presentedAt: string;
+      }> = [];
+
+      for (const pr of pastReviewRows) {
+        try {
+          const pastChannel: CuratedChannelCommunication[] = JSON.parse(pr.active_channel_json || '[]');
+          for (const item of pastChannel) {
+            if (!recentlyPresentedItems.some((r) => r.communicationId === item.id)) {
+              recentlyPresentedItems.push({
+                communicationId: item.id,
+                headline: item.headline,
+                question: item.question,
+                presentedAt: pr.timestamp,
+              });
+            }
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
 
       const input: AttentionReviewInput = {
         ezzyId: eid,
@@ -305,6 +355,7 @@ export async function runUnifiedAttentionReview(
         recentInteractions: combinedInteractions,
         recentlyPresentedItems,
         relevantCalendarContext,
+        explicitDismissals: dismissals,
       };
 
       console.log(

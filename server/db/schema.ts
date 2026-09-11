@@ -244,6 +244,18 @@ export async function initBunnyDb(): Promise<void> {
           sql: `CREATE INDEX IF NOT EXISTS idx_shadow_attention_reviews_ezzy ON shadow_attention_reviews(ezzy_id, timestamp DESC);`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS shadow_dismissals (
+            id TEXT PRIMARY KEY,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            communication_id TEXT NOT NULL,
+            reason TEXT,
+            dismissed_at TEXT NOT NULL
+          );`
+        },
+        {
+          sql: `CREATE INDEX IF NOT EXISTS idx_shadow_dismissals_ezzy ON shadow_dismissals(ezzy_id, dismissed_at DESC);`
+        },
+        {
           sql: `CREATE TABLE IF NOT EXISTS ezzy_instances (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,

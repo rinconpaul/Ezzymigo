@@ -67,23 +67,43 @@ export interface EzzyWorldSnapshot {
     dateYMD: string;
     timeStr: string;
     dayOfWeek: string;
+    timePhase: 'morning' | 'afternoon' | 'evening' | 'night';
   };
   calendar: {
     todayEvents: SnapshotCalendarEvent[];
     recentlyCompletedEvents: SnapshotCalendarEvent[];
     upcomingEvents: SnapshotCalendarEvent[];
+    tomorrowMorningEvents: SnapshotCalendarEvent[];
+  };
+  commitments: {
+    todayDatedMemories: SnapshotMemoryItem[];
+    tomorrowMorningDatedMemories: SnapshotMemoryItem[];
+    dueOrOverdueReminders: Array<{
+      id: string;
+      memoryId: string;
+      title: string;
+      body?: string;
+      remindAt: string;
+      isOverdue: boolean;
+    }>;
   };
   timedReminders: Array<{
     id: string;
     memoryId: string;
     title: string;
     remindAt: string;
+    isOverdue?: boolean;
   }>;
   activeMemories: SnapshotMemoryItem[];
   recentCompletedOrHistoricalMemories: SnapshotMemoryItem[];
   relationships: SnapshotEntityRelationship[];
   occasions: SnapshotOccasion[];
   recentInteractions: SnapshotRecentInteraction[];
+  currentScreenContext?: {
+    activeTickerItem?: any;
+    recentCandidateResolutions?: any[];
+    visibleAppointments?: any[];
+  };
 }
 
 export interface ReasoningDecision {
@@ -92,6 +112,12 @@ export interface ReasoningDecision {
     headline: string | null;
     body: string | null;
     question: string | null;
+    reason?: string | null;
+    source?: string | null;
+    priority?: string | null;
+    eligibleAt?: string | null;
+    expiresAt?: string | null;
+    suppressionState?: string | null;
   };
   proposedMutations: Array<{
     originalText: string;

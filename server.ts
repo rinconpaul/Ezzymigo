@@ -132,6 +132,11 @@ import {
   runUnifiedAttentionReview,
   getLatestActiveAttentionChannel,
 } from './server/attention/service';
+import {
+  checkAttentionFreshness,
+  invalidateEzzyCaches,
+} from './server/attention/freshness';
+import { recordShadowDismissal } from './server/attention/dismissals';
 
 export { extractUserId };
 
@@ -1815,18 +1820,48 @@ app.get('/api/today', async (req, res) => {
     await assertEzzyAccess(ezzyId, userId, 'read');
 
     const state = await getShadowDisplayState(ezzyId);
+    const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
+    const clientTzStr = typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined;
+    const forceRefresh = req.query.force === 'true';
 
-    // Non-blocking auto-refresh if no cached today evaluation exists or if older than 10 minutes
-    const now = Date.now();
-    const evalAge = state.todayEvaluation ? now - new Date(state.todayEvaluation.timestamp).getTime() : Infinity;
-    if (!state.todayEvaluation || evalAge > 10 * 60 * 1000) {
-      evaluateShadowOpportunity({
-        ezzyId,
-        opportunity: 'TODAY_ORIENT',
-        trigger: state.todayEvaluation ? 'cache_refresh' : 'initial_load',
-        clientNow: typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined,
-        clientTimeZone: typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined,
-      }).catch((err) => console.warn('[Today Background Evaluation Error]:', err));
+    const freshness = checkAttentionFreshness({
+      evaluation: state.todayEvaluation,
+      review: state.attentionReview,
+      clientNow: clientNowStr,
+      clientTimeZone: clientTzStr,
+      forceRefresh,
+    });
+
+    if (freshness.isStale) {
+      try {
+        console.log(`[Today] Stale trigger: ${freshness.reason}, running fresh evaluation for ${ezzyId}`);
+        await evaluateShadowOpportunity({
+          ezzyId,
+          opportunity: 'TODAY_ORIENT',
+          trigger: freshness.reason || 'stale_refresh',
+          clientNow: clientNowStr,
+          clientTimeZone: clientTzStr,
+        });
+        await runUnifiedAttentionReview(
+          ezzyId,
+          freshness.reason || 'today_sync_refresh',
+          clientNowStr,
+          clientTzStr
+        );
+        const freshState = await getShadowDisplayState(ezzyId);
+        return res.json({
+          evaluation: freshState.todayEvaluation,
+          todayEvaluation: freshState.todayEvaluation,
+          checkInEvaluation: freshState.checkInEvaluation,
+          recentEvaluations: freshState.recentEvaluations,
+          attentionReview: freshState.attentionReview,
+          attentionChannel: freshState.attentionReview?.active_channel || [],
+          isEvaluating: false,
+          nextInvalidationAt: freshness.nextInvalidationAt,
+        });
+      } catch (syncErr) {
+        console.warn('[Today] Sync refresh failed, using cached state:', syncErr);
+      }
     }
 
     return res.json({
@@ -1837,11 +1872,49 @@ app.get('/api/today', async (req, res) => {
       attentionReview: state.attentionReview,
       attentionChannel: state.attentionReview?.active_channel || [],
       isEvaluating: false,
+      nextInvalidationAt: freshness.nextInvalidationAt,
     });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
     console.error('Error fetching latest today evaluation:', error);
     return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
+  }
+});
+
+// POST /api/today/dismiss - Explicitly dismiss a ticker communication
+app.post('/api/today/dismiss', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { communicationId, reason } = req.body || {};
+    if (!communicationId) {
+      return res.status(400).json({ error: 'communicationId is required' });
+    }
+    const dismissId = await recordShadowDismissal({
+      ezzyId,
+      communicationId,
+      reason,
+    });
+    // Immediately re-run attention review to curate next item
+    const clientNow = typeof req.body?.clientNow === 'string' ? req.body.clientNow : undefined;
+    const clientTimeZone = typeof req.body?.clientTimeZone === 'string' ? req.body.clientTimeZone : undefined;
+    const review = await runUnifiedAttentionReview(
+      ezzyId,
+      'explicit_dismissal',
+      clientNow,
+      clientTimeZone
+    );
+    return res.json({
+      success: true,
+      dismissId,
+      attentionReview: review,
+      attentionChannel: review.active_channel || [],
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error dismissing ticker item:', error);
+    return res.status(500).json({ error: 'Failed to dismiss ticker item' });
   }
 });
 

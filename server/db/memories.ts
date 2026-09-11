@@ -6,6 +6,7 @@ import { saveRelationships, saveUserEntity, extractPhoneNumber, normalizeRoleNam
 import { extractSearchDoc, getSearchSyncStatements, getSearchDeleteStatements } from './search_sync';
 import { buildMemoryDocumentString, syncMemoryVector, deleteMemoryVector } from '../retrieval/vector_service';
 import { linkMemoryEntities, unlinkMemory, resolvePersonToEntityId } from './memory_entities';
+import { invalidateEzzyCaches } from '../attention/freshness';
 
 // Helper to parse stored topics and retrieval metadata
 export function parseStoredTopicsAndMetadata(rawTopics: string | null, fallbackKind: string) {
@@ -623,6 +624,8 @@ export async function insertMemories(
     }
   }
 
+  invalidateEzzyCaches(scopeEzzyId);
+
   return {
     phoneOffer: phoneOffer || null,
     scheduledReminders,
@@ -661,6 +664,8 @@ export async function toggleMemoryInDb(id: string, ezzyId?: string): Promise<any
 
   const meta = parseStoredTopicsAndMetadata(row.topics, row.kind);
   const timeMeta = parseStoredResurfacing(row.resurfacingTiming, row.resurfacingMode);
+
+  invalidateEzzyCaches(ezzyId || 'ezzy_default');
 
   return {
     id: row.id,
@@ -927,7 +932,7 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     }
   }
 
-  return {
+  const result = {
     id: row.id,
     originalText: row.originalText, // Preserved original capture text
     createdAt: row.createdAt,
@@ -964,6 +969,10 @@ export async function updateMemoryInDb(id: string, updatedInterpretation: any, n
     anticipatory_mode: metaTopicsObj.anticipatory_mode,
     anticipatory_opted_in: metaTopicsObj.anticipatory_opted_in,
   };
+
+  invalidateEzzyCaches(ezzyId || 'ezzy_default');
+
+  return result;
 }
 
 // Update memory anticipatory preference in Bunny Database
@@ -1030,6 +1039,7 @@ export async function deleteMemoryFromDb(id: string, ezzyId?: string): Promise<v
   deleteMemoryVector(id, ezzyId).catch(err => {
     console.warn(`[Vector Delete] Non-fatal error deleting vector for ${id}:`, err);
   });
+  invalidateEzzyCaches(ezzyId || 'ezzy_default');
 }
 
 // One-time cleanup for split sibling records whose originalText contains unrelated composite clauses

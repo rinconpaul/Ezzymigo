@@ -237,9 +237,14 @@ function extractCommunications(
         model_name: 'gemini-3.7-flash',
         latency_ms: 0,
       } as any),
-      tickerText: 'Nothing needs your attention right now.',
-      detailTitle: 'Ezzymigo · Restraint',
-      detailPrompt: 'Nothing needs your attention right now.',
+      tickerText: (() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning, Paul. How are you doing today?';
+        if (hour < 17) return 'Good afternoon, Paul. How are you doing today?';
+        return 'Good evening, Paul. How are you doing today?';
+      })(),
+      detailTitle: 'Daily Check-in',
+      detailPrompt: 'No urgent commitments or reminders right now. How is your day going?',
       placeholder: 'Anything you want Ezzy to remember or update?',
       isRestrained: true,
     });
@@ -368,9 +373,14 @@ export function TodayCard({ onSaveThought }: TodayCardProps) {
               model_name: attentionReview.model_name,
               latency_ms: attentionReview.latency_ms,
             } as any),
-            tickerText: 'Ezzymigo is quietly holding your context.',
-            detailTitle: 'Quiet Context',
-            detailPrompt: attentionReview.overall_rationale || 'No proactive alerts needed right now.',
+            tickerText: (() => {
+              const hour = new Date().getHours();
+              if (hour < 12) return 'Good morning, Paul. How are you doing today?';
+              if (hour < 17) return 'Good afternoon, Paul. How are you doing today?';
+              return 'Good evening, Paul. How are you doing today?';
+            })(),
+            detailTitle: 'Daily Check-in',
+            detailPrompt: 'No urgent commitments or reminders right now. How is your day going?',
             placeholder: 'Add anything on your mind...',
             isRestrained: true,
           },

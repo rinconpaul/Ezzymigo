@@ -13,11 +13,19 @@ import {
   runUnifiedAttentionReview,
 } from '../attention/service';
 import { ShadowAttentionReviewRecord } from '../attention/types';
+import { registerInvalidationListener } from '../attention/freshness';
 
 // In-memory cache for ultra-fast Today retrieval (<5ms)
 const todayOrientCache = new Map<string, ShadowEvaluationRecord>();
 const nonTodayCache = new Map<string, ShadowEvaluationRecord>();
 const inFlightEvaluations = new Map<string, Promise<ShadowEvaluationRecord>>();
+
+// Register cache invalidator upon mutations or phase transitions
+registerInvalidationListener((eid: string) => {
+  todayOrientCache.delete(eid);
+  nonTodayCache.delete(eid);
+  console.log(`[Shadow Service] Flushed evaluation caches for ${eid}`);
+});
 
 export interface TriggerShadowEvaluationOptions {
   ezzyId?: string;

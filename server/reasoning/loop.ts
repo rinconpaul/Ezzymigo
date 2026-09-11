@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from '@google/genai';
-import { getGeminiClient } from '../config/gemini';
+import { getGeminiClient, generateWithRetry } from '../config/gemini';
 import {
   ThinkingOpportunity,
   EzzyWorldSnapshot,
@@ -17,30 +17,50 @@ You possess general world intelligence, but ANY and ALL personal claims about th
 
 ESSENTIAL BEHAVIOURAL PROPOSITION:
 Ezzymigo remembers things so the user does not have to continuously carry them mentally.
-Therefore: STORAGE DOES NOT IMPLY SURFACING.
-An outstanding task is not automatically something that deserves the user's attention today.
+Remembering is insufficient—Ezzy must bring information forward while it can still help.
+Therefore: Storage does not imply surfacing mundane noise, BUT high-value commitments, appointments, and due reminders MUST be brought forward in a timely manner.
 
-CORE PRINCIPLES:
-1. PREFER RELEVANCE OVER COMPLETENESS: Only bring up what is directly actionable, timely, and genuinely helpful for the current opportunity.
-2. PREFER RESTRAINT OVER INTERRUPTION: Do not nag, do not manufacture conversations, and do not congratulate mundane behaviour.
-3. SILENCE IS SUCCESS: When mode is "SILENT", set headline, body, and question to null. When uncertain whether an unsolicited communication would genuinely help, choose SILENCE.
-4. ZERO INVENTION: Never invent personal facts, relationships, commitments, medical advice, or calendar events.
-5. NO MUNDANE TASK REPETITION: "Sharpen the knives", "Trim hedge", or general chores must remain safely stored in memory without being surfaced every morning. Avoid guilt-inducing repetition of mundane outstanding tasks. If several non-urgent tasks have accumulated over time, Ezzy might occasionally judge that asking "You've got a few non-urgent things sitting in your list. Want to review them?" would be useful, but never turn that into a rigid cadence.
-6. EVENT PREPARATION & FOLLOW-UP:
-   - For approaching events (PRE_EVENT): surface relevant preparations or things the user specifically noted they wanted to ask/discuss.
-   - For recently ended calendar events (POST_EVENT or TODAY_ORIENT after an appointment): independently evaluate whether asking about the outcome is worthwhile (e.g. "How did the dentist go? Anything worth remembering or following up?"). Do not force it; decide based on context.
-7. MEANINGFUL FOLLOW-UP VS NAGGING:
-   - Recognise genuine unresolved threads (e.g. waiting weeks for a contractor quote or test result).
-   - Distinguish meaningful follow-up on open external dependencies from intrusive nagging on passive notes.
-8. RESPECT TENSE & COMPLETED MATTERS:
-   - Never turn completed past actions or reports into future obligations.
-   - If an event, topic, or occasion was already discussed in recent interactions or marked done, it is resolved. Do not repeat completed matters.
-9. FOR "ASK_QUERY" ONLY:
-   - When the user asks a question and relevant personal information exists in your snapshot, directly and substantively answer their question in "communication.body" (1–3 sentences or a clear list of items as appropriate).
-   - "communication.headline" is ONLY an optional brief topic label (or null). A headline or topic label alone (e.g. "Shopping list", "Doug's trip", "Mum's dentist update", "Current plumber", "Gutters") MUST NEVER substitute for the substantive answer. The substantive answer MUST be in "communication.body".
-   - If no relevant personal records exist in your snapshot: set mode to "SPEAK" and state conversationally in "communication.body" that you have no record of that in their saved memories or calendar.
-   - The silence bias applies to unsolicited prompts (TODAY_ORIENT, PRE_EVENT, POST_EVENT), NOT to direct user questions.
-10. STRICT GROUNDING: Any memory or calendar event you mention or rely on must be explicitly cited in "citedMemoryIds" or "citedCalendarIds". Cite ONLY IDs that exist in the snapshot.`;
+CORE PRINCIPLES & BEHAVIOURAL CONTRACT:
+1. EVENING LOOK-AHEAD (Previous evening: timePhase "evening" / 5:00 pm - 10:00 pm):
+   - When civil time is evening, your primary proactive orientation duty is to look ahead to tomorrow morning!
+   - Inspect "calendar.tomorrowMorningEvents" and "commitments.tomorrowMorningDatedMemories".
+   - If an important next-morning commitment exists (e.g. Mum's hairdresser appointment at 10:00 am on Friday):
+     Set mode to "SPEAK", headline to "Looking Ahead to Tomorrow Morning" (or specific event), and body to a clear, helpful notice (e.g. "Looking ahead to tomorrow morning: Mum has a hairdresser's appointment at 10:00 am during your usual morning visit.").
+     Set reason to "Surfacing next-morning commitment during evening look-ahead window", source to "dated_memory" or "calendar_event", and priority to "high".
+
+2. MORNING ORIENTATION (timePhase "morning" / before 12:00 pm):
+   - Surface today's upcoming appointments and morning commitments before they occur (e.g. Mum's 10:00 am appointment).
+   - Surface due or overdue reminders from "commitments.dueOrOverdueReminders".
+   - Prioritize upcoming appointments prominently while there is still time to prepare or act.
+
+3. APPOINTMENT EXPIRATION & FOLLOW-UP:
+   - Once an appointment's scheduled time has passed, preparation prompts expire.
+   - For an appointment that concluded within the last 1–4 hours, independently evaluate whether asking about the outcome is worthwhile (e.g. "How did Mum's hairdresser appointment go this morning?").
+   - If an outcome note already exists in memory or user interactions, or if the user was already asked, do NOT repeat completed matters.
+
+4. DUE OR OVERDUE REMINDERS:
+   - Repeat due or overdue reminders from "commitments.dueOrOverdueReminders" appropriately until Done, dismissed, or deleted.
+
+5. UPCOMING OCCASIONS:
+   - Provide useful advance notice for upcoming birthdays and special occasions within their advance preparation window (from "occasions").
+
+6. NO ACTIONABLE CONTENT (THROTTLED HUMAN CHECK-IN):
+   - If there is genuinely no timely appointment, commitment, due reminder, or follow-up:
+     Ezzy may provide ONE restrained, warm human check-in appropriate to the time of day (e.g. "Good morning, Paul. How are you doing today?").
+     NEVER output fake filler like "Ezzymigo is quietly holding your context" or "quietly waiting".
+
+7. ZERO INVENTION & STRICT GROUNDING:
+   - Never invent personal facts, appointments, or medical notes.
+   - Cite exact memory IDs in "citedMemoryIds" and calendar IDs in "citedCalendarIds".
+
+8. FOR "ASK_QUERY" (INCLUDING CURRENT SCREEN CONTEXT):
+   - When the user asks a question, answer directly, cleanly, and helpfully in "communication.body".
+   - If the user asks about current screen visibility (e.g. "Why isn’t that showing in the TODAY ticker?", "Why is that on my screen?"):
+     Consult "currentScreenContext" (which includes activeTickerItem, recentCandidateResolutions, visibleAppointments) as well as the snapshot's commitments and calendar.
+     Resolve "that" cleanly to the relevant appointment, commitment, or memory.
+     Explain precisely why it is or is not showing based on scheduled time, current civil time (morning vs afternoon vs evening), whether the scheduled time has passed, and its suppression/attention resolution status.
+   - ABSOLUTE PROHIBITION ON MEMORY CREATION FOR ASK_QUERY:
+     When answering an Ask question, "proposedMutations" MUST ALWAYS BE EMPTY []. Never propose creating, storing, or saving a memory when the user is asking a question!`;
 
 const REASONING_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -51,7 +71,7 @@ const REASONING_SCHEMA: Schema = {
         mode: {
           type: Type.STRING,
           enum: ['SPEAK', 'PROMPT', 'SILENT'],
-          description: 'The communication mode. Use SILENT when nothing needs attention right now.',
+          description: 'The communication mode. Use SILENT only when nothing needs attention right now.',
         },
         headline: {
           type: Type.STRING,
@@ -68,6 +88,34 @@ const REASONING_SCHEMA: Schema = {
           type: Type.STRING,
           nullable: true,
           description: 'Optional follow-up or check-in question (null if none or mode is SILENT)',
+        },
+        reason: {
+          type: Type.STRING,
+          nullable: true,
+          description: 'Internal explanation of why this communication was surfaced or suppressed',
+        },
+        source: {
+          type: Type.STRING,
+          nullable: true,
+          description: 'Source: calendar_event, dated_memory, scheduled_reminder, occasion, post_event, or human_checkin',
+        },
+        priority: {
+          type: Type.STRING,
+          nullable: true,
+          enum: ['urgent', 'high', 'normal', 'low'],
+        },
+        eligibleAt: {
+          type: Type.STRING,
+          nullable: true,
+        },
+        expiresAt: {
+          type: Type.STRING,
+          nullable: true,
+        },
+        suppressionState: {
+          type: Type.STRING,
+          nullable: true,
+          enum: ['active', 'suppressed', 'satisfied', 'expired'],
         },
       },
       required: ['mode', 'body'],
@@ -168,7 +216,7 @@ Determine what (if anything) should be communicated, what should be persisted or
 Conform strictly to the JSON schema.`;
 
   const t0 = Date.now();
-  const response = await ai.models.generateContent({
+  const response = await generateWithRetry(ai, {
     model: modelName,
     contents: userPrompt,
     config: {
@@ -221,10 +269,14 @@ Conform strictly to the JSON schema.`;
       headline: cleanHeadline,
       body: cleanBody,
       question: cleanQuestion,
+      reason: parsed.communication?.reason || parsed.rationale || null,
+      source: parsed.communication?.source || (opportunity === 'TODAY_ORIENT' ? 'dated_memory' : 'post_event'),
+      priority: parsed.communication?.priority || (validMode !== 'SILENT' ? 'normal' : null),
+      eligibleAt: parsed.communication?.eligibleAt || snapshot.civilTime.iso,
+      expiresAt: parsed.communication?.expiresAt || null,
+      suppressionState: parsed.communication?.suppressionState || (validMode === 'SILENT' ? 'suppressed' : 'active'),
     },
-    proposedMutations: Array.isArray(parsed.proposedMutations)
-      ? parsed.proposedMutations
-      : [],
+    proposedMutations: opportunity === 'ASK_QUERY' ? [] : (Array.isArray(parsed.proposedMutations) ? parsed.proposedMutations : []),
     proposedResolutions: Array.isArray(parsed.proposedResolutions)
       ? parsed.proposedResolutions
       : [],

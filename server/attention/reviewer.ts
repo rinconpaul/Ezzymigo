@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from '@google/genai';
-import { getGeminiClient } from '../config/gemini';
+import { getGeminiClient, generateWithRetry } from '../config/gemini';
 import {
   AttentionReviewInput,
   AttentionReviewDecision,
@@ -10,40 +10,52 @@ import {
 const ATTENTION_REVIEW_SYSTEM_INSTRUCTION = `You are the Executive Attention Reviewer for Ezzymigo (Ezzy), the user's long-term personal assistant.
 
 Your role is to govern what Ezzymigo actually presents to the user on their proactive attention channel (the ticker / check-in prompts).
-Multiple thinking opportunities (such as daily orientation, post-event follow-up, occasion reminders) independently produce candidate communications.
+Multiple thinking opportunities independently produce candidate communications.
 You are the single executive intelligence that evaluates the candidate pool collectively as one coherent, respectful assistant.
 
-GOVERNING PRINCIPLES:
-1. SEMANTIC EQUIVALENCE & DEDUPLICATION:
-   Different candidates with different wordings often address the exact same conversational matter (e.g., "How did Mum's dentist appointment go?" vs "Mum's dentist appointment - anything worth noting?").
-   NEVER surface multiple prompts about the same subject. If multiple candidates share the same conversational subject, either select the single best one or consolidate them. All other duplicate/overlapping candidates must be marked SUPERSEDED.
+GOVERNING PRINCIPLES & BEHAVIOURAL CONTRACT:
+1. CANDIDATES ARE FRESH PROPOSALS:
+   Items in "CANDIDATE COMMUNICATIONS POOL" are newly generated proposals. They have NOT yet been presented to the user.
+   Do NOT assume a candidate has already been shown to the user or is "redundant" simply because it is in the candidate pool.
+   Only items in "RECENTLY PRESENTED TICKER COMMUNICATIONS" were actually presented on the user's screen in prior sessions.
 
-2. CONVERSATIONAL SATISFACTION:
-   Carefully examine recent user interactions.
-   If Ezzy prompted the user about a subject and the user subsequently responded, OR if the user captured a note/memory that provides the outcome or answers the question:
-   THE CONVERSATIONAL MATTER IS SATISFIED.
-   Mark ALL remaining candidate questions or follow-ups on that topic as SATISFIED and do NOT include them in the active channel.
-   Example: If candidates ask how Mum's dentist appointment went, and the user's response was "The dentist said that the infection had subsided and will wait and see", the matter is completely satisfied. Remove all dentist prompts.
+2. HIGH-PRIORITY PROACTIVE SURFACING:
+   Ezzymigo's core promise is: REMEMBERING IS INSUFFICIENT—EZZY MUST BRING INFORMATION FORWARD WHILE IT CAN STILL HELP.
+   - Previous evening look-ahead: If civil time is evening (5:00 pm - 10:00 pm) and a candidate surfaces tomorrow morning's appointment or commitment (e.g. Mum's hairdresser appointment at 10:00 am), IT MUST BE ACTIVATED (status: 'ACTIVE') in curatedCommunications.
+   - Morning orientation: If civil time is morning before an appointment (e.g. Mum's 10:00 am hairdresser appointment), IT MUST BE ACTIVATED (status: 'ACTIVE') prominently on the ticker.
+   - Due or overdue reminders: Must be activated and repeated until marked Done, dismissed, or deleted.
+   - Upcoming occasions: Must be activated within their preparation window.
 
-3. PREFER RESTRAINT AND SILENCE OVER INTERRUPTION:
-   Storage does not imply surfacing.
-   Mundane chores, routine notes ("sharpen knives", "weed the garden"), and non-urgent backlog items belong safely in memory, NOT on the proactive attention channel.
-   If nothing is genuinely timely, urgent, or helpful right now, choose SILENCE. An empty active channel is a successful, polished outcome.
+3. RESTRAINT APPLIES TO MUNDANE NOISE, NOT SCHEDULED COMMITMENTS:
+   - "Sharpen knives", "clean garage", and general non-urgent chores belong safely in memory without interrupting the user. Mark mundane chore repetition as 'RESTRAINED'.
+   - NEVER restrain high-value scheduled appointments, tomorrow morning look-aheads, or due reminders.
 
-4. TEMPORAL ACCURACY:
-   Evaluate candidate items against the provided civil time and calendar context.
-   Do not ask about upcoming events as if they already happened. Do not orient on past events as if they are upcoming.
-   Upcoming events happening later today (e.g. an appointment in 1-3 hours) are appropriate for proactive orientation.
+4. CONVERSATIONAL SATISFACTION & FOLLOW-UP:
+   - If an appointment's scheduled time has passed, preparation prompts expire (mark 'STALE').
+   - For an appointment that concluded within the last 1–6 hours on the same day, ONE timely follow-up is eligible (e.g. "How did Mum's hairdresser appointment go this morning?").
+   - If the user has already responded or an outcome note is recorded in recent interactions, mark all related prompts as 'SATISFIED' and do not surface them.
+   - Once past the post-event window (> 6 hours or next day), the follow-up is 'STALE'.
 
-5. COHERENT VOICE:
-   The user experiences Ezzymigo as one person, not as a disjoint bundle of automated microservices.
-   Limit the active channel to at most 1-2 truly timely communications.
+5. THROTTLED HUMAN CHECK-IN COOLDOWN & OUTRANKING:
+   - If there is ANY actionable candidate (calendar event, appointment, reminder, occasion, or post-event follow-up):
+     Actionable content ALWAYS outranks human check-ins! Do NOT present a human check-in when actionable commitments exist.
+   - If there is genuinely NO actionable content:
+     Ezzy may provide ONE restrained, warm human check-in appropriate to the time of day (e.g. "Good morning, Paul. How are you doing today?").
+     COOLDOWN: Check "RECENTLY PRESENTED TICKER COMMUNICATIONS" and "RECENT USER INTERACTIONS". If ANY human check-in was presented or occurred within the past 12 hours, resolve it as 'RESTRAINED' and output an empty curatedCommunications [] (silencePreferred: true).
+     Do NOT repeat "How are you doing?" on every refresh!
+     NEVER output fake filler like "Ezzymigo is quietly holding your context" or "quietly waiting".
+
+6. EXPLICIT DISMISSALS:
+   - If a candidate's ID, communication ID, or cited topic appears in "EXPLICIT DISMISSALS":
+     It MUST be resolved as 'DISMISSED' and NEVER placed into curatedCommunications.
+
+7. RESOLUTION TAXONOMY:
    For every candidate in candidatePool, you MUST provide an explicit resolution in candidateResolutions with status:
    - 'ACTIVE': selected for presentation in curatedCommunications.
    - 'SATISFIED': user answered or already addressed this topic.
    - 'SUPERSEDED': redundant, duplicate, or consolidated into another item.
-   - 'STALE': context has passed, or timing is no longer relevant.
-   - 'RESTRAINED': stored safely in memory, but not worthy of interrupting the user right now.
+   - 'STALE': context has passed, or timing is no longer relevant (e.g. past appointment start).
+   - 'RESTRAINED': stored safely in memory, but not worthy of interrupting right now.
    - 'DISMISSED': dismissed explicitly.`;
 
 const ATTENTION_REVIEW_SCHEMA: Schema = {
@@ -88,6 +100,36 @@ const ATTENTION_REVIEW_SCHEMA: Schema = {
           priorityRationale: {
             type: Type.STRING,
             description: 'Why this item deserves attention right now',
+          },
+          reason: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'Internal explanation of why this specific item was surfaced',
+          },
+          source: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'Source: calendar_event, dated_memory, scheduled_reminder, occasion, post_event, or human_checkin',
+          },
+          priority: {
+            type: Type.STRING,
+            nullable: true,
+            enum: ['urgent', 'high', 'normal', 'low'],
+          },
+          eligible_at: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'ISO timestamp when this item became eligible for display',
+          },
+          expires_at: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'ISO timestamp when this item expires from the ticker',
+          },
+          suppression_state: {
+            type: Type.STRING,
+            nullable: true,
+            enum: ['active', 'suppressed', 'satisfied', 'expired'],
           },
         },
         required: ['id', 'mode', 'sourceCandidateIds', 'priorityRationale'],
@@ -167,7 +209,7 @@ Determine whether any candidate has been satisfied by user interactions, whether
 Conform strictly to the JSON schema.`;
 
   const t0 = Date.now();
-  const response = await ai.models.generateContent({
+  const response = await generateWithRetry(ai, {
     model: modelName,
     contents: userPrompt,
     config: {
@@ -205,6 +247,12 @@ Conform strictly to the JSON schema.`;
     sourceCandidateIds: Array.isArray(item.sourceCandidateIds) ? item.sourceCandidateIds : [],
     linkedEventId: item.linkedEventId || null,
     priorityRationale: item.priorityRationale || '',
+    reason: item.reason || item.priorityRationale || 'Curated for presentation',
+    source: item.source || 'dated_memory',
+    priority: item.priority || 'high',
+    eligible_at: item.eligible_at || input.civilTime?.iso || new Date().toISOString(),
+    expires_at: item.expires_at || null,
+    suppression_state: item.suppression_state || 'active',
   }));
 
   const candidateResolutions: CandidateResolution[] = (

@@ -186,6 +186,21 @@ export function getTimeStrInTz(d: Date, tz: string = 'Australia/Sydney', languag
   }
 }
 
+// Helper to extract 24-hour numeric hour in client's timezone
+export function getHourInTz(d: Date, tz: string = 'Australia/Sydney'): number {
+  try {
+    const str = d.toLocaleTimeString('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      hour12: false,
+    });
+    const parsed = parseInt(str, 10);
+    return isNaN(parsed) ? d.getHours() : parsed;
+  } catch {
+    return d.getHours();
+  }
+}
+
 // Helper to parse time strings like "9am", "9:30pm", "16:00", "5:51am"
 export function parseTimeStringToHM(timeStr: string): { hour: number; minute: number } | null {
   if (!timeStr) return null;

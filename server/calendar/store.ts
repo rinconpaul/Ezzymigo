@@ -308,6 +308,8 @@ export function canonicalizeCalendarEvent(ev: any): { id: string; source: string
   return { id, source, sourceEventId };
 }
 
+import { invalidateEzzyCaches } from '../attention/freshness';
+
 // Upsert calendar events into Bunny Database (keyed by deterministic canonical id)
 export async function upsertCalendarEvents(events: any[], ezzyId: string = 'ezzy_default'): Promise<void> {
   if (!events || events.length === 0) return;
@@ -361,14 +363,17 @@ export async function upsertCalendarEvents(events: any[], ezzyId: string = 'ezzy
   }
 
   await executeBunnySql(stmts);
+  invalidateEzzyCaches(scopeEzzyId);
 }
 
 // Delete calendar events by ID
 export async function deleteCalendarEventFromDb(id: string, ezzyId?: string): Promise<void> {
   await initBunnyDb();
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
   const sql = ezzyId
     ? 'DELETE FROM calendar_events WHERE id = ? AND ezzy_id = ?;'
     : 'DELETE FROM calendar_events WHERE id = ?;';
-  const args = ezzyId ? [id, ezzyId] : [id];
+  const args = ezzyId ? [id, scopeEzzyId] : [id];
   await executeBunnySql([{ sql, args }]);
+  invalidateEzzyCaches(scopeEzzyId);
 }

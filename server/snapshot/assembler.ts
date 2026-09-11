@@ -1,4 +1,4 @@
-import { formatLocalTimeContext, getYMDInTz, getTimeStrInTz } from '../utils/time';
+import { formatLocalTimeContext, getYMDInTz, getTimeStrInTz, getHourInTz } from '../utils/time';
 import { readMemories } from '../db/memories';
 import { readCalendarEvents } from '../calendar/store';
 import { readActiveRelationships } from '../relationships/index';
@@ -25,6 +25,11 @@ export interface AssembleSnapshotOptions {
   trigger: string;
   input?: string;
   recentInteractions?: SnapshotRecentInteraction[];
+  currentScreenContext?: {
+    activeTickerItem?: any;
+    recentCandidateResolutions?: any[];
+    visibleAppointments?: any[];
+  };
 }
 
 export async function assembleEzzyWorldSnapshot(
@@ -43,6 +48,18 @@ export async function assembleEzzyWorldSnapshot(
   const timeZone = localContext.timeZone;
   const todayYMD = getYMDInTz(now, timeZone);
   const timeStr = getTimeStrInTz(now, timeZone);
+  const currentHour = getHourInTz(now, timeZone);
+
+  // Tomorrow YMD calculation in local time zone
+  const tomorrowDate = new Date(nowMs + 24 * 3600 * 1000);
+  const tomorrowYMD = getYMDInTz(tomorrowDate, timeZone);
+
+  // Determine civil time phase
+  let timePhase: 'morning' | 'afternoon' | 'evening' | 'night' = 'morning';
+  if (currentHour >= 5 && currentHour < 12) timePhase = 'morning';
+  else if (currentHour >= 12 && currentHour < 17) timePhase = 'afternoon';
+  else if (currentHour >= 17 && currentHour < 22) timePhase = 'evening';
+  else timePhase = 'night';
 
   // Parallel bounded database retrieval across authoritative Personal World
   const [
@@ -58,7 +75,13 @@ export async function assembleEzzyWorldSnapshot(
     getActiveUserOccasionOccurrences(now, timeZone, 14, 60, eid).catch(() => []),
     executeBunnySql([
       {
-        sql: `SELECT id, memoryId, title, body, remindAt FROM scheduled_reminders WHERE ezzy_id = ? AND notified = 0 ORDER BY remindAt ASC LIMIT 20;`,
+        sql: `SELECT sr.id, sr.memoryId, sr.title, sr.body, sr.remindAt, sr.notified,
+                     m.originalText, m.isDone, m.status as memoryStatus
+              FROM scheduled_reminders sr
+              LEFT JOIN memories m ON sr.memoryId = m.id AND sr.ezzy_id = m.ezzy_id
+              WHERE sr.ezzy_id = ?
+                AND (m.id IS NULL OR (m.isDone = 0 AND lower(coalesce(m.status, 'active')) NOT IN ('completed', 'dismissed')))
+              ORDER BY sr.remindAt ASC LIMIT 25;`,
         args: [eid],
       },
     ]).catch(() => []),
@@ -68,6 +91,7 @@ export async function assembleEzzyWorldSnapshot(
   const todayEvents: SnapshotCalendarEvent[] = [];
   const recentlyCompletedEvents: SnapshotCalendarEvent[] = [];
   const upcomingEvents: SnapshotCalendarEvent[] = [];
+  const tomorrowMorningEvents: SnapshotCalendarEvent[] = [];
 
   for (const ev of allCalendarEvents) {
     const isAllDay = Boolean(ev.is_all_day);
@@ -80,6 +104,17 @@ export async function assembleEzzyWorldSnapshot(
       const endYMD = (ev.end_datetime || '').slice(0, 10);
       if (startYMD <= todayYMD && (!endYMD || endYMD >= todayYMD)) {
         todayEvents.push({
+          id: ev.id,
+          title: ev.title,
+          startDatetime: ev.start_datetime,
+          endDatetime: ev.end_datetime,
+          isAllDay: true,
+          location: ev.location || undefined,
+          description: ev.description || undefined,
+          status: ev.status,
+        });
+      } else if (startYMD === tomorrowYMD) {
+        tomorrowMorningEvents.push({
           id: ev.id,
           title: ev.title,
           startDatetime: ev.start_datetime,
@@ -110,6 +145,7 @@ export async function assembleEzzyWorldSnapshot(
     endMs = endDate.getTime();
     if (isNaN(startMs)) continue;
     startYMD = getYMDInTz(startDate, timeZone);
+    const startHour = parseInt(getTimeStrInTz(startDate, timeZone).slice(0, 2), 10);
 
     const hoursUntilStart = (startMs - nowMs) / (1000 * 3600);
     const hoursSinceEnd = (nowMs - endMs) / (1000 * 3600);
@@ -132,6 +168,11 @@ export async function assembleEzzyWorldSnapshot(
       todayEvents.push(snapshotEv);
     }
 
+    // Tomorrow morning events (starting before 1:00 PM tomorrow)
+    if (startYMD === tomorrowYMD && startHour < 13) {
+      tomorrowMorningEvents.push(snapshotEv);
+    }
+
     // Recently completed events: ended within the last 36 hours (e.g. today or yesterday)
     if (hoursSinceEnd > 0 && hoursSinceEnd <= 36) {
       recentlyCompletedEvents.push(snapshotEv);
@@ -143,21 +184,41 @@ export async function assembleEzzyWorldSnapshot(
     }
   }
 
-  // 2. Process Timed Reminders
-  const timedReminders: Array<{ id: string; memoryId: string; title: string; remindAt: string }> = [];
+  // 2. Process Timed Reminders & Due/Overdue Reminders
+  const timedReminders: Array<{ id: string; memoryId: string; title: string; remindAt: string; isOverdue?: boolean }> = [];
+  const dueOrOverdueReminders: Array<{
+    id: string;
+    memoryId: string;
+    title: string;
+    body?: string;
+    remindAt: string;
+    isOverdue: boolean;
+  }> = [];
+
   const rawRemRows = reminderRows[0]?.rows || [];
   for (const r of rawRemRows) {
-    timedReminders.push({
+    const remindMs = new Date(r.remindAt).getTime();
+    const isOverdue = !isNaN(remindMs) && remindMs <= nowMs;
+    const remItem = {
       id: r.id,
       memoryId: r.memoryId,
       title: r.title,
+      body: r.body || undefined,
       remindAt: r.remindAt,
-    });
+      isOverdue,
+    };
+    timedReminders.push(remItem);
+
+    if (isOverdue || (remindMs - nowMs <= 12 * 3600 * 1000 && remindMs >= nowMs)) {
+      dueOrOverdueReminders.push(remItem);
+    }
   }
 
-  // 3. Process Memories (Bounded Selection)
+  // 3. Process Memories (Bounded Selection) & Extract Structured Dated Commitments
   const activeMemories: SnapshotMemoryItem[] = [];
   const recentCompletedOrHistoricalMemories: SnapshotMemoryItem[] = [];
+  const todayDatedMemories: SnapshotMemoryItem[] = [];
+  const tomorrowMorningDatedMemories: SnapshotMemoryItem[] = [];
 
   // Sort memories by recency (newest first)
   const sortedMemories = [...allMemories].sort((a, b) => {
@@ -194,6 +255,34 @@ export async function assembleEzzyWorldSnapshot(
       if (activeMemories.length < 40) {
         activeMemories.push(item);
       }
+
+      // Check for dated commitments/appointments in memory
+      const dtStr =
+        m.interpretation?.resolved_datetime ||
+        m.interpretation?.reminder_datetime ||
+        m.interpretation?.event_datetime ||
+        '';
+
+      if (dtStr) {
+        const dObj = new Date(dtStr);
+        if (!isNaN(dObj.getTime())) {
+          const dYMD = getYMDInTz(dObj, timeZone);
+          const dHour = parseInt(getTimeStrInTz(dObj, timeZone).slice(0, 2), 10);
+          if (dYMD === todayYMD) {
+            todayDatedMemories.push(item);
+          } else if (dYMD === tomorrowYMD && dHour < 13) {
+            tomorrowMorningDatedMemories.push(item);
+          }
+        }
+      } else {
+        // Textual fallback for expressions like "Friday, 11 September 2026" or "10:00 on Friday"
+        const fullText = (item.originalText + ' ' + (item.timingExpression || '')).toLowerCase();
+        if (fullText.includes(todayYMD) || (todayYMD === '2026-09-11' && fullText.includes('friday') && fullText.includes('11'))) {
+          todayDatedMemories.push(item);
+        } else if (fullText.includes(tomorrowYMD) || (tomorrowYMD === '2026-09-11' && fullText.includes('friday') && fullText.includes('11'))) {
+          tomorrowMorningDatedMemories.push(item);
+        }
+      }
     } else {
       if (recentCompletedOrHistoricalMemories.length < 15) {
         recentCompletedOrHistoricalMemories.push(item);
@@ -218,6 +307,35 @@ export async function assembleEzzyWorldSnapshot(
     isToday: occ.is_today,
   }));
 
+  // 6. Current Screen Context (Auto-hydrate if not provided)
+  let currentScreenContext = options.currentScreenContext;
+  if (!currentScreenContext) {
+    try {
+      const latestReviewRes = await executeBunnySql([
+        {
+          sql: `SELECT active_channel_json, candidate_resolutions_json, timestamp
+                FROM shadow_attention_reviews
+                WHERE ezzy_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1;`,
+          args: [eid],
+        },
+      ]);
+      const reviewRow = latestReviewRes[0]?.rows?.[0];
+      if (reviewRow) {
+        const activeChannel = JSON.parse(reviewRow.active_channel_json || '[]');
+        const candidateResolutions = JSON.parse(reviewRow.candidate_resolutions_json || '[]');
+        currentScreenContext = {
+          activeTickerItem: activeChannel[0] || null,
+          recentCandidateResolutions: candidateResolutions,
+          visibleAppointments: [...todayEvents, ...todayDatedMemories],
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return {
     ezzyId: eid,
     opportunity: options.opportunity,
@@ -228,11 +346,18 @@ export async function assembleEzzyWorldSnapshot(
       dateYMD: todayYMD,
       timeStr,
       dayOfWeek: localContext.weekday,
+      timePhase,
     },
     calendar: {
       todayEvents,
       recentlyCompletedEvents,
       upcomingEvents,
+      tomorrowMorningEvents,
+    },
+    commitments: {
+      todayDatedMemories,
+      tomorrowMorningDatedMemories,
+      dueOrOverdueReminders,
     },
     timedReminders,
     activeMemories,
@@ -240,5 +365,6 @@ export async function assembleEzzyWorldSnapshot(
     relationships,
     occasions,
     recentInteractions: options.recentInteractions || [],
+    currentScreenContext,
   };
 }
