@@ -15,6 +15,7 @@ import { defaultDeviceActionLauncher } from './utils/deviceActionLauncher';
 import { ephemeralCallBridge } from './utils/ephemeralCallBridge';
 import { normalizeSubjectKey, cleanDisplaySubject, pickBestDisplayTitle } from './utils/subjectUtils';
 import { MemoryItem, InboxFilterType, ClarificationPrompt, UserRelationship, ImmediateDeviceActionPayload, TodayRelevanceCandidate, ConversationalContextEnvelope } from './types';
+import { loadScopedCache, saveScopedCache, clearUserScopedCaches } from './utils/cacheManager';
 
 import { Database, AlertCircle, RefreshCw, Search, ChevronDown, Wrench, Sparkles, X, Check, Contact } from 'lucide-react';
 
@@ -82,9 +83,38 @@ export function deduplicateMemories(items: MemoryItem[]): MemoryItem[] {
 }
 
 export default function App() {
-  const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const mountTimeRef = useRef<number>(performance.now());
+  const [activeEzzyId, setActiveEzzyId] = useState<string>('ezzy_default');
+  const [authState, setAuthState] = useState<AuthState>({
+    isConnected: false,
+    user: null,
+    email: null,
+    displayName: null,
+    photoURL: null,
+  });
+
+  const [memories, setMemories] = useState<MemoryItem[]>(() => {
+    try {
+      const t0 = performance.now();
+      const cached = loadScopedCache<MemoryItem[]>(
+        'ezzymigo_cached_memories',
+        null,
+        'ezzy_default',
+        (d) => Array.isArray(d)
+      );
+      if (cached && cached.length > 0) {
+        const deduped = deduplicateMemories(cached);
+        console.log(`[Client Timing] Shell rendered ${deduped.length} cached memories in ${(performance.now() - t0).toFixed(1)}ms`);
+        return deduped;
+      }
+    } catch (e) {
+      console.warn('[Cache] Could not load cached memories:', e);
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [isFetching, setIsFetching] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
   const [error, setError] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<InboxFilterType>('all');
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
@@ -102,43 +132,84 @@ export default function App() {
   const [isSubjectPaused, setIsSubjectPaused] = useState(false);
   const [isOccasionsOpen, setIsOccasionsOpen] = useState(false);
   const tellInputRef = useRef<HTMLTextAreaElement>(null);
-  const [authState, setAuthState] = useState<AuthState>({
-    isConnected: false,
-    user: null,
-    email: null,
-    displayName: null,
-    photoURL: null,
-  });
 
-  // Fetch memories from persistent backend storage on mount
+  // Keep localStorage cache in sync whenever memories change (strictly scoped by user & ezzyId)
+  useEffect(() => {
+    if (memories.length > 0) {
+      saveScopedCache('ezzymigo_cached_memories', authState.user?.uid, activeEzzyId, memories);
+    }
+  }, [memories, authState.user?.uid, activeEzzyId]);
+
+  // Fetch memories from persistent backend storage in background with bounded timeout
   const fetchMemories = async (retryCount = 0) => {
+    const fetchStart = performance.now();
     setIsFetching(true);
+    setSyncStatus('syncing');
     if (retryCount === 0) {
       setError(null);
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
-      const res = await fetch('/api/memories');
+      const res = await fetch(`/api/memories?ezzy_id=${encodeURIComponent(activeEzzyId)}`, {
+        signal: controller.signal,
+        headers: {
+          'x-ezzy-id': activeEzzyId,
+          ...(authState.user?.uid ? { 'x-user-id': authState.user.uid } : {}),
+        },
+      });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         throw new Error(`Failed to load memories (HTTP ${res.status})`);
       }
       const data = await res.json();
-      setMemories(deduplicateMemories(data.memories || []));
+      const fresh = deduplicateMemories(data.memories || []);
+      setMemories(fresh);
       setError(null);
+      setSyncStatus('synced');
+      console.log(`[Client Timing] Fresh memories synced in ${(performance.now() - fetchStart).toFixed(1)}ms (${fresh.length} items)`);
+      saveScopedCache('ezzymigo_cached_memories', authState.user?.uid, activeEzzyId, fresh);
     } catch (err: any) {
-      if (retryCount < 3) {
-        setTimeout(() => fetchMemories(retryCount + 1), 1500 * (retryCount + 1));
+      clearTimeout(timeoutId);
+      const isAbort = err?.name === 'AbortError';
+      const errMsg = isAbort ? 'Connection timed out' : (err?.message || 'Network request failed');
+
+      if (retryCount < 2) {
+        const nextDelay = 1200 * (retryCount + 1);
+        console.warn(`[Client] Background sync failed (${errMsg}), retrying in ${nextDelay}ms... (attempt ${retryCount + 1})`);
+        setTimeout(() => fetchMemories(retryCount + 1), nextDelay);
         return;
       }
-      console.error('Fetch error:', err);
-      setError(err?.message || 'Could not connect to storage server.');
+
+      console.warn('[Client] Sync complete with offline status:', errMsg);
+      setSyncStatus('offline');
+      // If we don't even have cached memories, show non-blocking gentle guidance
+      if (memories.length === 0) {
+        setError('Storage is connecting in the background. Tell and Ask remain ready to use.');
+      }
     } finally {
       setIsFetching(false);
     }
   };
 
+  const prevUserRef = useRef<string | null>(null);
   useEffect(() => {
+    console.log(`[Client Timing] Shell mounted at ${(performance.now() - mountTimeRef.current).toFixed(1)}ms`);
     fetchMemories();
-    const unsub = initGoogleAuth(setAuthState);
+    const unsub = initGoogleAuth((nextAuth) => {
+      const oldUid = prevUserRef.current;
+      const newUid = nextAuth.user?.uid || null;
+      if (oldUid !== null && oldUid !== newUid) {
+        // User logged out or switched accounts: isolate / clear old user cached state
+        clearUserScopedCaches(oldUid);
+        setMemories([]);
+        fetchMemories();
+      }
+      prevUserRef.current = newUid;
+      setAuthState(nextAuth);
+    });
     return () => {
       if (typeof unsub === 'function') unsub();
     };
@@ -772,7 +843,11 @@ export default function App() {
 
         {/* CANONICAL TODAY TICKER - New Ezzy Unified Attention & Today Orientation */}
         <div id="today-engines-container" className="space-y-2">
-          <TodayCard onSaveThought={handleSaveThought} />
+          <TodayCard
+            onSaveThought={handleSaveThought}
+            userId={authState.user?.uid}
+            ezzyId={activeEzzyId}
+          />
         </div>
 
         {/* PRIMARY INTERFACE: COMPACT TELL & ASK EZZYMIGO ENGINE */}
@@ -933,6 +1008,24 @@ export default function App() {
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
+                </span>
+              )}
+              {syncStatus === 'offline' && (
+                <span className="inline-flex items-center gap-1 text-[11px] bg-amber-50 border border-amber-200/80 text-amber-800 font-medium px-2 py-0.5 rounded-full shadow-2xs">
+                  <span>Offline (cached)</span>
+                  <button
+                    type="button"
+                    onClick={() => fetchMemories(0)}
+                    className="underline cursor-pointer hover:text-amber-950 font-semibold ml-0.5"
+                  >
+                    Retry
+                  </button>
+                </span>
+              )}
+              {syncStatus === 'syncing' && memories.length > 0 && isFetching && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                  <span>Syncing…</span>
                 </span>
               )}
             </div>

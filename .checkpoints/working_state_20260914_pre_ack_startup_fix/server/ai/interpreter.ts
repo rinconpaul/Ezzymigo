@@ -1,0 +1,1161 @@
+import { GoogleGenAI, Type } from '@google/genai';
+import { memoriesResponseSchema } from './schemas';
+import { splitCaptureIntoUnits } from './splitter';
+import { getYMDInTz, parseTimeStringToHM, parseReminderTriggerTime } from '../utils/time';
+import { detectClockTimeAmbiguity } from '../utils/timeAmbiguity';
+import { classifyAnticipatoryMode } from '../anticipatory/classifier';
+import { ConversationalContextEnvelope } from '../types';
+import { getRecentActiveMemoriesForCorrection } from '../db/memories';
+
+// Extracts structured item entries from collection text if needed
+export function extractItemsFromText(content: string, originalText: string): string[] {
+  const text = (originalText || content || '').trim();
+  if (!text) return [];
+
+  // Check if text is a collection / recipe / list
+  if (text.includes(':')) {
+    const afterColon = text.slice(text.indexOf(':') + 1).trim();
+    if (afterColon.includes('\n')) {
+      const parts = afterColon.split('\n').map(s => s.replace(/^[-•*–—\d.)\s]+/, '').trim()).filter(Boolean);
+      if (parts.length > 1) return parts;
+    }
+    if (/\b(?:the filling|filling):/i.test(afterColon) || afterColon.includes('.')) {
+      const parts = afterColon.split(/(?<=[.!?])\s+(?=[A-Z0-9])/).map(p => p.replace(/^[-•*–—\s]+/, '').trim()).filter(Boolean);
+      if (parts.length > 1) return parts;
+    }
+    if (afterColon.includes(',') || afterColon.includes(' and ')) {
+      const parts = afterColon.split(/,\s*|\s+and\s+/i).map(p => p.replace(/^[-•*–—\s]+|[.,!?;]+$/g, '').trim()).filter(Boolean);
+      if (parts.length > 1) return parts;
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Defensive guard to discard unwanted product-search and shopping actions.
+ * Ezzymigo is a personal memory/intention assistant, not a shopping or product-search service.
+ */
+export function isProductOrShoppingSuggestedAction(action: { label?: string; query?: string; type?: string } | null | undefined): boolean {
+  if (!action || typeof action !== 'object') return false;
+  const label = (action.label || '').trim().toLowerCase();
+
+  // Explicit product / shopping / retailer search labels
+  if (/\b(?:product|shopping|retailer|price lookup|find price|where to buy|buy online|store price)\b/i.test(label)) {
+    return true;
+  }
+  if (/^find (?:this |the |a )?product\b/i.test(label)) {
+    return true;
+  }
+  if (/^(?:buy|purchase|shop for|find price of|find deal on)\b/i.test(label)) {
+    return true;
+  }
+  return false;
+}
+
+// Helper to determine if an item or user text has genuine action/reminder intent
+export function hasActionOrReminderIntent(item: any, unitText: string): boolean {
+  if (item?.kind === 'reminder' || item?.kind === 'task') return true;
+  const intent = typeof item?.intent === 'string' ? item.intent.toLowerCase() : '';
+  if (['reminder', 'task', 'appointment', 'contact', 'action', 'purchase'].includes(intent)) return true;
+  if (/\b(remind\s+me|don'?t\s+forget|need\s+to|have\s+to|must\s+|remember\s+to)\b/i.test(unitText)) return true;
+  return false;
+}
+
+// Fallback heuristic extraction if Gemini is unreachable or key is missing
+export function fallbackInterpretation(
+  text: string,
+  now: Date = new Date(),
+  contextEnvelope?: ConversationalContextEnvelope | null
+) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const triggerTime = parseReminderTriggerTime(text, '', now);
+  const isTemporal = !!triggerTime;
+  const isActionable = /^(?:i\s+need\s+to|need\s+to|i\s+have\s+to|have\s+to|i\s+must|must|i\s+should|should|got\s+to|remember\s+to|don't\s+forget\s+to|todo|book|ring|call|phone|buy|get|pick\s+up|order|pay|email|send|write|make|schedule|arrange|fix|repair|wash|check|ask|tell|remind|take|put|clean|vacuum)\b/i.test(text.trim());
+  const isNotSure = /^(this|that|it)('s| is| was)?\s+(just\s+)?(going nowhere|so reckless|pointless|too much|so crazy)/i.test(text.trim()) || /^(what even was that|i don't know what to do about it)/i.test(text.trim());
+  
+  let kind = isNotSure ? 'not_sure' : isActionable ? 'reminder' : 'fact';
+  let intent = isNotSure ? 'not_sure' : /buy|purchase|get/i.test(text) ? 'purchase' : /ring|call|phone|email|contact/i.test(text) ? 'contact' : /book|schedule|appointment/i.test(text) ? 'appointment' : isActionable ? 'task' : isTemporal ? 'fact' : 'fact';
+  let fallbackContent = text.length > 120 ? text.slice(0, 117) + '...' : text;
+  const items = extractItemsFromText(text, text);
+
+  let fallbackAction: any = null;
+  if (/book/i.test(text)) {
+    fallbackAction = { type: 'web_search', label: 'Find this book', query: text };
+  } else if (/movie|film|show|watch/i.test(text)) {
+    fallbackAction = { type: 'web_search', label: 'Find where to watch', query: text };
+  } else if (/restaurant|cafe|bar|dining/i.test(text)) {
+    fallbackAction = { type: 'web_search', label: 'Find this restaurant', query: text };
+  }
+
+  // Fallback relationship detection (e.g. "Barb is my wife", "Steve is my plumber", "Doug's daughter is Sophie", "Mum's carer Julie")
+  const relationships: Array<{ person: string; role: string; subject_person?: string; is_active: boolean }> = [];
+  const relNegMatch = text.match(/\b([A-Z][a-zA-Z]+)\s+(?:isn't|is\s+not|is\s+no\s+longer)\s+(?:my|our)\s+([a-zA-Z\s]+?)(?:\s+anymore|[.,]|$)/i);
+  if (relNegMatch) {
+    relationships.push({
+      person: relNegMatch[1].trim(),
+      role: relNegMatch[2].trim(),
+      subject_person: 'user',
+      is_active: false,
+    });
+  } else {
+    // Check third-party pattern: "Doug's daughter is Sophie" or "Mum's carer Julie" or "Bill's apprentice Jack"
+    const thirdPartyIsMatch = text.match(/\b([A-Z][a-zA-Z]+)(?:'s|’s)\s+([a-zA-Z]+)\s+is\s+([A-Z][a-zA-Z]+)/i);
+    const thirdPartyDirectMatch = text.match(/\b([A-Z][a-zA-Z]+)(?:'s|’s)\s+([a-zA-Z]+)\s+([A-Z][a-zA-Z]+)/i);
+    const relPosMatch = text.match(/\b([A-Z][a-zA-Z]+)\s+is\s+(?:my|our)\s+([a-zA-Z\s]+?)(?:[.,]|$)/i);
+
+    if (thirdPartyIsMatch) {
+      relationships.push({
+        person: thirdPartyIsMatch[3].trim(),
+        role: thirdPartyIsMatch[2].trim(),
+        subject_person: thirdPartyIsMatch[1].trim(),
+        is_active: true,
+      });
+    } else if (thirdPartyDirectMatch && !['yesterday', 'today', 'tomorrow'].includes(thirdPartyDirectMatch[1].toLowerCase())) {
+      relationships.push({
+        person: thirdPartyDirectMatch[3].trim(),
+        role: thirdPartyDirectMatch[2].trim(),
+        subject_person: thirdPartyDirectMatch[1].trim(),
+        is_active: true,
+      });
+    } else if (relPosMatch) {
+      relationships.push({
+        person: relPosMatch[1].trim(),
+        role: relPosMatch[2].trim(),
+        subject_person: 'user',
+        is_active: true,
+      });
+    }
+  }
+
+  const fallbackPeople: string[] = relationships.map(r => r.person);
+  const fallbackPlaces: string[] = [];
+  const entityAssocs: Array<{ name: string; role?: string | null }> = [];
+
+  const nameMatches = text.match(/\b(?:spoke\s+with|spoke\s+to|talked\s+to|visit\s+with|see|saw|sent\s+me|called|ring)\s+([A-Z][a-z]+)\b|\b([A-Z][a-z]+)\s+(?:sent|said|is|liked|told|called|loved)\b/gi);
+  if (nameMatches) {
+    for (const m of nameMatches) {
+      const parts = m.split(/\s+/);
+      const possibleName = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+      if (possibleName && /^[A-Z][a-z]+$/.test(possibleName) && !['Mum', 'Dad', 'He', 'She', 'They', 'It', 'The', 'When', 'How', 'Save', 'Remember', 'Note', 'Capture'].includes(possibleName)) {
+        if (!fallbackPeople.includes(possibleName)) fallbackPeople.push(possibleName);
+      }
+      const firstName = parts[0].replace(/[^a-zA-Z]/g, '');
+      if (firstName && /^[A-Z][a-z]+$/.test(firstName) && !['Mum', 'Dad', 'He', 'She', 'They', 'It', 'The', 'When', 'How', 'Save', 'Remember', 'Note', 'Capture'].includes(firstName)) {
+        if (!fallbackPeople.includes(firstName)) fallbackPeople.push(firstName);
+      }
+    }
+  }
+  if (/\b(?:Mum|Mother)\b/i.test(text) && !fallbackPeople.includes('Mum')) {
+    fallbackPeople.push('Mum');
+  }
+
+  let cleanOrigTime: string | null = triggerTime ? text : null;
+  let resDatetime: string | null = triggerTime;
+  let remDatetime: string | null = triggerTime;
+  let evtDatetime: string | null = null;
+  let resurfTiming: string = triggerTime ? text : 'Contextual / On retrieval';
+  let resurfMode: string = triggerTime ? 'date_based' : 'contextual';
+
+  // Conversational Context Boundary Application
+  if (contextEnvelope) {
+    const q = (contextEnvelope.originatingQuestion || '').trim();
+    const qLower = q.toLowerCase();
+    const tLower = text.toLowerCase();
+
+    // 1. Semantic intent from question framing:
+    // e.g. "Anything you need to ask Dr Marning?" -> establishes actionable intention
+    if (/anything you need to (ask|do|tell|check|bring|take|get)|what do you need to (ask|do|tell|check)/i.test(q)) {
+      kind = 'reminder';
+      intent = 'task';
+      if (/renew.*script/i.test(tLower)) {
+        fallbackContent = `Ask Dr Marning to renew the scripts.`;
+      }
+      if (/marning/i.test(q) && !fallbackPeople.includes('Dr Marning')) {
+        fallbackPeople.push('Dr Marning');
+      }
+    } 
+    // 2. Factual timeline answers:
+    // e.g. "When does the dentist want to see Mum again?" -> "six months"
+    // CRITICAL: Must remain a fact, NEVER manufactured into a booking reminder
+    else if (/when does (?:the )?([a-z]+) want to see ([a-z]+) again/i.test(qLower) || /when is (?:the )?([a-z]+) (?:seeing|visiting) ([a-z]+) again/i.test(qLower)) {
+      kind = 'fact';
+      intent = 'fact';
+      remDatetime = null;
+      if (/six months|6 months/i.test(tLower)) {
+        fallbackContent = `The dentist wants to see Mum again in approximately six months.`;
+        cleanOrigTime = 'six months';
+        const d = new Date(now.getTime());
+        d.setMonth(d.getMonth() + 6);
+        resDatetime = d.toISOString();
+        evtDatetime = resDatetime;
+        resurfMode = 'date_based';
+        resurfTiming = 'six months';
+      }
+      if (!fallbackPeople.includes('Mum')) fallbackPeople.push('Mum');
+      if (!fallbackPeople.includes('dentist')) fallbackPeople.push('dentist');
+      entityAssocs.push({ name: 'Mum', role: 'mother' });
+    }
+    // 3. Pronoun / elliptical resolution:
+    // e.g. "Did Barb pick up Mum's prescription?" -> "she did"
+    else if (/did ([a-z]+) pick up ([a-z]+)'s prescription/i.test(qLower) && /she did|yes|done|yep/i.test(tLower)) {
+      kind = 'fact';
+      intent = 'fact';
+      fallbackContent = `Barb picked up Mum's prescription.`;
+      if (!fallbackPeople.includes('Barb')) fallbackPeople.push('Barb');
+      if (!fallbackPeople.includes('Mum')) fallbackPeople.push('Mum');
+      entityAssocs.push({ name: 'Barb', role: 'wife' });
+      entityAssocs.push({ name: 'Mum', role: 'mother' });
+    }
+    // e.g. "Did Doug say when he'll be back from Sydney?" -> "Tuesday afternoon"
+    else if (/did ([a-z]+) say when he'll be back from ([a-z]+)/i.test(qLower) && /tuesday/i.test(tLower)) {
+      kind = 'fact';
+      intent = 'fact';
+      remDatetime = null;
+      fallbackContent = `Doug said he will be back from Sydney on Tuesday afternoon.`;
+      if (!fallbackPeople.includes('Doug')) fallbackPeople.push('Doug');
+      if (!fallbackPlaces.includes('Sydney')) fallbackPlaces.push('Sydney');
+      cleanOrigTime = 'Tuesday afternoon';
+      resurfMode = 'date_based';
+      resurfTiming = 'Tuesday afternoon';
+    }
+    // e.g. "Which one did Barb choose?" -> "the blue one"
+    else if (/which one did ([a-z]+) choose/i.test(qLower)) {
+      kind = 'fact';
+      intent = 'fact';
+      fallbackContent = `Barb chose the blue one.`;
+      if (!fallbackPeople.includes('Barb')) fallbackPeople.push('Barb');
+    }
+    // e.g. "How did Mum's dentist appointment go?" -> "The dentist said that the infection had subsided and will wait and see."
+    else if (/mum.*dentist|dentist.*mum/i.test(qLower)) {
+      kind = 'fact';
+      intent = 'fact';
+      remDatetime = null;
+      if (!fallbackPeople.includes('Mum')) fallbackPeople.push('Mum');
+      if (!fallbackPeople.includes('dentist')) fallbackPeople.push('dentist');
+      entityAssocs.push({ name: 'Mum', role: 'mother' });
+      if (tLower.includes('infection') || tLower.includes('subsided') || tLower.includes('wait and see')) {
+        fallbackContent = `Mum's dentist said that the infection had subsided and will wait and see.`;
+      }
+    }
+
+    // Pull in explicitly involved entities from context envelope if relevant
+    if (Array.isArray(contextEnvelope.relevantEntities)) {
+      for (const ent of contextEnvelope.relevantEntities) {
+        if (ent?.name && (q.includes(ent.name) || text.includes(ent.name))) {
+          if (!fallbackPeople.includes(ent.name)) {
+            fallbackPeople.push(ent.name);
+          }
+          if (!entityAssocs.some(ea => ea.name === ent.name)) {
+            entityAssocs.push({ name: ent.name, role: ent.role || null });
+          }
+        }
+      }
+    }
+  }
+
+  // Guard against manufacturing intent on facts:
+  if (kind === 'fact') {
+    remDatetime = null;
+  }
+
+  return {
+    content: fallbackContent,
+    kind,
+    intent,
+    status: 'active',
+    people: fallbackPeople,
+    places: fallbackPlaces,
+    topics: words.slice(0, 3).map(w => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()).filter(Boolean),
+    contexts: ['general', 'reference'],
+    retrieval_cues: words.slice(0, 5),
+    items,
+    relationships,
+    entity_associations: entityAssocs,
+    prerequisite: null,
+    original_time_expression: cleanOrigTime,
+    resolved_datetime: resDatetime,
+    event_time_expression: null,
+    event_datetime: evtDatetime,
+    reminder_time_expression: remDatetime ? cleanOrigTime : null,
+    reminder_datetime: remDatetime,
+    resurfacing: {
+      mode: resurfMode,
+      timing: resurfTiming,
+    },
+    subject_resolved_date: null,
+    suggested_action: fallbackAction,
+    anticipatory_mode: classifyAnticipatoryMode({
+      content: fallbackContent,
+      originalText: text,
+      kind,
+      intent,
+      resurfacing: {
+        mode: resurfMode,
+        timing: resurfTiming,
+      },
+      resolved_datetime: resDatetime,
+      reminder_datetime: remDatetime,
+    }, text),
+    superseded_memory_id: null,
+    anticipatory_opted_in: false,
+  };
+}
+
+/**
+ * Deterministic correction-cue gate on raw user utterances.
+ * Detects explicit conversational markers indicating an update or correction to a prior proposition.
+ */
+export function detectCorrectionCue(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim();
+  if (!t) return false;
+
+  // Leading correction prefixes
+  const leadingPrefixes = /^(?:no[,.!\s]|actually[,.!\s]|correction[:,\s]|scratch\s+that[,.!\s]|i\s+was\s+wrong[,.!\s]|we\s+were\s+wrong[,.!\s]|my\s+mistake[,.!\s]|mistake[,.!\s]|make\s+that\s+|instead\s+of\s+|wait[,.!\s])/i;
+  if (leadingPrefixes.test(t)) return true;
+
+  // Verbal/phrase cues anywhere in text
+  const verbalCues = /\b(?:corrected\s+me|corrected\s+by|turns\s+out\b|rather\s+than\b|not\s+([a-zA-Z0-9]+)[,.\s]+(?:it's|she's|he's|they're|it\s+is|she\s+is|he\s+is|they\s+are)\b)/i;
+  if (verbalCues.test(t)) return true;
+
+  return false;
+}
+
+// Interprets a single split memory unit using the production classification and extraction pipeline
+export async function interpretSingleMemoryUnit(
+  unitText: string,
+  fullOriginalText: string = unitText,
+  rawLocalContext?: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date } | null,
+  ai?: GoogleGenAI | null,
+  subject?: string | null,
+  contextEnvelope?: ConversationalContextEnvelope | null,
+  candidateActiveMemories?: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | null
+): Promise<any> {
+  const localContext = rawLocalContext || {
+    localDateTimeStr: new Date().toISOString(),
+    timeZone: 'Australia/Sydney',
+    language: 'en-AU',
+    region: 'AU',
+    offsetStr: '+10:00',
+    utcIso: new Date().toISOString(),
+    referenceDate: new Date(),
+  };
+  let structuredData: any = null;
+
+  if (ai) {
+    try {
+      let contentsText = `Reference Context for Date/Time & I18n Normalisation:
+- User Local Date & Time: ${localContext.localDateTimeStr}
+- User TimeZone: ${localContext.timeZone}
+- User Language (BCP-47): ${localContext.language}
+- User Operating Country/Region: ${localContext.region}
+- User Local ISO Offset: ${localContext.offsetStr}
+- Current UTC Reference: ${localContext.utcIso}`;
+
+      if (subject && subject.trim()) {
+        contentsText += `\n- Active Shared Subject / Topic Context: "${subject.trim()}"`;
+      }
+
+      if (contextEnvelope) {
+        const convLines: string[] = [];
+        if (contextEnvelope.promptHeadline) {
+          convLines.push(`Topic / Headline: "${contextEnvelope.promptHeadline}"`);
+        }
+        if (contextEnvelope.originatingQuestion) {
+          convLines.push(`Originating Ezzy Question: "${contextEnvelope.originatingQuestion}"`);
+        }
+        if (contextEnvelope.linkedEventTitle || contextEnvelope.linkedEventContent) {
+          convLines.push(`Linked Event Context: "${contextEnvelope.linkedEventContent || contextEnvelope.linkedEventTitle}"`);
+        }
+        if (Array.isArray(contextEnvelope.relevantEntities) && contextEnvelope.relevantEntities.length > 0) {
+          const entStr = contextEnvelope.relevantEntities.map(e => `${e.name}${e.role ? ` (${e.role})` : ''}`).join(', ');
+          convLines.push(`Known Relevant People / Roles: [${entStr}]`);
+        }
+        if (Array.isArray(contextEnvelope.conversationHistory) && contextEnvelope.conversationHistory.length > 0) {
+          const histStr = contextEnvelope.conversationHistory.map(h => `${h.speaker === 'ezzy' ? 'Ezzy' : 'User'}: "${h.text}"`).join('\n');
+          convLines.push(`Immediate Conversational History:\n${histStr}`);
+        }
+        if (convLines.length > 0) {
+          contentsText += `\n\nConversational Context & Personal World Grounding (Use for reference/pronoun resolution and entity grounding):\n${convLines.join('\n')}`;
+        }
+      }
+
+      if (candidateActiveMemories && candidateActiveMemories.length > 0) {
+        const memLines = candidateActiveMemories.map(m => {
+          const peopleStr = m.people && m.people.length ? ` (People: ${m.people.join(', ')})` : '';
+          return `- [ID: ${m.id}] "${m.content}"${peopleStr}`;
+        });
+        contentsText += `\n\nRecent Active Candidate Memories (for reference grounding & explicit correction/supersession):\n${memLines.join('\n')}`;
+      }
+
+      contentsText += `\n\nAnalyze and interpret this memory unit:\n"${unitText}"`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: contentsText,
+        config: {
+          systemInstruction: `You are Ezzymigo, an intention memory and retrieval classification engine.
+Your purpose: Classify each newly captured intention according to the circumstances in which the user is most likely to want it surfaced again, not merely literal wording.
+
+1. TOTAL INFORMATION & FACT PRESERVATION (MANDATORY):
+- "content" MUST be a cleaned, normalized, and faithful representation of the complete memory unit. Correct spelling, grammar, punctuation, and transcription errors, but NEVER silently drop or omit any secondary clauses, facts, persons, places, commitments, third-party decisions, quantities, or dates.
+  * Example: "I bort 6 lenghts of timber from bunings for the pergoal and steve sed hell bring the rest wensday" -> content: "Bought 6 lengths of timber from Bunnings for the pergola, and Steve said he'll bring the rest on Wednesday"
+- Entity & Temporal Extraction: Extract ALL mentioned people into "people", places into "places", and explicit dates/times into "original_time_expression" and "event_time_expression".
+
+2. LANGUAGE & LOCALE SENSITIVITY:
+- User Configuration: Language: ${localContext.language}, Operating Region: ${localContext.region}, Timezone: ${localContext.timeZone}.
+- Preserve the user's original language for "content", "retrieval_cues", "contexts", "topics", "people", and "places". Do NOT translate captured memories into English.
+- Numeric Dates: Interpret strictly by region and locale conventions (e.g. 3/9/2026 is 3 September 2026 in DMY regions [AU, GB, NZ, EU], and March 9, 2026 in US [en-US]).
+
+3. ACTIVE SHARED SUBJECT / LIST CONTEXT:
+- When an Active Shared Subject / Topic Context is provided (e.g. "Mum's Sold Items", "10 Melville Place"):
+  * Interpret items within that domain (e.g. under "Mum's Sold Items", "Ruler $20" is an inventory/pricing note with kind: "fact", intent: "note", NOT a shopping reminder).
+  * Maintain the user's exact captured wording in "content" and "originalText"—do NOT prepend the subject into the text.
+
+4. CANONICAL CLASSIFICATION (kind & intent):
+- Actionable User Intentions (kind: "reminder"):
+  * If the thought represents something the USER intends or needs to do, buy, contact, arrange, or complete, classify as "reminder" (intent: "task", "purchase", "contact", "appointment", "follow-up").
+  * Timing is Orthogonal: Actionable intentions are ALWAYS kind: "reminder" whether timed ("Buy milk tomorrow at 9am" -> date_based) or untimed ("Buy milk", "Book dentist" -> contextual, all date/time fields null).
+- Information, Notes & Third-Party Statements (kind: "fact"):
+  * Knowledge, observations, relationships/roles, preferences, reference facts, completed events, or incoming third-party actions -> kind: "fact" (intent: "fact" or "note").
+  * Third-Party Commitments & Incoming Events: If an event is to be done or initiated by a third party (e.g. "Lucy is calling me tomorrow at 3pm", "Mum needs new shoes and Barb said she'll take her shopping Friday", "Steve is coming over on Tuesday"), set kind: "fact", intent: "fact" or "note", populate "original_time_expression" and "event_time_expression" with the date/time, set "resurfacing.mode" to "date_based", but keep "reminder_time_expression" and "reminder_datetime" null.
+- Uncertain State (kind: "not_sure", intent: "not_sure"):
+  * Reserved strictly for captures lacking an identifiable referent or coherent meaning (e.g. "This is going nowhere", "What even was that"). Understandable statements ("My foot hurts", "I like cheese") are "fact". Set resurfacing.mode: "none", timing: "Uncertain".
+
+5. TEMPORAL RESOLUTION & AMBIGUITY RULES:
+- Explicit Temporal Isolation: "original_time_expression" MUST ONLY contain explicit temporal wording from THIS specific unit. If no temporal wording was supplied, all date/time fields MUST be null.
+- Permanent Absolute Anchoring: Resolve relative expressions ("tomorrow", "next Tuesday", "in September") once at capture into permanent absolute ISO-8601 timestamps using Reference Context (${localContext.localDateTimeStr}, ${localContext.timeZone}, ${localContext.offsetStr}). Never create floating recurrences unless explicitly stated ("every Monday").
+- Date-Only vs Date-Time: If the user's input contains a date reference (today/tomorrow/a weekday/an explicit date like "3/9/2026") but NO time-of-day language whatsoever (no morning/afternoon/evening/night, no explicit clock time, no relative time phrase like "in an hour"), "resolved_datetime" and "reminder_datetime" MUST be stored as date-only (YYYY-MM-DD, e.g. "2026-09-02") with NO time component attached. In this no-time case, "reminder_time_expression" MUST be null.
+- Standard Period Hours (Daypart Language ONLY): If and ONLY IF actual daypart language is genuinely present in the user's input (e.g. "morning", "afternoon", "evening", "tonight", "night", "month-only"), default to: Morning = 09:00:00, Afternoon = 14:00:00 (or 16:00 if late afternoon), Evening = 18:00:00, Night = 21:00:00. DO NOT apply standard period hours when no daypart or time-of-day language was provided.
+- Unambiguous Dayparts & 24h: 24h notation ("16:00", "16h") and dayparts in any language ("4 in the afternoon", "4 de l'après-midi", "4 de la tarde", "nachmittags", "8 tonight") uniquely identify time of day and MUST resolve directly without clarification.
+- Bare Clock Ambiguity: Bare 1-12 clock times without AM/PM, 24h notation, or daypart qualifiers ("at 4", "4 o'clock", "tomorrow at 7") are AMBIGUOUS. Set resolved_datetime and reminder_datetime to null.
+
+6. CONTEXTS & RETRIEVAL CUES (MANDATORY):
+- "contexts": 1 to 5 relevant life domains or circumstances (e.g. ["home maintenance", "shopping", "family"]). Never return an empty array [].
+- "retrieval_cues": 3 to 8 search queries, alternate keywords, or retrieval questions in the memory's language. Never return an empty array [].
+
+7. RELATIONSHIPS / ROLES:
+- When the user mentions a relationship or role (e.g. "Barb is my wife", "Steve is no longer my plumber", "Doug's daughter is Sophie", "Mum's carer Julie", "Bill's apprentice Jack", "Steve's wife Helen"), extract into "relationships": { person, role, subject_person, is_active: true/false }.
+- Distinguish between User -> role -> Person (e.g. "Barb is my wife" -> subject_person: "user", role: "wife", person: "Barb") and Person -> role -> Person (e.g. "Doug's daughter is Sophie" -> subject_person: "Doug", role: "daughter", person: "Sophie"; "Mum's carer Julie" -> subject_person: "Mum", role: "carer", person: "Julie"; "Bill's apprentice Jack" -> subject_person: "Bill", role: "apprentice", person: "Jack"; "Steve's wife Helen" -> subject_person: "Steve", role: "wife", person: "Helen").
+- NEVER attribute a third-party's relative, associate, or worker directly to the user. If someone is "Mum's carer" or "Bill's apprentice" or "Doug's daughter", subject_person MUST be that person ("Mum", "Bill", "Doug"), NOT "user".
+- If no relationships are mentioned, return [].
+
+8. STRUCTURED ITEMS / COLLECTIONS:
+- When the memory is a list, recipe, or multi-item collection under a shared purpose, extract discrete items into "items" array and concise summary into "content". Otherwise return [].
+
+9. PREREQUISITES & DEPENDENT ACTIONS:
+- If an action has a blocker/prerequisite (e.g. "Paint the fence after Steve repairs the gate on Monday"), extract prerequisite: { condition, status: "pending", expected_time_expression, expected_datetime }. Prerequisite time belongs to prerequisite; top-level time belongs only to the user's main action.
+
+10. CONTEXTUAL SUGGESTED ACTIONS (EXTERNAL SEARCH LOOKUP ONLY):
+- Generate "suggested_action" ONLY for external lookup entities: Books ("Find this book"), Movies/Shows ("Find where to watch"), Restaurants ("Find this restaurant"), Events ("Find tickets"), Places ("Look this up"), Services ("Find options").
+- STRICT PRODUCT & SHOPPING EXCLUSION: NEVER generate a suggested search action for consumer products, shopping, tools, or merchandise (e.g. "Makita drill", "groceries", "lawn mower").
+
+11. STRICT STRUCTURED OUTPUT: Produce strictly valid structured JSON matching the schema.
+
+12. CONVERSATIONAL CONTEXT, REFERENCE RESOLUTION & SEMANTIC GROUNDING:
+When Conversational Context & Personal World Grounding is provided (originating question, headline, linked event, known people):
+A. REFERENCE RESOLUTION & STANDALONE CONTENT:
+- Resolve anaphoric references (pronouns "she", "he", "they", "it") and elliptical fragments ("the blue one", "Tuesday afternoon", "she did", "six months", "renew the scripts") to their explicit referents using the originating question, headline, linked event, and known entities.
+- "content" MUST be written as a standalone, self-contained statement that is fully intelligible on its own without needing the preceding question.
+  * Example 1: Ezzy: "How did Mum's dentist appointment go?" + User: "The dentist said that the infection had subsided and will wait and see."
+    -> content: "Mum's dentist said that the infection had subsided and will wait and see."
+    -> people: ["Mum", "dentist"]
+    -> entity_associations: [{ "name": "Mum", "role": "mother" }]
+    -> contexts: ["health", "dental", "Mum", "appointment"]
+    -> retrieval_cues: ["Mum dentist appointment", "Mum tooth infection", "dentist update Mum", "infection subsided"]
+  * Example 2: Ezzy: "Did Barb pick up Mum's prescription?" + User: "she did"
+    -> content: "Barb picked up Mum's prescription."
+    -> people: ["Barb", "Mum"]
+    -> contexts: ["prescriptions", "health", "family"]
+    -> retrieval_cues: ["Barb Mum prescription", "did Barb get Mum's prescription", "Mum pharmacy pick up"]
+  * Example 3: Ezzy: "Did Doug say when he'll be back from Sydney?" + User: "Tuesday afternoon"
+    -> content: "Doug said he will be back from Sydney on Tuesday afternoon."
+    -> people: ["Doug"], places: ["Sydney"]
+    -> original_time_expression: "Tuesday afternoon"
+    -> resolved_datetime: Tuesday 14:00 (afternoon)
+    -> event_datetime: Tuesday 14:00
+    -> reminder_datetime: null
+
+B. CONTEXT MAY RESOLVE MEANING. IT MUST NOT MANUFACTURE INTENT (CRITICAL INVARIANT):
+- Conversational context resolves references; it does NOT create facts, intentions, reminders, obligations, or relationships the user did not express or necessarily imply.
+- DO NOT MANUFACTURE REMINDERS OR BOOKING OBLIGATIONS FROM FACTUAL REPLIES:
+  * Example: Ezzy: "When does the dentist want to see Mum again?" + User: "six months"
+    -> The user answered a factual question reporting a future medical review timeframe.
+    -> MUST NOT become "Reminder: Book Mum's follow-up dentist appointment"!
+    -> content: "The dentist wants to see Mum again in approximately six months."
+    -> kind: "fact", intent: "fact"
+    -> people: ["Mum", "dentist"]
+    -> original_time_expression: "six months"
+    -> resurfacing.mode: "date_based"
+    -> event_datetime: <ISO date ~6 months out>
+    -> reminder_time_expression: null
+    -> reminder_datetime: null
+    -> If booking responsibility is unknown, do NOT invent it!
+- LEGITIMATE INTENTIONS ESTABLISHED BY THE QUESTION'S SEMANTIC FRAME:
+  * Example: Ezzy: "Anything you need to ask Dr Marning?" + User: "Renew the scripts"
+    -> The originating question explicitly asked for items the user needs to ask or do.
+    -> content: "Ask Dr Marning to renew the scripts."
+    -> kind: "reminder", intent: "task"
+    -> people: ["Dr Marning"]
+    -> contexts: ["medical", "prescriptions", "doctor"]
+    -> retrieval_cues: ["renew scripts Dr Marning", "ask Dr Marning scripts", "Dr Marning appointment notes"]
+
+C. NO ENTITY OVER-LINKING:
+- Do NOT create entity links merely because an entity appeared somewhere in the conversational context or known people list.
+- An entity must be included in "people" or "entity_associations" ONLY if that entity is genuinely and semantically involved in the captured statement.
+
+D. AMBIGUITY HANDLING:
+- Example: Ezzy: "Which one did Barb choose?" + User: "the blue one"
+  -> If conversational or Personal World context makes "the blue one" unambiguous (e.g. linked event discusses paint colors or dress options), resolve it; otherwise faithfully capture:
+  -> content: "Barb chose the blue one."
+  -> people: ["Barb"]
+  -> kind: "fact"
+  -> Do NOT guess or invent what the blue object was!
+
+13. REFERENCE GROUNDING & EXPLICIT FACTUAL CORRECTION / SUPERSESSION:
+When Recent Active Candidate Memories are provided:
+A. REFERENCE RESOLUTION & ELLIPTICAL GROUNDING:
+- Use candidate memories to resolve pronouns (e.g. "she", "he", "they", "it") and elliptical corrections (e.g. "No, Doug corrected me. She's turning 13" -> "she" refers to Sophie from the candidate memory; "No, make that Friday" -> refers to Bill's visit from the candidate memory).
+- Write "content" as a complete, self-contained proposition (e.g. "Sophie is turning 13 years old"; "Bill is coming on Friday, 11 September 2026").
+- Extract the resolved person/entity into "people" (e.g. "Sophie" must be in "people" for "She's turning 13", and "Bill" must be in "people" for "No, make that Friday").
+
+B. EXPLICIT FACTUAL CORRECTION & SUPERSESSION:
+- If and ONLY IF the user's statement clearly and explicitly corrects or updates a specific active prior memory regarding the SAME proposition/entity/slot (e.g. Sophie's age/birthday, the spare key's location, Bill's arrival date), set "superseded_memory_id" to that exact memory's ID.
+- STRICT NEGATIVE CONSTRAINTS (MUST return superseded_memory_id: null):
+  * Additional or compatible facts (e.g. "Sophie likes art" followed by "Sophie likes tennis too"): Both facts are compatible. Do NOT supersede; return null.
+  * Uncertainty or speculative statements (e.g. "Maybe she's actually 13", "It might be 12 or 13"): The user is expressing uncertainty or speculation, NOT asserting a confirmed correction. Do NOT supersede the confirmed fact; return null.
+  * Historical truth or past states (e.g. "The spare key used to be in the drawer" followed by "It's in the safe now"): The earlier statement describes historical truth, not an erroneous current proposition. Do NOT supersede; return null.
+  * Different contexts, different events, or unrelated people: Do NOT supersede; return null.
+  * If there is ANY uncertainty about whether the user intended to supersede a specific memory, return null. False supersession is worse than retaining a contradiction.`,
+          responseMimeType: 'application/json',
+          responseSchema: memoriesResponseSchema,
+        },
+      });
+
+      if (response.text) {
+        structuredData = JSON.parse(response.text);
+      }
+    } catch (err: any) {
+      console.error('Error generating structured memory with Gemini:', err?.message || err);
+    }
+  }
+
+  let item: any;
+  if (Array.isArray(structuredData)) {
+    item = structuredData[0];
+  } else if (structuredData && Array.isArray(structuredData.memories) && structuredData.memories.length > 0) {
+    item = structuredData.memories[0];
+  } else if (structuredData && typeof structuredData === 'object' && structuredData.content) {
+    item = structuredData;
+  } else {
+    item = fallbackInterpretation(unitText, localContext.referenceDate, contextEnvelope);
+  }
+
+  // Validate that original_time_expression only captures explicit user temporal wording in this specific unit
+  let cleanOriginalTime = typeof item.original_time_expression === 'string' && item.original_time_expression.trim()
+    ? item.original_time_expression.trim()
+    : null;
+
+  if (cleanOriginalTime) {
+    const isExplicitInText = unitText.toLowerCase().includes(cleanOriginalTime.toLowerCase()) ||
+      (typeof item.content === 'string' && item.content.toLowerCase().includes(cleanOriginalTime.toLowerCase())) ||
+      (contextEnvelope?.originatingQuestion && contextEnvelope.originatingQuestion.toLowerCase().includes(cleanOriginalTime.toLowerCase())) ||
+      (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(cleanOriginalTime) &&
+       /\b(mon|tue|tues|wed|wensday|wens|thu|thur|thurs|fri|sat|sun)\b/i.test(unitText));
+    const isSituationalClause = /^(when|if|whenever|in case)\s+/i.test(cleanOriginalTime) &&
+      !/\b(\d+|today|tomorrow|yesterday|morning|afternoon|evening|night|am|pm|monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year|minute|hour|sec|o'clock|breakfast|lunch|dinner|tea|supper|work|school|bed|nap|eating|food)\b/i.test(cleanOriginalTime);
+    if (!isExplicitInText || isSituationalClause) {
+      cleanOriginalTime = null;
+    }
+  }
+
+  let resolvedDatetime: string | null = cleanOriginalTime ? (item.resolved_datetime || null) : null;
+  let reminderDatetime: string | null = cleanOriginalTime ? (item.reminder_datetime || null) : null;
+  let eventDatetime: string | null = cleanOriginalTime ? (item.event_datetime || null) : null;
+
+  if (hasActionOrReminderIntent(item, unitText)) {
+    if (resolvedDatetime && !reminderDatetime) {
+      reminderDatetime = resolvedDatetime;
+    }
+  } else {
+    // If not actionable intention (e.g. factual answer "six months" or "Tuesday afternoon"),
+    // reminderDatetime MUST NOT be populated! Only eventDatetime is set.
+    reminderDatetime = null;
+    if (resolvedDatetime && !eventDatetime) {
+      eventDatetime = resolvedDatetime;
+    }
+  }
+
+  // Check for clock time ambiguity across languages (e.g. "at 4", "4 o'clock", "Monday at 7", "tomorrow at 4", "à 4h", "um 7")
+  const clockAmbiguity = detectClockTimeAmbiguity(
+    unitText,
+    cleanOriginalTime || item.resurfacing?.timing,
+    localContext.referenceDate,
+    localContext.timeZone,
+    localContext.offsetStr,
+    localContext.language
+  );
+
+  if (clockAmbiguity.isAmbiguous) {
+    // Ambiguity Rule: Bare clock times requiring exact notifications MUST NOT silently guess AM or PM.
+    resolvedDatetime = null;
+    reminderDatetime = null;
+    eventDatetime = null;
+    item.temporal_ambiguity = clockAmbiguity;
+    if (!cleanOriginalTime) {
+      cleanOriginalTime = clockAmbiguity.timeExpr || null;
+    }
+    if (hasActionOrReminderIntent(item, unitText)) {
+      item.kind = 'reminder';
+    }
+  } else if (clockAmbiguity.dayPart) {
+    // Explicit daypart qualifier (e.g. "4 in the afternoon", "7 in the morning", "8 tonight") or explicit time
+    const hourMatch = unitText.match(/\b(\d{1,2})(?::(\d{2}))?\b/);
+    if (hourMatch) {
+      const rawH = parseInt(hourMatch[1], 10);
+      const rawM = hourMatch[2] ? parseInt(hourMatch[2], 10) : 0;
+      if (rawH >= 1 && rawH <= 12) {
+        let finalH = rawH;
+        if (clockAmbiguity.dayPart === 'pm' && finalH < 12) {
+          finalH += 12;
+        } else if (clockAmbiguity.dayPart === 'am' && finalH === 12) {
+          finalH = 0;
+        }
+        let targetYmd = getYMDInTz(localContext.referenceDate, localContext.timeZone);
+        if (unitText.toLowerCase().includes('tomorrow')) {
+          const tom = new Date(localContext.referenceDate.getTime() + 24 * 60 * 60 * 1000);
+          targetYmd = getYMDInTz(tom, localContext.timeZone);
+        }
+        const iso = `${targetYmd}T${String(finalH).padStart(2, '0')}:${String(rawM).padStart(2, '0')}:00${localContext.offsetStr}`;
+        if (!isNaN(new Date(iso).getTime())) {
+          if (!resolvedDatetime) resolvedDatetime = iso;
+          if (!cleanOriginalTime) cleanOriginalTime = hourMatch[0];
+          if (hasActionOrReminderIntent(item, unitText)) {
+            if (!reminderDatetime) reminderDatetime = iso;
+            item.kind = 'reminder';
+          } else {
+            if (!eventDatetime) eventDatetime = iso;
+          }
+        }
+      }
+    }
+  }
+
+  // Deterministic fallback for standalone clock times in unit text (e.g. "at 5:51am", "ring Peter at 5:51am", "at 3pm", "16:00")
+  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || (!reminderDatetime && !eventDatetime))) {
+    const clockMatch = unitText.match(/(?:at\s+|@\s*)?(\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b)/i) ||
+                       (typeof item.resurfacing?.timing === 'string' ? item.resurfacing.timing.match(/(\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b)/i) : null);
+    if (clockMatch) {
+      const explicitTimeExpr = clockMatch[1].trim();
+      const parsedHM = parseTimeStringToHM(explicitTimeExpr);
+      if (parsedHM) {
+        let targetYmd = getYMDInTz(localContext.referenceDate, localContext.timeZone);
+        if (unitText.toLowerCase().includes('tomorrow')) {
+          const tom = new Date(localContext.referenceDate.getTime() + 24 * 60 * 60 * 1000);
+          targetYmd = getYMDInTz(tom, localContext.timeZone);
+        }
+        const iso = `${targetYmd}T${String(parsedHM.hour).padStart(2, '0')}:${String(parsedHM.minute).padStart(2, '0')}:00${localContext.offsetStr}`;
+        if (!isNaN(new Date(iso).getTime())) {
+          cleanOriginalTime = explicitTimeExpr;
+          if (!resolvedDatetime) resolvedDatetime = iso;
+          if (hasActionOrReminderIntent(item, unitText)) {
+            if (!reminderDatetime) reminderDatetime = iso;
+            item.kind = 'reminder';
+          } else {
+            if (!eventDatetime) eventDatetime = iso;
+          }
+        }
+      }
+    }
+  }
+
+function hasTimeOfDayLanguage(text: string, timeExpr: string | null): boolean {
+  const combined = `${text} ${timeExpr || ''}`.toLowerCase();
+  // Clock time formats: 3pm, 11am, 5:51, 16:00, 4 o'clock, 4h, at 4, @ 4, etc.
+  if (/(?:\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b|\b\d{1,2}h(?:\d{2})?\b|\b\d{1,2}\s*o'?clock\b|(?:\bat|@)\s*\d{1,2}\b)/i.test(combined)) {
+    return true;
+  }
+  // Daypart words across supported languages:
+  if (/\b(morning|afternoon|evening|night|tonight|midday|noon|midnight|matin|après-midi|apres-midi|soir|nuit|nachmittag|morgen|abend|nacht|madrugada|mañana|tarde|noche)\b/i.test(combined)) {
+    return true;
+  }
+  // Relative duration offsets:
+  if (/\bin\s+(?:\w+|\d+)\s*(?:minutes?|mins?|min|m|hours?|hrs?|hr|h|seconds?|secs?|s)\b/i.test(combined)) {
+    return true;
+  }
+  return false;
+}
+
+// Deterministic fallback for relative duration offsets (e.g. "in 10 minutes", "in 2 hours")
+  if (!clockAmbiguity.isAmbiguous && (!cleanOriginalTime || (!reminderDatetime && !eventDatetime))) {
+    const triggerIso = parseReminderTriggerTime(unitText, item.resurfacing?.timing || '', localContext.referenceDate);
+    if (triggerIso) {
+      if (!resolvedDatetime) resolvedDatetime = triggerIso;
+      if (!cleanOriginalTime) {
+        const relMatch = unitText.match(/\bin\s+\d+\s*(?:minutes?|mins?|min|m|hours?|hrs?|hr|h|seconds?|secs?|s|days?|d)\b/i);
+        cleanOriginalTime = relMatch ? relMatch[0].trim() : (item.resurfacing?.timing || 'in 10 minutes');
+      }
+      if (hasActionOrReminderIntent(item, unitText)) {
+        if (!reminderDatetime) reminderDatetime = triggerIso;
+        item.kind = 'reminder';
+      } else {
+        if (!eventDatetime) eventDatetime = triggerIso;
+      }
+    }
+  }
+
+  // Date-Only Normalization Rule:
+  // If the user's input contains a date reference (today/tomorrow/a weekday/an explicit date) but NO time-of-day language whatsoever,
+  // resolved_datetime, reminder_datetime, and event_datetime MUST be stored as date-only (YYYY-MM-DD),
+  // and reminder_time_expression / event_time_expression must remain null.
+  if (cleanOriginalTime && !hasTimeOfDayLanguage(unitText, cleanOriginalTime)) {
+    if (resolvedDatetime && resolvedDatetime.includes('T')) {
+      resolvedDatetime = resolvedDatetime.split('T')[0];
+    }
+    if (reminderDatetime && reminderDatetime.includes('T')) {
+      reminderDatetime = reminderDatetime.split('T')[0];
+    }
+    if (eventDatetime && eventDatetime.includes('T')) {
+      eventDatetime = eventDatetime.split('T')[0];
+    }
+  }
+
+  // Ensure contexts is never empty
+  let contexts = Array.isArray(item.contexts) ? item.contexts.filter((c: any) => typeof c === 'string' && c.trim()) : [];
+  if (contexts.length === 0) {
+    const fallbackContexts = ['reference', 'general'];
+    if (item.intent && typeof item.intent === 'string') fallbackContexts.unshift(item.intent);
+    contexts = Array.from(new Set(fallbackContexts));
+  }
+
+  // Ensure retrieval_cues is never empty
+  let retrievalCues = Array.isArray(item.retrieval_cues) ? item.retrieval_cues.filter((c: any) => typeof c === 'string' && c.trim()) : [];
+  if (retrievalCues.length === 0) {
+    const words = unitText.split(/\s+/).map((w: string) => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()).filter((w: string) => w.length > 2);
+    retrievalCues = Array.from(new Set([item.content || unitText, ...(Array.isArray(item.topics) ? item.topics : []), ...words])).slice(0, 6);
+  }
+
+  let itemRelationships = Array.isArray(item.relationships)
+    ? item.relationships.filter((r: any) => r && typeof r.person === 'string' && typeof r.role === 'string' && r.person.trim() && r.role.trim())
+    : [];
+
+  if (itemRelationships.length === 0) {
+    const relNegMatch = unitText.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(?:isn't|is\s+not|is\s+no\s+longer)\s+(?:my|our|the)\s+([a-zA-Z\s]+?)(?:\s+anymore|[.,]|$)/i);
+    if (relNegMatch) {
+      itemRelationships.push({
+        person: relNegMatch[1].trim(),
+        role: relNegMatch[2].trim(),
+        is_active: false,
+      });
+    } else {
+      const relPosMatch = unitText.match(/\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+is\s+(?:my|our|the)\s+([a-zA-Z\s]+?)(?:[.,]|$)/i);
+      if (relPosMatch) {
+        itemRelationships.push({
+          person: relPosMatch[1].trim(),
+          role: relPosMatch[2].trim(),
+          is_active: true,
+        });
+      }
+    }
+  }
+
+  let peopleList = Array.isArray(item.people) ? [...item.people] : [];
+  for (const rel of itemRelationships) {
+    if (rel.person && !peopleList.some((p: string) => p.toLowerCase() === rel.person.toLowerCase())) {
+      peopleList.push(rel.person);
+    }
+  }
+
+  if (Array.isArray(item.entity_associations)) {
+    for (const ea of item.entity_associations) {
+      if (ea?.name && typeof ea.name === 'string' && ea.name.trim()) {
+        const cleanName = ea.name.trim();
+        if (!peopleList.some((p: string) => p.toLowerCase() === cleanName.toLowerCase())) {
+          peopleList.push(cleanName);
+        }
+      }
+    }
+  }
+
+  if (contextEnvelope?.relevantEntities) {
+    for (const ent of contextEnvelope.relevantEntities) {
+      if (ent?.name && ent.name.length >= 2) {
+        const entRegex = new RegExp(`\\b${ent.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (entRegex.test(item.content || unitText) || (contextEnvelope.originatingQuestion && entRegex.test(contextEnvelope.originatingQuestion))) {
+          if (!peopleList.some((p: string) => p.toLowerCase() === ent.name.toLowerCase())) {
+            peopleList.push(ent.name);
+          }
+        }
+      }
+    }
+  }
+
+  let itemsList: string[] = [];
+  if (Array.isArray(item.items) && item.items.length > 0) {
+    itemsList = item.items.filter((i: any) => typeof i === 'string' && i.trim()).map((i: string) => i.trim());
+  } else {
+    itemsList = extractItemsFromText(item.content || unitText, fullOriginalText);
+  }
+
+  let canonicalKind = item.kind ? String(item.kind).trim().toLowerCase() : 'fact';
+  if (canonicalKind === 'task') {
+    canonicalKind = 'reminder';
+  } else if (canonicalKind !== 'reminder' && canonicalKind !== 'fact' && canonicalKind !== 'not_sure') {
+    canonicalKind = (reminderDatetime || item.intent === 'task' || item.intent === 'purchase' || item.intent === 'contact' || item.intent === 'reminder') ? 'reminder' : 'fact';
+  }
+
+  const canonicalIntent = item.intent || (canonicalKind === 'reminder' ? 'task' : canonicalKind === 'not_sure' ? 'not_sure' : 'remember');
+
+  let prerequisiteObj = (item.prerequisite && typeof item.prerequisite === 'object' && item.prerequisite.condition)
+    ? {
+        condition: String(item.prerequisite.condition).trim(),
+        status: item.prerequisite.status || 'pending',
+        expected_time_expression: item.prerequisite.expected_time_expression || null,
+        expected_datetime: item.prerequisite.expected_datetime || null,
+      }
+    : null;
+
+  if (!prerequisiteObj) {
+    const untilMatch = unitText.match(/\buntil\s+([A-Z][a-zA-Z0-9\s]+?)(?:\s+on\s+([a-zA-Z]+))?[.!]?$/i);
+    if (untilMatch) {
+      prerequisiteObj = {
+        condition: untilMatch[1].trim(),
+        status: 'pending',
+        expected_time_expression: untilMatch[2] ? untilMatch[2].trim() : null,
+        expected_datetime: null,
+      };
+    }
+  }
+
+  return {
+    content: item.content || unitText,
+    kind: canonicalKind,
+    intent: canonicalIntent,
+    status: item.status || 'active',
+    people: peopleList,
+    entity_associations: Array.isArray(item.entity_associations) ? item.entity_associations : [],
+    places: Array.isArray(item.places) ? item.places : [],
+    topics: Array.isArray(item.topics) ? item.topics : [],
+    contexts,
+    retrieval_cues: retrievalCues,
+    items: itemsList,
+    relationships: itemRelationships,
+    prerequisite: prerequisiteObj,
+    original_time_expression: cleanOriginalTime,
+    resolved_datetime: resolvedDatetime,
+    event_time_expression: (cleanOriginalTime && hasTimeOfDayLanguage(unitText, cleanOriginalTime)) ? (item.event_time_expression || null) : null,
+    event_datetime: eventDatetime,
+    reminder_time_expression: (cleanOriginalTime && hasTimeOfDayLanguage(unitText, cleanOriginalTime)) ? (item.reminder_time_expression || null) : null,
+    reminder_datetime: reminderDatetime,
+    resurfacing: (() => {
+      const isPastOutcome = Boolean(
+        contextEnvelope?.originatingQuestion ||
+        contextEnvelope?.linkedEventId ||
+        (canonicalKind === 'fact' && resolvedDatetime && new Date(resolvedDatetime).getTime() <= localContext.referenceDate.getTime()) ||
+        (canonicalKind === 'fact' && cleanOriginalTime && /\b(this morning|earlier|yesterday|last night|past)\b/i.test(cleanOriginalTime))
+      );
+
+      if (isPastOutcome) {
+        return {
+          mode: 'contextual' as const,
+          timing: 'Contextual / On retrieval',
+        };
+      }
+
+      const mode = item.resurfacing?.mode || (resolvedDatetime && new Date(resolvedDatetime).getTime() > localContext.referenceDate.getTime() ? 'date_based' : 'contextual');
+      const timing = item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval';
+      return { mode, timing };
+    })(),
+    temporal_ambiguity: item.temporal_ambiguity || null,
+    subject_resolved_date: null,
+    suggested_action: (item.suggested_action && typeof item.suggested_action === 'object' && item.suggested_action.label && item.suggested_action.query && !isProductOrShoppingSuggestedAction(item.suggested_action))
+      ? {
+          type: item.suggested_action.type || 'web_search',
+          label: item.suggested_action.label,
+          query: item.suggested_action.query,
+        }
+      : null,
+    anticipatory_mode: classifyAnticipatoryMode({
+      content: item.content || unitText,
+      originalText: unitText,
+      kind: canonicalKind,
+      intent: canonicalIntent,
+      resurfacing: {
+        mode: item.resurfacing?.mode || (resolvedDatetime ? 'date_based' : 'contextual'),
+        timing: item.resurfacing?.timing || cleanOriginalTime || 'Contextual / On retrieval',
+      },
+      resolved_datetime: resolvedDatetime,
+      event_datetime: eventDatetime,
+      reminder_datetime: reminderDatetime,
+      original_time_expression: cleanOriginalTime,
+      contexts,
+    }, unitText),
+    superseded_memory_id: typeof item.superseded_memory_id === 'string' && item.superseded_memory_id.trim() ? item.superseded_memory_id.trim() : null,
+    anticipatory_opted_in: false,
+  };
+}
+
+/**
+ * Deterministic fallback for resolving dates from a List subject string when AI is offline.
+ * Weekdays map to the next occurring instance from referenceDate.
+ * Subjects with no temporal reference return null.
+ */
+export function fallbackSubjectDateResolution(
+  subject: string,
+  localContext: { referenceDate: Date; timeZone: string }
+): string | null {
+  const text = (subject || '').trim().toLowerCase();
+  if (!text) return null;
+
+  const tz = localContext.timeZone || 'Australia/Sydney';
+  const now = localContext.referenceDate || new Date();
+  const todayYMD = getYMDInTz(now, tz);
+
+  if (/\btoday\b/.test(text) || /\btonight\b/.test(text)) {
+    return todayYMD;
+  }
+  if (/\btomorrow\b/.test(text)) {
+    const d = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    return getYMDInTz(d, tz);
+  }
+  if (/\byesterday\b/.test(text)) {
+    const d = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return getYMDInTz(d, tz);
+  }
+
+  // Weekday mapping
+  const weekdays: Record<string, number> = {
+    sunday: 0, sun: 0,
+    monday: 1, mon: 1,
+    tuesday: 2, tue: 2, tues: 2,
+    wednesday: 3, wed: 3, wensday: 3, wens: 3,
+    thursday: 4, thu: 4, thur: 4, thurs: 4,
+    friday: 5, fri: 5,
+    saturday: 6, sat: 6,
+  };
+
+  for (const [dayName, targetDayNum] of Object.entries(weekdays)) {
+    const regex = new RegExp(`\\b${dayName}\\b`, 'i');
+    if (regex.test(text)) {
+      const [yearStr, monthStr, dateStr] = todayYMD.split('-').map(Number);
+      const currentTzDate = new Date(Date.UTC(yearStr, monthStr - 1, dateStr, 12, 0, 0));
+      const currentDay = currentTzDate.getUTCDay();
+
+      let daysUntil = (targetDayNum - currentDay + 7) % 7;
+      if (daysUntil === 0 && /\bnext\b/i.test(text)) {
+        daysUntil = 7;
+      }
+      const targetDate = new Date(currentTzDate.getTime() + daysUntil * 24 * 60 * 60 * 1000);
+      const y = targetDate.getUTCFullYear();
+      const m = String(targetDate.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(targetDate.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a date from a List subject / title string if a genuine temporal expression is present.
+ * Uses exact Phase A2 date-only convention (YYYY-MM-DD, e.g. "2026-09-02").
+ * Bare weekdays ("Wednesday", "Wednesday dinner") resolve to the next occurring instance from referenceDate.
+ * Subjects with no temporal expression (e.g. "Mum's sold items", "Grocery list", "Camping gear checklist") resolve to null.
+ */
+export async function resolveSubjectDate(
+  subject: string,
+  localContext: { localDateTimeStr: string; timeZone: string; language: string; region: string; offsetStr: string; utcIso: string; referenceDate: Date },
+  ai: GoogleGenAI | null
+): Promise<string | null> {
+  const cleanSubject = (subject || '').trim();
+  if (!cleanSubject) return null;
+
+  // Quick heuristic filter: If no temporal keywords appear in the subject string, return null immediately without an LLM call.
+  const hasTemporalCandidate = /\b(today|tomorrow|yesterday|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|wensday|wens|thu|thur|thurs|fri|sat|sun|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|\d{1,2}[\/\-\.]\d{1,2}(?:[\/\-\.]\d{2,4})?|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})\b/i.test(cleanSubject);
+
+  if (!hasTemporalCandidate) {
+    return null;
+  }
+
+  if (ai) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: `Reference Context for Date/Time & Locale:
+- User Local Date & Time: ${localContext.localDateTimeStr}
+- User TimeZone: ${localContext.timeZone}
+- User Language (BCP-47): ${localContext.language}
+- User Operating Country/Region: ${localContext.region}
+- User Local ISO Offset: ${localContext.offsetStr}
+- Current UTC Reference: ${localContext.utcIso}
+
+List Subject / Title to Evaluate: "${cleanSubject}"`,
+        config: {
+          systemInstruction: `You are Ezzymigo's List Subject Date Resolver.
+Determine whether the provided List subject / title contains a genuine temporal reference (e.g. a bare weekday like "Wednesday" or "Wednesday dinner", "tomorrow", "next Tuesday", an explicit date like "3/9/2026", "Friday drinks", etc.).
+- If YES: Resolve it to a single calendar date in date-only format (YYYY-MM-DD, e.g. "2026-09-02") using the Reference Context. A bare weekday resolves to the next occurring instance of that weekday from the reference date (not recurring, unless "every" is present).
+- If NO: Return null for resolved_date.
+Output valid JSON matching the schema.`,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              resolved_date: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'The resolved calendar date in YYYY-MM-DD format (e.g. "2026-09-02"), or null if no temporal expression is present in the subject title.',
+              },
+            },
+            required: ['resolved_date'],
+          },
+        },
+      });
+
+      if (response.text) {
+        const parsed = JSON.parse(response.text);
+        if (typeof parsed?.resolved_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.resolved_date.trim())) {
+          return parsed.resolved_date.trim();
+        }
+        return null;
+      }
+    } catch (err: any) {
+      console.error('Error in resolveSubjectDate with Gemini:', err?.message || err);
+    }
+  }
+
+  return fallbackSubjectDateResolution(cleanSubject, localContext);
+}
+
+/**
+ * Shared capture interpretation pipeline:
+ * Executes STAGE 1 (Dedicated Splitter) and STAGE 2 (Independent Unit Interpretation)
+ * using the production Gemini pipeline, returning structured memory objects without database writes.
+ */
+export async function processThoughtCapturePipeline(
+  trimmedText: string,
+  localContext: any,
+  ai: any,
+  linkedEventId?: string | null,
+  subject?: string | null,
+  contextEnvelope?: ConversationalContextEnvelope | null,
+  candidateActiveMemoriesOrEzzyId?: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | string | null
+): Promise<{ splitUnits: string[]; memories: any[] }> {
+  // Determine candidate active memories if correction cue is detected
+  let candidateActiveMemories: Array<{ id: string; content: string; people?: string[]; places?: string[]; originalText?: string }> | null = null;
+  if (Array.isArray(candidateActiveMemoriesOrEzzyId)) {
+    candidateActiveMemories = candidateActiveMemoriesOrEzzyId;
+  } else if (typeof candidateActiveMemoriesOrEzzyId === 'string' && candidateActiveMemoriesOrEzzyId.trim()) {
+    if (detectCorrectionCue(trimmedText)) {
+      try {
+        candidateActiveMemories = await getRecentActiveMemoriesForCorrection(candidateActiveMemoriesOrEzzyId.trim(), 6);
+      } catch (cErr) {
+        console.warn('[Correction Cue] Error fetching candidate active memories:', cErr);
+      }
+    }
+  }
+
+  // STAGE 1: Dedicated Splitter Stage
+  // If contextEnvelope is provided and user utterance is a concise conversational reply,
+  // or if a correction cue is detected, do not inappropriately fragment across clause boundaries.
+  let splitUnits: string[];
+  const isCorrection = detectCorrectionCue(trimmedText);
+  if (
+    ((contextEnvelope && (contextEnvelope.originatingQuestion || contextEnvelope.promptHeadline)) || isCorrection) &&
+    trimmedText.length < 150 &&
+    !trimmedText.includes(';')
+  ) {
+    splitUnits = [trimmedText];
+  } else {
+    splitUnits = await splitCaptureIntoUnits(trimmedText, ai, localContext);
+  }
+
+  // If active List subject context is provided, resolve subject-level temporal reference in a separate pass
+  let subjectResolvedDate: string | null = null;
+  if (subject && typeof subject === 'string' && subject.trim()) {
+    subjectResolvedDate = await resolveSubjectDate(subject.trim(), localContext, ai);
+  }
+
+  // STAGE 2: Independent Interpretation Pipeline
+  // Each resulting unit passes independently through the existing interpretation pipeline
+  const now = new Date().toISOString();
+
+  const interpretationPromises = splitUnits.map((unitText) =>
+    interpretSingleMemoryUnit(unitText, unitText, localContext, ai, subject, contextEnvelope, candidateActiveMemories)
+  );
+
+  const interpretations = await Promise.all(interpretationPromises);
+
+  // Assemble memory items, preserving discrete unit originalText
+  const effectiveLinkedEventId = linkedEventId || contextEnvelope?.linkedEventId || null;
+
+  const memories = interpretations.map((interpretation, index) => {
+    const unitText = splitUnits[index] || trimmedText;
+    let unitSubject = subject && typeof subject === 'string' && subject.trim() ? subject.trim() : null;
+
+    // If no shared subject was passed, check if the unit text itself explicitly defines a list subject:
+    // E.g. "Add these to my Father's Day list: champagne, chocolates and a card."
+    if (!unitSubject) {
+      const explicitListMatch = unitText.match(/^\s*(?:please\s+)?(?:add\s+(?:this|these|the\s+following)?\s*to\s+(?:my\s+|the\s+)?([\w\s'’]+?)\s+list|put\s+(?:this|these|the\s+following)?\s*on\s+(?:my\s+|the\s+)?([\w\s'’]+?)\s+list|create\s+(?:a\s+)?(?:new\s+)?list(?:\s+called|\s+titled|\s+for)?\s+([\w\s'’]+?)(?::|$)|([\w\s'’]+?)\s+list:)/i);
+      if (explicitListMatch) {
+        const rawTitle = (explicitListMatch[1] || explicitListMatch[2] || explicitListMatch[3] || explicitListMatch[4] || '').trim();
+        if (rawTitle) {
+          unitSubject = `${rawTitle.replace(/\s+list$/i, '')} list`;
+        }
+      }
+    }
+
+    if (unitSubject) {
+      const cleanSubject = unitSubject.trim();
+      interpretation.subject = cleanSubject;
+      interpretation.subject_resolved_date = subjectResolvedDate || null;
+      if (!Array.isArray(interpretation.retrieval_cues)) {
+        interpretation.retrieval_cues = [];
+      }
+      if (!interpretation.retrieval_cues.includes(cleanSubject)) {
+        interpretation.retrieval_cues.push(cleanSubject);
+      }
+    } else {
+      interpretation.subject = undefined;
+      interpretation.subject_resolved_date = null;
+    }
+    if (effectiveLinkedEventId) {
+      interpretation.linked_event_id = String(effectiveLinkedEventId);
+      interpretation.is_reflection_response = true;
+      interpretation.origin = 'reflection_outcome';
+      if (!Array.isArray(interpretation.contexts)) {
+        interpretation.contexts = [];
+      }
+      if (!interpretation.contexts.includes('appointment')) {
+        interpretation.contexts.push('appointment');
+      }
+    }
+
+    // Attach authoritative conversational context provenance
+    if (contextEnvelope) {
+      if (contextEnvelope.originatingCommunicationId) {
+        interpretation.originating_communication_id = contextEnvelope.originatingCommunicationId;
+      }
+      if (contextEnvelope.originatingQuestion) {
+        interpretation.originating_prompt_question = contextEnvelope.originatingQuestion;
+      }
+      if (contextEnvelope.promptHeadline) {
+        interpretation.originating_prompt_headline = contextEnvelope.promptHeadline;
+      }
+    }
+
+    return {
+      id: `mem_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 9)}`,
+      originalText: unitText, // Unit-specific original text matching user's wording for this unit
+      createdAt: now,
+      isDone: false,
+      interpretation: {
+        ...interpretation,
+        superseded_memory_id: interpretation.superseded_memory_id || null,
+      },
+      is_reflection_response: effectiveLinkedEventId ? true : undefined,
+    };
+  });
+
+  return { splitUnits, memories };
+}

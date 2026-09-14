@@ -1,0 +1,248 @@
+import { Type } from '@google/genai';
+
+// Memory interpretation schema: JSON object containing a memories array
+export const splitterResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    units: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'The smallest meaningful independent memory units extracted from the user capture.',
+    },
+  },
+  required: ['units'],
+};
+
+export const memoryItemSchema = {
+  type: Type.OBJECT,
+  properties: {
+    content: {
+      type: Type.STRING,
+      description: 'Cleaned and normalised representation of the full meaningful memory unit. Obvious spelling, grammar, punctuation, and transcription errors may be corrected, but NEVER drop, summarise away, or omit any meaningful clauses, facts, persons, places, commitments, third-party statements, decisions, quantities, or dates/times present in the captured unit.',
+    },
+    kind: {
+      type: Type.STRING,
+      description: 'Canonical classification category: "reminder" if the thought represents something the user intends or needs to do, arrange, buy, contact, follow up, attend, complete, or otherwise act upon (whether timed, dated, recurring, or completely untimed); "fact" if it is information to remember (knowledge, observations, relationships, preferences, states, reference information, or completed/past events); "not_sure" if basic meaning or actionable intent cannot be confidently understood (e.g. "This is going nowhere", "It’s just so reckless"). DO NOT use the presence or absence of a date/time to distinguish reminder from fact.',
+    },
+    intent: {
+      type: Type.STRING,
+      description: 'What specific type of action or information this represents (e.g., "task", "purchase", "contact", "appointment", "follow-up", "research", "decision", "idea", "fact", "knowledge", "note", "not_sure").',
+    },
+    status: {
+      type: Type.STRING,
+      description: 'Initial status of the intention, usually "active" unless already completed.',
+    },
+    people: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Names of people mentioned or involved in the thought.',
+    },
+    entity_associations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING, description: 'Name of the person or entity semantically involved in the thought (e.g. "Mum", "Barb", "Doug", "Dr Marning").' },
+          role: { type: Type.STRING, nullable: true, description: 'Optional role or relation if known (e.g. "mother", "wife", "son", "doctor").' },
+        },
+        required: ['name'],
+      },
+      description: 'Optional entities genuinely and semantically involved in the memory.',
+    },
+    places: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Locations, venues, or places mentioned in the thought.',
+    },
+    topics: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Relevant subject tags or topics associated with the thought.',
+    },
+    contexts: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'MANDATORY NON-EMPTY ARRAY: Useful circumstances, environments, domains, or situations in which this information might be wanted or relevant again (e.g., ["home maintenance", "safety", "reference", "household"]). MUST NEVER BE EMPTY.',
+    },
+    retrieval_cues: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'MANDATORY NON-EMPTY ARRAY: Semantic concepts, search queries, related keywords, and likely future natural-language retrieval phrases or questions the user might ask when retrieving this information (e.g. ["where are the 9V batteries", "smoke alarm batteries", "smoke detector maintenance"]). MUST NEVER BE EMPTY.',
+    },
+    original_time_expression: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Literal clock time, calendar date, or relative duration expression explicitly supplied by the user (e.g. "tomorrow morning", "in 10 minutes", "Saturday 9am"). MUST BE NULL if no temporal expression was in the user text. Inferred contextual phrases (e.g. "when smoke alarms need maintenance") are NOT time expressions and MUST NEVER be put here.',
+    },
+    resolved_datetime: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Absolute ISO-8601 date string (YYYY-MM-DD) if only a date was specified, or timestamp (YYYY-MM-DDTHH:mm:ss+ZZ:ZZ) if a time/daypart was also specified. MUST BE NULL if no temporal expression was supplied by the user.',
+    },
+    event_time_expression: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'When the underlying event/task occurs if distinct from the reminder time (e.g. "Tuesday at 2pm"), or null if no event time was mentioned by the user.',
+    },
+    event_datetime: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Absolute ISO-8601 date (YYYY-MM-DD) or timestamp of the event if specified by the user, or null if not mentioned.',
+    },
+    reminder_time_expression: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'When the user wants to be reminded if distinct from the event (e.g. "Monday evening"), or null if no time-of-day or only a date was mentioned by the user.',
+    },
+    reminder_datetime: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Absolute ISO-8601 date (YYYY-MM-DD) or timestamp of the reminder if specified by the user, or null if not mentioned.',
+    },
+    resurfacing: {
+      type: Type.OBJECT,
+      properties: {
+        mode: {
+          type: Type.STRING,
+          description: 'Trigger mode: "date_based" if temporal expression is present; "contextual", "location_based", or "none" if a fact/memory without a temporal expression.',
+        },
+        timing: {
+          type: Type.STRING,
+          description: 'Human-readable timing expression if temporal (e.g., "Saturday morning"), or "Contextual / On retrieval" or "Unscheduled" if non-temporal.',
+        },
+      },
+      required: ['mode', 'timing'],
+    },
+    suggested_action: {
+      type: Type.OBJECT,
+      nullable: true,
+      description: 'Optional suggested external search action when the memory refers to an externally searchable entity (e.g. book, restaurant, movie/show, concert/event ticket, place, public service). NEVER generate for products, shopping, consumer goods, possessions, or sold items. MUST BE NULL for ordinary personal memories, reminders, facts, and appointments.',
+      properties: {
+        type: { type: Type.STRING, description: 'Must be "web_search"' },
+        label: { type: Type.STRING, description: 'Concise user-facing action label, e.g. "Find this book", "Find this restaurant", "Find where to watch", "Find tickets", "Look this up", "Find options"' },
+        query: { type: Type.STRING, description: 'Concise search query derived from the memory content for Google search' },
+      },
+      required: ['type', 'label', 'query'],
+    },
+    relationships: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          person: { type: Type.STRING, description: 'Name of the person who holds or has the role (e.g. "Sophie", "Julie", "Jack", "Helen", "Barb", "Steve")' },
+          role: { type: Type.STRING, description: 'Role or relationship name (e.g. "daughter", "carer", "apprentice", "wife", "husband", "plumber", "doctor", "dentist", "electrician", "partner", "physio", "lawyer", "mechanic", "boss")' },
+          subject_person: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'The person who has this relative, associate, or employee. Set to "user" (or null) if the relationship is directly with the user (e.g. "Barb is my wife" -> subject_person: "user", role: "wife", person: "Barb"). Set to the specific third-party person if it is a third-party relationship (e.g. "Doug\'s daughter is Sophie" -> subject_person: "Doug", role: "daughter", person: "Sophie"; "Mum\'s carer Julie" -> subject_person: "Mum", role: "carer", person: "Julie"; "Bill\'s apprentice Jack" -> subject_person: "Bill", role: "apprentice", person: "Jack"; "Steve\'s wife Helen" -> subject_person: "Steve", role: "wife", person: "Helen").',
+          },
+          is_active: { type: Type.BOOLEAN, description: 'true if establishing/confirming the relationship; false if stating the relationship ended or is no longer current (e.g. "Steve isn\'t my plumber anymore")' },
+        },
+        required: ['person', 'role', 'is_active'],
+      },
+      description: 'Optional lightweight relationship or role assertions between people mentioned or between the user and people.',
+    },
+    prerequisite: {
+      type: Type.OBJECT,
+      nullable: true,
+      description: 'Optional structured dependency, blocker, or external condition that must occur before the user\'s intention/action can be performed. MUST BE NULL if there is no prerequisite/blocker/dependency.',
+      properties: {
+        condition: {
+          type: Type.STRING,
+          description: 'The prerequisite event, condition, or external dependency that must be completed first (e.g. "Steve repairs the broken gate", "The quote arrives", "The parts arrive", "After the meeting")',
+        },
+        status: {
+          type: Type.STRING,
+          description: 'Current status of the prerequisite, defaulting to "pending" unless already confirmed resolved.',
+        },
+        expected_time_expression: {
+          type: Type.STRING,
+          nullable: true,
+          description: 'Explicit timing expression associated with the PREREQUISITE (e.g. "Monday", "Friday", "at 2pm"), or null if no timing is stated for the prerequisite. NOTE: This is the prerequisite\'s timing, NOT the user\'s action timing.',
+        },
+        expected_datetime: {
+          type: Type.STRING,
+          nullable: true,
+          description: 'Absolute ISO-8601 timestamp resolved for the prerequisite\'s expected time, or null if no timing was stated for the prerequisite.',
+        },
+      },
+      required: ['condition', 'status'],
+    },
+    items: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Optional array of structured item strings if the memory represents a collection, list, recipe ingredients, shopping list, packing list, or multi-item group under a single intention.',
+    },
+    anticipatory_mode: {
+      type: Type.STRING,
+      enum: ['NONE', 'POST_ONLY', 'PRE_AND_POST'],
+      description: 'Anticipatory class: "NONE" for undated/perpetual reminders and tasks (e.g. "Sharpen the knives", "Trim the hedge") and general facts/notes; "POST_ONLY" for recurring routines (e.g. "Visit Mum every Monday, Wednesday and Friday 9–11am"); "PRE_AND_POST" for one-off dated appointments/events (e.g. doctor, dentist, birthday, dinner, meeting, appointment).',
+    },
+    superseded_memory_id: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Exact ID of an active prior memory explicitly corrected or superseded by this statement (from the provided Recent Active Candidate Memories), or null if not an explicit correction.',
+    },
+  },
+  required: ['content', 'kind', 'intent', 'status', 'people', 'places', 'topics', 'contexts', 'retrieval_cues', 'resurfacing'],
+};
+
+export const memoriesResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    memories: {
+      type: Type.ARRAY,
+      items: memoryItemSchema,
+      description: 'Array of structured memory objects, one for each distinct intention in the user input.',
+    },
+  },
+  required: ['memories'],
+};
+
+export const intentClassificationSchema = {
+  type: Type.OBJECT,
+  properties: {
+    intent_class: {
+      type: Type.STRING,
+      enum: [
+        'IMMEDIATE_CONTACT_ACTION',
+        'CONTACT_INFORMATION_QUERY',
+        'FUTURE_CONTACT_INTENTION',
+        'CONTACT_FACT',
+        'GENERAL_THOUGHT',
+      ],
+      description: 'The semantic intent class of the user input across any language.',
+    },
+    action_type: {
+      type: Type.STRING,
+      enum: ['call', 'sms', 'none'],
+      description: 'Type of direct communication action requested, or "none".',
+    },
+    target_person: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Person name mentioned as the target of the contact action or query (e.g. "Barb", "Fred", "Marie"). CRITICAL: The person name MUST be kept exactly as written in the user input without translation or modification.',
+    },
+    target_role: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'Normalized role or relationship in English if mentioned (e.g. "electrician", "doctor", "plumber", "mum", "sister", "architect", "builder").',
+    },
+    prefilled_message: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'For SMS/message actions, any message text the user specified to send (e.g. "I\'m running late", "llegaré tarde", "j\'aurai du retard", "ich komme später"). Strip out conversational carrier phrasing like "saying that", "diciendo que", "disant que", "dass". Null if no message content specified.',
+    },
+    has_temporal_anchor: {
+      type: Type.BOOLEAN,
+      description: 'True if there is ANY future, delayed, or scheduled time/date expression, or reminder framing in ANY language (e.g. "tomorrow", "mañana", "demain", "morgen", "at 4pm", "tonight", "ce soir", "heute Abend", "in 10 minutes", "recuérdame", "rappelle-moi", "erinnere mich", "don\'t let me forget"). If true, this CANNOT be an IMMEDIATE_CONTACT_ACTION.',
+    },
+    temporal_expression: {
+      type: Type.STRING,
+      nullable: true,
+      description: 'The explicit time, date, delay, or scheduling expression detected in the input, if any (in the source language, e.g. "mañana", "demain", "morgen", "tomorrow").',
+    },
+  },
+  required: ['intent_class', 'action_type', 'has_temporal_anchor'],
+};
+

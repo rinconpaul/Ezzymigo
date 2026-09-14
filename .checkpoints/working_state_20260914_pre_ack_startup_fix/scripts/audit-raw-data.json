@@ -1,0 +1,2447 @@
+{
+  "memories": [
+    {
+      "id": "mem_1787523423129_0_vtusg5e",
+      "originalText": "Mum's  carehouse door pass code is 2123 ok ok",
+      "createdAt": "2026-08-23T22:17:01.347Z",
+      "isDone": "0",
+      "content": "Mum's carehouse door pass code is 2123",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[\"carehouse\"]",
+      "topics": "{\"topics\":[\"passcode\",\"access\",\"security\"],\"contexts\":[\"carehouse visit\",\"family support\",\"reference\",\"access codes\"],\"retrieval_cues\":[\"what is the passcode for the carehouse\",\"mum's carehome door code\",\"access code 2123\",\"carehouse door entry code\"],\"intent\":\"fact\",\"suggested_action\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787556414573_0_1aw37nd",
+      "originalText": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "createdAt": "2026-08-24T07:26:52.638Z",
+      "isDone": "0",
+      "content": "I visit Mum every Monday from 9am to 11am.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"family\",\"routine\",\"visiting\"],\"contexts\":[\"family\",\"personal\",\"routine\",\"scheduling\"],\"retrieval_cues\":[\"when do I see mum\",\"mum visit schedule\",\"weekly visit\",\"visiting mum\",\"mum appointment\"],\"intent\":\"appointment\",\"suggested_action\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"Every Monday morning\",\"mode\":\"date_based\",\"original_time_expression\":\"every Monday from 9am to 11am\",\"resolved_datetime\":\"2026-08-31T09:00:00+10:00\",\"event_time_expression\":\"every Monday from 9am to 11am\",\"event_datetime\":\"2026-08-31T09:00:00+10:00\",\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787556414573_1_olajw9g",
+      "originalText": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "createdAt": "2026-08-24T07:26:52.638Z",
+      "isDone": "0",
+      "content": "I visit Mum every Wednesday from 9am to 11am.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"family visit\",\"recurring appointment\"],\"contexts\":[\"family\",\"routine\",\"schedule\",\"personal time\"],\"retrieval_cues\":[\"when is my visit to Mum\",\"Mum's recurring appointment\",\"Wednesday morning plans\",\"weekly family visit time\",\"appointment with Mum\"],\"intent\":\"appointment\",\"suggested_action\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"every Wednesday 9am\",\"mode\":\"date_based\",\"original_time_expression\":\"every Wednesday from 9am to 11am\",\"resolved_datetime\":\"2026-08-26T09:00:00+10:00\",\"event_time_expression\":\"every Wednesday from 9am to 11am\",\"event_datetime\":\"2026-08-26T09:00:00+10:00\",\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787556414573_2_0ga9xlv",
+      "originalText": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "createdAt": "2026-08-24T07:26:52.638Z",
+      "isDone": "0",
+      "content": "I visit Mum every Friday from 9am to 11am.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"family\",\"routine\",\"visiting\"],\"contexts\":[\"family\",\"routine\",\"personal schedule\"],\"retrieval_cues\":[\"when is my visit with mum\",\"weekly visit to mum\",\"mum visit time\",\"friday schedule\"],\"intent\":\"appointment\",\"suggested_action\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"every Friday 9am to 11am\",\"mode\":\"date_based\",\"original_time_expression\":\"every Friday from 9am to 11am\",\"resolved_datetime\":\"2026-08-28T09:00:00+10:00\",\"event_time_expression\":\"every Friday from 9am to 11am\",\"event_datetime\":\"2026-08-28T09:00:00+10:00\",\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787594114055_0_pfco7qp",
+      "originalText": "My son Roland's new girlfriend's name is 'Narelle'",
+      "createdAt": "2026-08-24T17:55:12.252Z",
+      "isDone": "0",
+      "content": "My son Roland's new girlfriend's name is 'Narelle'",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Roland\",\"Narelle\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"family\",\"relationships\"],\"contexts\":[\"family\",\"relationships\",\"personal\"],\"retrieval_cues\":[\"What is Roland's girlfriend's name?\",\"Narelle\",\"Who is Roland seeing?\",\"family member details\"],\"intent\":\"remember\",\"suggested_action\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787597925980_1_hugalao",
+      "originalText": "Remind me at 9am today to make an appointment with Dr Marning for a skin check. Ph: 6296 2266",
+      "createdAt": "2026-08-24T18:58:43.924Z",
+      "isDone": "0",
+      "content": "Dr Marning phone number: 6296 2266",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Dr Marning\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"contact information\",\"medical\"],\"contexts\":[\"medical\",\"contacts\",\"health\",\"reference\"],\"retrieval_cues\":[\"Dr Marning phone number\",\"What is Dr Marning's number\",\"medical contact details\",\"phone number for Dr Marning\"],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787601312672_0_20z9ys4",
+      "originalText": "Barb is my wife",
+      "createdAt": "2026-08-24T19:55:11.075Z",
+      "isDone": "0",
+      "content": "Barb is my wife",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Barb\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"personal\",\"relationships\"],\"contexts\":[\"personal\",\"contacts\",\"family\"],\"retrieval_cues\":[\"who is Barb\",\"Barb relationship\",\"family member information\"],\"relationships\":[{\"person\":\"Barb\",\"role\":\"wife\",\"is_active\":true}],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787601332851_0_8k9xgwu",
+      "originalText": "Naveena is my doctor",
+      "createdAt": "2026-08-24T19:55:31.262Z",
+      "isDone": "0",
+      "content": "Naveena is my doctor",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Naveena\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"health\",\"medical\",\"personal contacts\"],\"contexts\":[\"health\",\"medical\",\"personal information\"],\"retrieval_cues\":[\"Who is my doctor?\",\"Naveena medical contact\",\"Doctor contact details\"],\"relationships\":[{\"person\":\"Naveena\",\"role\":\"doctor\",\"is_active\":true}],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787601855345_0_u3l5rzt",
+      "originalText": "I have four sons: Doug, Travis, Roland and Keith",
+      "createdAt": "2026-08-24T20:04:13.666Z",
+      "isDone": "0",
+      "content": "I have four sons: Doug, Travis, Roland and Keith",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Doug\",\"Travis\",\"Roland\",\"Keith\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"family\",\"children\"],\"contexts\":[\"family\",\"personal information\"],\"retrieval_cues\":[\"who are my sons\",\"list of my sons\",\"how many children do I have\",\"names of my sons\",\"Doug Travis Roland Keith\"],\"relationships\":[{\"person\":\"Doug\",\"role\":\"son\",\"is_active\":true},{\"person\":\"Travis\",\"role\":\"son\",\"is_active\":true},{\"person\":\"Roland\",\"role\":\"son\",\"is_active\":true},{\"person\":\"Keith\",\"role\":\"son\",\"is_active\":true}],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787632041513_0_dryrcqz",
+      "originalText": "On the 18/08/2027 all my current scripts are about to expire. Book a doctor's  appointment to renew them.",
+      "createdAt": "2026-08-25T04:27:19.391Z",
+      "isDone": "0",
+      "content": "All my current scripts expire on 18/08/2027.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"scripts\",\"medication\",\"health\"],\"contexts\":[\"health\",\"administration\",\"medical\",\"appointments\"],\"retrieval_cues\":[\"when do my scripts expire\",\"medical script expiry date\",\"check medication scripts\",\"when to renew prescriptions\",\"scripts due date\"],\"relationships\":[],\"intent\":\"reminder\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"18/08/2027\",\"mode\":\"date_based\",\"original_time_expression\":\"18/08/2027\",\"resolved_datetime\":\"2027-08-18T09:00:00+10:00\",\"event_time_expression\":\"18/08/2027\",\"event_datetime\":\"2027-08-18T09:00:00+10:00\",\"reminder_time_expression\":\"18/08/2027\",\"reminder_datetime\":\"2027-08-18T09:00:00+10:00\"}"
+    },
+    {
+      "id": "mem_1787695795490_0_7603r73",
+      "originalText": "The Amala coffee shop lady who's  gone on maternity leave, but comes back next year is Saru",
+      "createdAt": "2026-08-25T22:09:53.798Z",
+      "isDone": "0",
+      "content": "Saru is the lady at Amala coffee shop who is on maternity leave and will return next year.",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Saru\"]",
+      "places": "[\"Amala coffee shop\"]",
+      "topics": "{\"topics\":[\"local businesses\",\"relationships\",\"coffee shops\"],\"contexts\":[\"social\",\"local services\",\"personal connections\"],\"retrieval_cues\":[\"who is the lady at Amala coffee shop\",\"Saru coffee shop\",\"when is Saru coming back from maternity leave\",\"Amala coffee shop staff\",\"who is Saru\"],\"relationships\":[{\"person\":\"Saru\",\"role\":\"staff\",\"is_active\":true}],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787799864116_0_bf9dpob",
+      "originalText": "Mum had a fall the night before last at Amala. She wasn't hurt, but they're doing a risk assessment.",
+      "createdAt": "2026-08-27T03:04:22.262Z",
+      "isDone": "0",
+      "content": "Mum had a fall at Amala on the night of August 25, 2026; she was unhurt, but a risk assessment is underway.",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[\"Amala\"]",
+      "topics": "{\"topics\":[\"health\",\"safety\",\"family\"],\"contexts\":[\"family health\",\"care\",\"safety\",\"medical history\"],\"retrieval_cues\":[\"did Mum have a fall\",\"is Mum okay\",\"what happened at Amala\",\"risk assessment update Mum\",\"fall incident details\",\"mum is my mother\",\"mum (mum is my mother)\",\"mum is my mother mum\",\"my mum is my mother\"],\"items\":[],\"relationships\":[{\"person\":\"Mum\",\"role\":\"mum is my mother\",\"is_active\":true}],\"intent\":\"fact\",\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787887526981_0_rb79k07",
+      "originalText": "Saw the Amala manager and he agreed to provide Margaret with a call alert pendant or wrist alarm for night time use.",
+      "createdAt": "2026-08-28T03:25:25.228Z",
+      "isDone": "0",
+      "content": "Amala manager agreed to provide Margaret with a call alert pendant or wrist alarm for night time use",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Margaret\"]",
+      "places": "[\"Amala\"]",
+      "topics": "{\"topics\":[\"aged care\",\"safety\",\"medical equipment\"],\"contexts\":[\"caregiving\",\"Margaret's care\",\"safety equipment\",\"appointment\"],\"retrieval_cues\":[\"Amala call alert pendant\",\"Margaret wrist alarm\",\"night time safety equipment\",\"Amala manager agreement\"],\"items\":[],\"relationships\":[],\"intent\":\"fact\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":\"mem_1787556414573_2_0ga9xlv\"}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1787891227708_0_d2153ab",
+      "originalText": "I got an email reply from Westpac in regard the EPOA verification requirements for Mum",
+      "createdAt": "2026-08-28T04:27:05.869Z",
+      "isDone": "0",
+      "content": "Received email reply from Westpac regarding EPOA verification requirements for Mum",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"banking\",\"EPOA\",\"legal\",\"verification\"],\"contexts\":[\"banking\",\"legal affairs\",\"family administration\"],\"retrieval_cues\":[\"Westpac EPOA requirements\",\"EPOA verification email\",\"what did Westpac say about Mum's EPOA\",\"Mum EPOA banking requirements\",\"EPOA documentation\",\"mum is my mother\",\"mum (mum is my mother)\",\"mum is my mother mum\",\"my mum is my mother\"],\"items\":[],\"relationships\":[{\"person\":\"Mum\",\"role\":\"mum is my mother\",\"is_active\":true}],\"intent\":\"fact\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788035969791_0_by9xklu",
+      "originalText": "Onyx book ends $80",
+      "createdAt": "2026-08-29T20:39:28.005Z",
+      "isDone": "0",
+      "content": "Onyx book ends $80",
+      "kind": "fact",
+      "status": "active",
+      "people": "[]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"Mum's sold items\",\"inventory\",\"pricing\"],\"contexts\":[\"Mum's sold items\",\"finances\",\"inventory\",\"selling\"],\"retrieval_cues\":[\"Onyx book ends price\",\"How much were the book ends sold for\",\"Mum's sold items list\",\"Sales record for book ends\",\"Mum's sold items\"],\"items\":[],\"relationships\":[],\"intent\":\"note\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":\"Mum's sold items\"}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788036011287_0_6ah9w15",
+      "originalText": "Table lamp $55",
+      "createdAt": "2026-08-29T20:40:09.661Z",
+      "isDone": "0",
+      "content": "Table lamp $55",
+      "kind": "fact",
+      "status": "active",
+      "people": "[]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"Mum's sold items\",\"pricing\",\"inventory\"],\"contexts\":[\"Mum's sold items\",\"accounting\",\"financial records\"],\"retrieval_cues\":[\"How much was the table lamp?\",\"Mum's sold items list\",\"table lamp price\",\"sales records\",\"Mum's sold items\"],\"items\":[],\"relationships\":[],\"intent\":\"note\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":\"Mum's sold items\"}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788036102764_0_9nq1la3",
+      "originalText": "Ruler $20",
+      "createdAt": "2026-08-29T20:41:41.171Z",
+      "isDone": "0",
+      "content": "Ruler $20",
+      "kind": "fact",
+      "status": "active",
+      "people": "[]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"Mum's sold items\"],\"contexts\":[\"Mum's sold items\",\"finance\",\"record keeping\"],\"retrieval_cues\":[\"How much was the ruler\",\"Mum's sold items price\",\"Ruler sale price\",\"List of sold items\",\"Mum's sold items\"],\"items\":[],\"relationships\":[],\"intent\":\"note\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":\"Mum's sold items\"}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788127675492_0_gj2du8n",
+      "originalText": "I need to sharpen the knives",
+      "createdAt": "2026-08-30T22:07:53.635Z",
+      "isDone": "0",
+      "content": "I need to sharpen the knives",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"kitchen maintenance\",\"cooking tools\"],\"contexts\":[\"kitchen\",\"home maintenance\"],\"retrieval_cues\":[\"sharpen knives\",\"blunt knives\",\"knife maintenance\",\"tasks around the house\"],\"items\":[],\"relationships\":[],\"intent\":\"task\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788170285590_0_s8loued",
+      "originalText": "I received a phone call from Lucy, Human Rights Commission about 3:00pm",
+      "createdAt": "2026-08-31T09:58:03.641Z",
+      "isDone": "0",
+      "content": "Received a phone call from Lucy at the Human Rights Commission at approximately 3:00pm today.",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Lucy\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"Human Rights Commission\",\"Phone call\"],\"contexts\":[\"Communication\",\"Official correspondence\"],\"retrieval_cues\":[\"phone call from Lucy\",\"Human Rights Commission contact\",\"calls received today\",\"correspondence from Human Rights Commission\"],\"items\":[],\"relationships\":[],\"intent\":\"fact\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"Monday, 31 August 2026 at 15:00:00\",\"mode\":\"date_based\",\"original_time_expression\":\"3:00pm\",\"resolved_datetime\":\"2026-08-31T15:00:00+10:00\",\"event_time_expression\":\"3:00pm\",\"event_datetime\":\"2026-08-31T15:00:00+10:00\",\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788242806833_0_gmyt9cx",
+      "originalText": "I need to remove part of my front hedge, hire a box trailer and take the remains to the tip.",
+      "createdAt": "2026-09-01T06:06:44.776Z",
+      "isDone": "0",
+      "content": "Remove part of the front hedge, hire a box trailer, and take the garden waste to the tip.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[]",
+      "places": "[\"front hedge\",\"tip\"]",
+      "topics": "{\"topics\":[\"home maintenance\",\"garden waste\"],\"contexts\":[\"home maintenance\",\"gardening\",\"waste disposal\"],\"retrieval_cues\":[\"hire a box trailer\",\"take garden waste to the tip\",\"trim front hedge\",\"garden clean up\",\"trailer hire for garden waste\"],\"items\":[],\"relationships\":[],\"intent\":\"task\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null}",
+      "resurfacingMode": "contextual",
+      "resurfacingTiming": "{\"timing\":\"Contextual / On retrieval\",\"mode\":\"contextual\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788313911209_0_5mcd0vo",
+      "originalText": "Dentist appointment for Mum at 10:00am on Friday, 4 September 2026.",
+      "createdAt": "2026-09-02T01:51:49.383Z",
+      "isDone": "0",
+      "content": "Dentist appointment for Mum at 10:00am on Friday, 4 September 2026.",
+      "kind": "reminder",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[\"dentist\"]",
+      "topics": "{\"topics\":[\"healthcare\",\"appointments\"],\"contexts\":[\"family\",\"healthcare\",\"appointments\"],\"retrieval_cues\":[\"Mum's dentist appointment\",\"When is Mum's dentist appointment\",\"Dentist visit for Mum\",\"Upcoming appointments for Mum\",\"mum is my mother\",\"mum (mum is my mother)\",\"mum is my mother mum\",\"my mum is my mother\"],\"items\":[\"00am Friday\",\"dentist appointment for Mum\"],\"relationships\":[{\"person\":\"Mum\",\"role\":\"mum is my mother\",\"is_active\":true}],\"intent\":\"appointment\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"Friday, 4 September 2026 at 10:00am\",\"mode\":\"date_based\",\"original_time_expression\":\"10:00am Friday\",\"resolved_datetime\":\"2026-09-04T10:00:00+10:00\",\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":\"10:00am\",\"reminder_datetime\":\"2026-09-04T10:00:00+10:00\"}"
+    },
+    {
+      "id": "mem_1788469895981_0_72mdot4",
+      "originalText": "Barb is my wife — 0403 795 255",
+      "createdAt": "2026-09-03T21:11:35.981Z",
+      "isDone": "0",
+      "content": "Barb is my wife — 0403 795 255",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Barb\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"wife\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"barb\",\"wife\",\"barb (wife)\",\"my wife\",\"barb is my wife\",\"0403 795 255\",\"barb phone\",\"barb phone number\",\"wife phone\",\"wife phone number\",\"barb 0403 795 255\"],\"items\":[],\"relationships\":[{\"person\":\"Barb\",\"role\":\"wife\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788486163319_0_8mmss99",
+      "originalText": "Mum has an appointment at 10:00 on Monday at the dentist.",
+      "createdAt": "2026-09-04T01:42:41.450Z",
+      "isDone": "0",
+      "content": "Mum has an appointment at 10:00 on Monday at the dentist.",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[\"dentist\"]",
+      "topics": "{\"topics\":[\"appointment\",\"family\",\"health\"],\"contexts\":[\"family\",\"health\",\"appointments\"],\"retrieval_cues\":[\"mum's dentist appointment\",\"dentist appointment Monday\",\"when is mum's dentist appointment\",\"mum health appointments\"],\"items\":[],\"relationships\":[{\"person\":\"Mum\",\"role\":\"mother\",\"is_active\":true}],\"intent\":\"fact\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "date_based",
+      "resurfacingTiming": "{\"timing\":\"Monday 7 September 2026\",\"mode\":\"date_based\",\"original_time_expression\":\"10:00 on Monday\",\"resolved_datetime\":\"2026-09-07T10:00:00+10:00\",\"event_time_expression\":\"Monday at 10:00\",\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":\"2026-09-07T10:00:00+10:00\"}"
+    },
+    {
+      "id": "mem_1788491753149_0_o3s4xip",
+      "originalText": "Doug is my son — 0404 994 695",
+      "createdAt": "2026-09-04T03:15:53.149Z",
+      "isDone": "0",
+      "content": "Doug is my son — 0404 994 695",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Doug\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"son\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"doug\",\"son\",\"doug (son)\",\"my son\",\"doug is my son\",\"0404 994 695\",\"doug phone\",\"doug phone number\",\"son phone\",\"son phone number\",\"doug 0404 994 695\"],\"items\":[],\"relationships\":[{\"person\":\"Doug\",\"role\":\"son\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788491797090_0_sfnmpz0",
+      "originalText": "Travis is my son — 0431 387 517",
+      "createdAt": "2026-09-04T03:16:37.090Z",
+      "isDone": "0",
+      "content": "Travis is my son — 0431 387 517",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Travis\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"son\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"travis\",\"son\",\"travis (son)\",\"my son\",\"travis is my son\",\"0431 387 517\",\"travis phone\",\"travis phone number\",\"son phone\",\"son phone number\",\"travis 0431 387 517\"],\"items\":[],\"relationships\":[{\"person\":\"Travis\",\"role\":\"son\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788491834696_0_ta8dqnv",
+      "originalText": "Keith is my son — 0418 253 666",
+      "createdAt": "2026-09-04T03:17:14.696Z",
+      "isDone": "0",
+      "content": "Keith is my son — 0418 253 666",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Keith\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"son\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"keith\",\"son\",\"keith (son)\",\"my son\",\"keith is my son\",\"0418 253 666\",\"keith phone\",\"keith phone number\",\"son phone\",\"son phone number\",\"keith 0418 253 666\"],\"items\":[],\"relationships\":[{\"person\":\"Keith\",\"role\":\"son\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788491872227_0_ak11yo0",
+      "originalText": "Roland is my son — 0410 895 341",
+      "createdAt": "2026-09-04T03:17:52.227Z",
+      "isDone": "0",
+      "content": "Roland is my son — 0410 895 341",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Roland\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"son\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"roland\",\"son\",\"roland (son)\",\"my son\",\"roland is my son\",\"0410 895 341\",\"roland phone\",\"roland phone number\",\"son phone\",\"son phone number\",\"roland 0410 895 341\"],\"items\":[],\"relationships\":[{\"person\":\"Roland\",\"role\":\"son\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788491937239_0_d8uwlao",
+      "originalText": "Mum is my mum is my mother — 0401 532 259",
+      "createdAt": "2026-09-04T03:18:57.239Z",
+      "isDone": "0",
+      "content": "Mum is my mum is my mother — 0401 532 259",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Mum\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"mum is my mother\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"mum\",\"mum is my mother\",\"mum (mum is my mother)\",\"my mum is my mother\",\"mum is my mum is my mother\",\"0401 532 259\",\"mum phone\",\"mum phone number\",\"mum is my mother phone\",\"mum is my mother phone number\",\"mum 0401 532 259\"],\"items\":[],\"relationships\":[{\"person\":\"Mum\",\"role\":\"mum is my mother\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    },
+    {
+      "id": "mem_1788492082954_0_1m8dqsv",
+      "originalText": "Naveena is my doctor — (02) 6294 9366",
+      "createdAt": "2026-09-04T03:21:22.954Z",
+      "isDone": "0",
+      "content": "Naveena is my doctor — (02) 6294 9366",
+      "kind": "fact",
+      "status": "active",
+      "people": "[\"Naveena\"]",
+      "places": "[]",
+      "topics": "{\"topics\":[\"relationship\",\"doctor\",\"contact\",\"phone\"],\"contexts\":[\"personal\"],\"retrieval_cues\":[\"naveena\",\"doctor\",\"naveena (doctor)\",\"my doctor\",\"naveena is my doctor\",\"(02) 6294 9366\",\"naveena phone\",\"naveena phone number\",\"doctor phone\",\"doctor phone number\",\"naveena (02) 6294 9366\"],\"items\":[],\"relationships\":[{\"person\":\"Naveena\",\"role\":\"doctor\",\"is_active\":true}],\"intent\":\"remember\",\"prerequisite\":null,\"suggested_action\":null,\"linked_event_id\":null,\"subject\":null,\"subject_resolved_date\":null}",
+      "resurfacingMode": "none",
+      "resurfacingTiming": "{\"timing\":\"Unscheduled\",\"mode\":\"none\",\"original_time_expression\":null,\"resolved_datetime\":null,\"event_time_expression\":null,\"event_datetime\":null,\"reminder_time_expression\":null,\"reminder_datetime\":null}"
+    }
+  ],
+  "user_entities": [
+    {
+      "id": "ent_person_dave",
+      "name": "Dave",
+      "entity_type": "person",
+      "role": "plumber",
+      "normalized_role": "plumber",
+      "metadata": "{}",
+      "updated_at": "2026-08-30T18:17:36.262Z"
+    },
+    {
+      "id": "ent_person_peter",
+      "name": "Peter",
+      "entity_type": "person",
+      "role": "gardener",
+      "normalized_role": "gardener",
+      "metadata": "{}",
+      "updated_at": "2026-09-03T00:53:31.400Z"
+    },
+    {
+      "id": "ent_person_david",
+      "name": "David",
+      "entity_type": "person",
+      "role": "mechanic",
+      "normalized_role": "mechanic",
+      "metadata": "{\"phone\":\"0411222333\"}",
+      "updated_at": "2026-09-03T00:53:45.493Z"
+    },
+    {
+      "id": "ent_person_sarah",
+      "name": "Sarah",
+      "entity_type": "person",
+      "role": "accountant",
+      "normalized_role": "accountant",
+      "metadata": "{}",
+      "updated_at": "2026-09-03T00:53:56.524Z"
+    },
+    {
+      "id": "ent_person_bob",
+      "name": "Bob",
+      "entity_type": "person",
+      "role": "mechanic",
+      "normalized_role": "mechanic",
+      "metadata": "{\"phone\":\"0499 888 777\"}",
+      "updated_at": "2026-09-03T23:30:59.030Z"
+    },
+    {
+      "id": "ent_person_saru",
+      "name": "Saru",
+      "entity_type": "person",
+      "role": "staff",
+      "normalized_role": "staff",
+      "metadata": "{}",
+      "updated_at": "2026-09-04T03:13:33.566Z"
+    },
+    {
+      "id": "ent_person_barb",
+      "name": "Barb",
+      "entity_type": "person",
+      "role": "wife",
+      "normalized_role": "wife",
+      "metadata": "{\"phone\":\"0403 795 255\"}",
+      "updated_at": "2026-09-04T03:13:33.566Z"
+    },
+    {
+      "id": "ent_person_doug",
+      "name": "Doug",
+      "entity_type": "person",
+      "role": "son",
+      "normalized_role": "son",
+      "metadata": "{\"phone\":\"0404 994 695\"}",
+      "updated_at": "2026-09-04T03:15:54.594Z"
+    },
+    {
+      "id": "ent_person_travis",
+      "name": "Travis",
+      "entity_type": "person",
+      "role": "son",
+      "normalized_role": "son",
+      "metadata": "{\"phone\":\"0431 387 517\"}",
+      "updated_at": "2026-09-04T03:16:38.521Z"
+    },
+    {
+      "id": "ent_person_keith",
+      "name": "Keith",
+      "entity_type": "person",
+      "role": "son",
+      "normalized_role": "son",
+      "metadata": "{\"phone\":\"0418 253 666\"}",
+      "updated_at": "2026-09-04T03:17:16.107Z"
+    },
+    {
+      "id": "ent_person_roland",
+      "name": "Roland",
+      "entity_type": "person",
+      "role": "son",
+      "normalized_role": "son",
+      "metadata": "{\"phone\":\"0410 895 341\"}",
+      "updated_at": "2026-09-04T03:17:53.665Z"
+    },
+    {
+      "id": "ent_person_mum",
+      "name": "Mum",
+      "entity_type": "person",
+      "role": "mum is my mother",
+      "normalized_role": "mum is my mother",
+      "metadata": "{\"phone\":\"0401 532 259\"}",
+      "updated_at": "2026-09-04T03:18:58.694Z"
+    },
+    {
+      "id": "ent_person_naveena",
+      "name": "Naveena",
+      "entity_type": "person",
+      "role": "doctor",
+      "normalized_role": "doctor",
+      "metadata": "{\"phone\":\"(02) 6294 9366\"}",
+      "updated_at": "2026-09-04T03:21:24.417Z"
+    }
+  ],
+  "user_relationships": [
+    {
+      "id": "rel_gardener_george",
+      "person": "George",
+      "role": "gardener",
+      "normalized_role": "gardener",
+      "is_active": "0",
+      "updated_at": "2026-08-27T18:40:30.619Z"
+    },
+    {
+      "id": "rel_dentist_dr_smith",
+      "person": "Dr Smith",
+      "role": "dentist",
+      "normalized_role": "dentist",
+      "is_active": "0",
+      "updated_at": "2026-08-27T18:41:31.274Z"
+    },
+    {
+      "id": "rel_tailor_olivia",
+      "person": "Olivia",
+      "role": "tailor",
+      "normalized_role": "tailor",
+      "is_active": "0",
+      "updated_at": "2026-08-27T19:05:14.506Z"
+    },
+    {
+      "id": "rel_peter is my electrician_peter",
+      "person": "Peter",
+      "role": "peter is my electrician",
+      "normalized_role": "peter is my electrician",
+      "is_active": "0",
+      "updated_at": "2026-08-28T19:42:42.620Z"
+    },
+    {
+      "id": "rel_scientist_david",
+      "person": "David",
+      "role": "scientist",
+      "normalized_role": "scientist",
+      "is_active": "0",
+      "updated_at": "2026-08-28T20:06:32.965Z"
+    },
+    {
+      "id": "rel_sam is my neighbour_sam",
+      "person": "Sam",
+      "role": "sam is my neighbour",
+      "normalized_role": "sam is my neighbour",
+      "is_active": "0",
+      "updated_at": "2026-08-29T02:57:59.912Z"
+    },
+    {
+      "id": "rel_roof plumber_sean",
+      "person": "Sean",
+      "role": "roof plumber",
+      "normalized_role": "roof plumber",
+      "is_active": "0",
+      "updated_at": "2026-09-02T17:43:57.607Z"
+    },
+    {
+      "id": "rel_gardener_patrick",
+      "person": "Patrick",
+      "role": "gardener",
+      "normalized_role": "gardener",
+      "is_active": "0",
+      "updated_at": "2026-09-02T17:44:20.921Z"
+    },
+    {
+      "id": "rel_heart specialist_spencer",
+      "person": "Spencer",
+      "role": "heart specialist",
+      "normalized_role": "heart specialist",
+      "is_active": "0",
+      "updated_at": "2026-09-02T17:46:26.484Z"
+    },
+    {
+      "id": "rel_tradesperson_steve",
+      "person": "Steve",
+      "role": "tradesperson",
+      "normalized_role": "tradesperson",
+      "is_active": "0",
+      "updated_at": "2026-09-02T19:22:33.027Z"
+    },
+    {
+      "id": "rel_handyman_steve",
+      "person": "Steve",
+      "role": "handyman",
+      "normalized_role": "handyman",
+      "is_active": "0",
+      "updated_at": "2026-09-02T19:22:33.027Z"
+    },
+    {
+      "id": "rel_gardener_peter",
+      "person": "Peter",
+      "role": "gardener",
+      "normalized_role": "gardener",
+      "is_active": "1",
+      "updated_at": "2026-09-03T00:53:31.400Z"
+    },
+    {
+      "id": "rel_accountant_sarah",
+      "person": "Sarah",
+      "role": "accountant",
+      "normalized_role": "accountant",
+      "is_active": "1",
+      "updated_at": "2026-09-03T00:53:56.524Z"
+    },
+    {
+      "id": "rel_plumber_steve",
+      "person": "Steve",
+      "role": "plumber",
+      "normalized_role": "plumber",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:13.381Z"
+    },
+    {
+      "id": "rel_plumber_peter",
+      "person": "Peter",
+      "role": "plumber",
+      "normalized_role": "plumber",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:13.381Z"
+    },
+    {
+      "id": "rel_plumber_david",
+      "person": "David",
+      "role": "plumber",
+      "normalized_role": "plumber",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:13.381Z"
+    },
+    {
+      "id": "rel_plumber_bill",
+      "person": "Bill",
+      "role": "plumber",
+      "normalized_role": "plumber",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:13.381Z"
+    },
+    {
+      "id": "rel_mechanic_johno",
+      "person": "Johno",
+      "role": "mechanic",
+      "normalized_role": "mechanic",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:59.030Z"
+    },
+    {
+      "id": "rel_mechanic_david",
+      "person": "David",
+      "role": "mechanic",
+      "normalized_role": "mechanic",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:30:59.030Z"
+    },
+    {
+      "id": "rel_mechanic_bob",
+      "person": "Bob",
+      "role": "mechanic",
+      "normalized_role": "mechanic",
+      "is_active": "1",
+      "updated_at": "2026-09-03T23:30:59.030Z"
+    },
+    {
+      "id": "rel_electrician_peter",
+      "person": "Peter",
+      "role": "electrician",
+      "normalized_role": "electrician",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:33:57.505Z"
+    },
+    {
+      "id": "rel_electrician_steve",
+      "person": "Steve",
+      "role": "electrician",
+      "normalized_role": "electrician",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:33:57.505Z"
+    },
+    {
+      "id": "rel_electrician_fred",
+      "person": "Fred",
+      "role": "electrician",
+      "normalized_role": "electrician",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:40:31.766Z"
+    },
+    {
+      "id": "rel_electrician_kevin",
+      "person": "Kevin",
+      "role": "electrician",
+      "normalized_role": "electrician",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:40:42.816Z"
+    },
+    {
+      "id": "rel_painter_kevin",
+      "person": "Kevin",
+      "role": "painter",
+      "normalized_role": "painter",
+      "is_active": "0",
+      "updated_at": "2026-09-03T23:40:42.816Z"
+    },
+    {
+      "id": "rel_wife_barb",
+      "person": "Barb",
+      "role": "wife",
+      "normalized_role": "wife",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:13:33.565Z"
+    },
+    {
+      "id": "rel_wife_erin",
+      "person": "Erin",
+      "role": "wife",
+      "normalized_role": "wife",
+      "is_active": "0",
+      "updated_at": "2026-09-04T03:13:33.565Z"
+    },
+    {
+      "id": "rel_staff_saru",
+      "person": "Saru",
+      "role": "staff",
+      "normalized_role": "staff",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:13:33.565Z"
+    },
+    {
+      "id": "rel_mother_mum",
+      "person": "Mum",
+      "role": "mother",
+      "normalized_role": "mother",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:13:33.565Z"
+    },
+    {
+      "id": "rel_son_doug",
+      "person": "Doug",
+      "role": "son",
+      "normalized_role": "son",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:15:54.594Z"
+    },
+    {
+      "id": "rel_son_travis",
+      "person": "Travis",
+      "role": "son",
+      "normalized_role": "son",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:16:38.521Z"
+    },
+    {
+      "id": "rel_son_keith",
+      "person": "Keith",
+      "role": "son",
+      "normalized_role": "son",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:17:16.107Z"
+    },
+    {
+      "id": "rel_son_roland",
+      "person": "Roland",
+      "role": "son",
+      "normalized_role": "son",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:17:53.665Z"
+    },
+    {
+      "id": "rel_mum is my mother_mum",
+      "person": "Mum",
+      "role": "mum is my mother",
+      "normalized_role": "mum is my mother",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:18:58.694Z"
+    },
+    {
+      "id": "rel_doctor_naveena",
+      "person": "Naveena",
+      "role": "doctor",
+      "normalized_role": "doctor",
+      "is_active": "1",
+      "updated_at": "2026-09-04T03:21:24.417Z"
+    }
+  ],
+  "scheduled_reminders": [
+    {
+      "id": "remind_1787556414573_8jw8r",
+      "memoryId": "mem_1787556414573_0_1aw37nd",
+      "title": "Ezzymigo Reminder",
+      "body": "I visit Mum every Monday from 9am to 11am.",
+      "remindAt": "2026-08-30T23:00:00.000Z",
+      "notified": "1",
+      "createdAt": "2026-08-24T07:26:54.573Z"
+    },
+    {
+      "id": "remind_1787556414573_emefi",
+      "memoryId": "mem_1787556414573_1_olajw9g",
+      "title": "Ezzymigo Reminder",
+      "body": "I visit Mum every Wednesday from 9am to 11am.",
+      "remindAt": "2026-08-25T23:00:00.000Z",
+      "notified": "1",
+      "createdAt": "2026-08-24T07:26:54.573Z"
+    },
+    {
+      "id": "remind_1787556414573_p2rdr",
+      "memoryId": "mem_1787556414573_2_0ga9xlv",
+      "title": "Ezzymigo Reminder",
+      "body": "I visit Mum every Friday from 9am to 11am.",
+      "remindAt": "2026-08-27T23:00:00.000Z",
+      "notified": "1",
+      "createdAt": "2026-08-24T07:26:54.573Z"
+    },
+    {
+      "id": "remind_1788313914783_7liff",
+      "memoryId": "mem_1788313911209_0_5mcd0vo",
+      "title": "Ezzymigo Reminder",
+      "body": "Dentist appointment for Mum at 10:00am on Friday, 4 September 2026.",
+      "remindAt": "2026-09-04T00:00:00.000Z",
+      "notified": "1",
+      "createdAt": "2026-09-02T01:51:54.783Z"
+    },
+    {
+      "id": "remind_1788486191277_w7q20",
+      "memoryId": "mem_1788486163319_0_8mmss99",
+      "title": "Ezzymigo Reminder",
+      "body": "Mum has an appointment at 10:00 on Monday at the dentist.",
+      "remindAt": "2026-09-07T00:00:00.000Z",
+      "notified": "0",
+      "createdAt": "2026-09-04T01:43:11.277Z"
+    }
+  ],
+  "calendar_events": [
+    {
+      "id": "cal_google_primary_c4qjid3274pmab9k6himab9k6gp30bb26koj2b9g6cp3ap1lcgq38ob4cc_20260829T223000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#c4qjid3274pmab9k6himab9k6gp30bb26koj2b9g6cp3ap1lcgq38ob4cc_20260829T223000Z",
+      "title": "Tegan's Birthday",
+      "attendees": "[]",
+      "startDatetime": "2026-08-30T08:30:00+10:00",
+      "endDatetime": "2026-08-30T09:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2021-08-29T22:32:33.116Z"
+    },
+    {
+      "id": "cal_google_primary_ccqj6dppcop36bb274oj4b9k71hm2bb1cks34b9j75hjic9ic4oj8p346g_20260924T013000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#ccqj6dppcop36bb274oj4b9k71hm2bb1cks34b9j75hjic9ic4oj8p346g_20260924T013000Z",
+      "title": "Wendy Caddy died this day 2021",
+      "attendees": "[]",
+      "startDatetime": "2026-09-24T11:30:00+10:00",
+      "endDatetime": "2026-09-24T12:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2021-09-24T01:56:07.730Z"
+    },
+    {
+      "id": "cal_google_primary_egs87v188thlsm9mj8pbu6k30o_20261020T220000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#egs87v188thlsm9mj8pbu6k30o_20261020T220000Z",
+      "title": "Ellie’s Birthday",
+      "attendees": "[]",
+      "startDatetime": "2026-10-21T09:00:00+11:00",
+      "endDatetime": "2026-10-21T10:00:00+11:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2022-04-30T01:46:52.153Z"
+    },
+    {
+      "id": "cal_google_primary_8pucn55i7o8gt3hkl5ia7fhch4_20260904",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#8pucn55i7o8gt3hkl5ia7fhch4_20260904",
+      "title": "Doug’s Birthday born 1983",
+      "attendees": "[]",
+      "startDatetime": "2026-09-04",
+      "endDatetime": "2026-09-05",
+      "isAllDay": "1",
+      "status": "confirmed",
+      "updatedAt": "2022-08-30T00:00:47.744Z"
+    },
+    {
+      "id": "cal_google_en_australian_holiday_group_v_calendar_google_com_20261004_5plr7953q3basvurgblaabhfh8",
+      "source": "google_calendar",
+      "sourceEventId": "en.australian#holiday@group.v.calendar.google.com#20261004_5plr7953q3basvurgblaabhfh8",
+      "title": "Daylight Saving Time starts",
+      "description": "Observance\nTo hide observances, go to Google Calendar Settings > Holidays in Australia",
+      "attendees": "[]",
+      "startDatetime": "2026-10-04",
+      "endDatetime": "2026-10-05",
+      "isAllDay": "1",
+      "status": "confirmed",
+      "updatedAt": "2024-05-17T09:25:21.233Z"
+    },
+    {
+      "id": "cal_google_en_australian_holiday_group_v_calendar_google_com_20260928_if7u4pp3e20re2mnvpqmr443lo",
+      "source": "google_calendar",
+      "sourceEventId": "en.australian#holiday@group.v.calendar.google.com#20260928_if7u4pp3e20re2mnvpqmr443lo",
+      "title": "King's Birthday (Western Australia)",
+      "description": "Public holiday in Western Australia",
+      "attendees": "[]",
+      "startDatetime": "2026-09-28",
+      "endDatetime": "2026-09-29",
+      "isAllDay": "1",
+      "status": "confirmed",
+      "updatedAt": "2024-11-01T10:31:05.719Z"
+    },
+    {
+      "id": "cal_google_en_australian_holiday_group_v_calendar_google_com_20261005_qlsk838vc7qb8rnhsuomfbvksc",
+      "source": "google_calendar",
+      "sourceEventId": "en.australian#holiday@group.v.calendar.google.com#20261005_qlsk838vc7qb8rnhsuomfbvksc",
+      "title": "Labour Day (regional holiday)",
+      "description": "Public holiday in Australian Capital Territory, New South Wales, South Australia",
+      "attendees": "[]",
+      "startDatetime": "2026-10-05",
+      "endDatetime": "2026-10-06",
+      "isAllDay": "1",
+      "status": "confirmed",
+      "updatedAt": "2024-11-01T10:31:15.162Z"
+    },
+    {
+      "id": "cal_google_en_australian_holiday_group_v_calendar_google_com_20261005_1bhugsf2fcrsrlmdhbgsc0l7sg",
+      "source": "google_calendar",
+      "sourceEventId": "en.australian#holiday@group.v.calendar.google.com#20261005_1bhugsf2fcrsrlmdhbgsc0l7sg",
+      "title": "King's Birthday (Queensland)",
+      "description": "Public holiday in Queensland",
+      "attendees": "[]",
+      "startDatetime": "2026-10-05",
+      "endDatetime": "2026-10-06",
+      "isAllDay": "1",
+      "status": "confirmed",
+      "updatedAt": "2024-11-01T10:31:26.116Z"
+    },
+    {
+      "id": "cal_google_primary_ckrj2e34c5im2b9n6cq32b9kccr62b9oc9hmcb9ocgo68cr66oo64cpj6o_20260913T093000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#ckrj2e34c5im2b9n6cq32b9kccr62b9oc9hmcb9ocgo68cr66oo64cpj6o_20260913T093000Z",
+      "title": "Arianne's Birthday",
+      "attendees": "[]",
+      "startDatetime": "2026-09-13T19:30:00+10:00",
+      "endDatetime": "2026-09-13T20:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2026-05-12T06:01:27.378Z"
+    },
+    {
+      "id": "cal_google_primary_c4rj2chm71i3cbb16ssjib9k6csjcbb2c4pjgbb2cdj3ec3475ij8d9n70_20261002T093000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#c4rj2chm71i3cbb16ssjib9k6csjcbb2c4pjgbb2cdj3ec3475ij8d9n70_20261002T093000Z",
+      "title": "Hamish's Birthday",
+      "attendees": "[]",
+      "startDatetime": "2026-10-02T19:30:00+10:00",
+      "endDatetime": "2026-10-02T20:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2026-05-12T06:01:27.378Z"
+    },
+    {
+      "id": "cal_google_primary_64q64opm74qj4bb164pmcb9k64q3cbb164smcbb26hij2d3571gmcd34c8_20261028T083000Z",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#64q64opm74qj4bb164pmcb9k64q3cbb164smcbb26hij2d3571gmcd34c8_20261028T083000Z",
+      "title": "Ava's Birthday",
+      "attendees": "[]",
+      "startDatetime": "2026-10-28T19:30:00+11:00",
+      "endDatetime": "2026-10-28T20:30:00+11:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2026-05-12T06:01:27.378Z"
+    },
+    {
+      "id": "cal_google_c5h3achk64s38bb469gmcb9k64om4b9p6pj3ebb371hj0o9l64p66or5cc",
+      "source": "google_calendar",
+      "sourceEventId": "c5h3achk64s38bb469gmcb9k64om4b9p6pj3ebb371hj0o9l64p66or5cc",
+      "title": "Dr Naveena",
+      "attendees": "[]",
+      "startDatetime": "2026-08-25T10:30:00+10:00",
+      "endDatetime": "2026-08-25T11:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2026-08-20T21:11:36.968Z"
+    },
+    {
+      "id": "cal_google_primary_70s38cpi64o36bb16gpjeb9kc8p6ab9o64pmcbb174s3adhi6gsjgd9j6o",
+      "source": "google_calendar",
+      "sourceEventId": "peasther@optusnet.com.au#70s38cpi64o36bb16gpjeb9kc8p6ab9o64pmcbb174s3adhi6gsjgd9j6o",
+      "title": "Dr Marning",
+      "attendees": "[]",
+      "startDatetime": "2026-09-07T15:30:00+10:00",
+      "endDatetime": "2026-09-07T16:30:00+10:00",
+      "isAllDay": "0",
+      "status": "confirmed",
+      "updatedAt": "2026-08-24T22:06:24.127Z"
+    }
+  ],
+  "memories_fts": [
+    {
+      "rowid": "1",
+      "memory_id": "mem_1787523423129_0_vtusg5e",
+      "content": "Mum's carehouse door pass code is 2123",
+      "original_text": "Mum's  carehouse door pass code is 2123 ok ok",
+      "people": "Mum",
+      "places": "carehouse",
+      "topics": "passcode access security carehouse visit family support reference access codes",
+      "retrieval_cues": "what is the passcode for the carehouse mum's carehome door code access code 2123 carehouse door entry code",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "2",
+      "memory_id": "mem_1787556414573_0_1aw37nd",
+      "content": "I visit Mum every Monday from 9am to 11am.",
+      "original_text": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "people": "Mum",
+      "places": "",
+      "topics": "family routine visiting personal scheduling",
+      "retrieval_cues": "when do I see mum mum visit schedule weekly visit visiting mum mum appointment",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "3",
+      "memory_id": "mem_1787556414573_1_olajw9g",
+      "content": "I visit Mum every Wednesday from 9am to 11am.",
+      "original_text": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "people": "Mum",
+      "places": "",
+      "topics": "family visit recurring appointment family routine schedule personal time",
+      "retrieval_cues": "when is my visit to Mum Mum's recurring appointment Wednesday morning plans weekly family visit time appointment with Mum",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "4",
+      "memory_id": "mem_1787556414573_2_0ga9xlv",
+      "content": "I visit Mum every Friday from 9am to 11am.",
+      "original_text": "I visit Mum every Monday, Wednesday and Friday from 9am to 11am.",
+      "people": "Mum",
+      "places": "",
+      "topics": "family routine visiting personal schedule",
+      "retrieval_cues": "when is my visit with mum weekly visit to mum mum visit time friday schedule",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "5",
+      "memory_id": "mem_1787594114055_0_pfco7qp",
+      "content": "My son Roland's new girlfriend's name is 'Narelle'",
+      "original_text": "My son Roland's new girlfriend's name is 'Narelle'",
+      "people": "Roland Narelle",
+      "places": "",
+      "topics": "family relationships personal",
+      "retrieval_cues": "What is Roland's girlfriend's name? Narelle Who is Roland seeing? family member details",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "6",
+      "memory_id": "mem_1787597925980_1_hugalao",
+      "content": "Dr Marning phone number: 6296 2266",
+      "original_text": "Remind me at 9am today to make an appointment with Dr Marning for a skin check. Ph: 6296 2266",
+      "people": "Dr Marning",
+      "places": "",
+      "topics": "contact information medical contacts health reference",
+      "retrieval_cues": "Dr Marning phone number What is Dr Marning's number medical contact details phone number for Dr Marning",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "7",
+      "memory_id": "mem_1787601312672_0_20z9ys4",
+      "content": "Barb is my wife",
+      "original_text": "Barb is my wife",
+      "people": "Barb",
+      "places": "",
+      "topics": "personal relationships contacts family",
+      "retrieval_cues": "who is Barb Barb relationship family member information",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "8",
+      "memory_id": "mem_1787601332851_0_8k9xgwu",
+      "content": "Naveena is my doctor",
+      "original_text": "Naveena is my doctor",
+      "people": "Naveena",
+      "places": "",
+      "topics": "health medical personal contacts personal information",
+      "retrieval_cues": "Who is my doctor? Naveena medical contact Doctor contact details",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "9",
+      "memory_id": "mem_1787601855345_0_u3l5rzt",
+      "content": "I have four sons: Doug, Travis, Roland and Keith",
+      "original_text": "I have four sons: Doug, Travis, Roland and Keith",
+      "people": "Doug Travis Roland Keith",
+      "places": "",
+      "topics": "family children personal information",
+      "retrieval_cues": "who are my sons list of my sons how many children do I have names of my sons Doug Travis Roland Keith",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "10",
+      "memory_id": "mem_1787632041513_0_dryrcqz",
+      "content": "All my current scripts expire on 18/08/2027.",
+      "original_text": "On the 18/08/2027 all my current scripts are about to expire. Book a doctor's  appointment to renew them.",
+      "people": "",
+      "places": "",
+      "topics": "scripts medication health administration medical appointments",
+      "retrieval_cues": "when do my scripts expire medical script expiry date check medication scripts when to renew prescriptions scripts due date",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "11",
+      "memory_id": "mem_1787695795490_0_7603r73",
+      "content": "Saru is the lady at Amala coffee shop who is on maternity leave and will return next year.",
+      "original_text": "The Amala coffee shop lady who's  gone on maternity leave, but comes back next year is Saru",
+      "people": "Saru",
+      "places": "Amala coffee shop",
+      "topics": "local businesses relationships coffee shops social local services personal connections",
+      "retrieval_cues": "who is the lady at Amala coffee shop Saru coffee shop when is Saru coming back from maternity leave Amala coffee shop staff who is Saru",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "12",
+      "memory_id": "mem_1787799864116_0_bf9dpob",
+      "content": "Mum had a fall at Amala on the night of August 25, 2026; she was unhurt, but a risk assessment is underway.",
+      "original_text": "Mum had a fall the night before last at Amala. She wasn't hurt, but they're doing a risk assessment.",
+      "people": "Mum",
+      "places": "Amala",
+      "topics": "health safety family family health care medical history",
+      "retrieval_cues": "did Mum have a fall is Mum okay what happened at Amala risk assessment update Mum fall incident details mum is my mother mum (mum is my mother) mum is my mother mum my mum is my mother",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "13",
+      "memory_id": "mem_1787887526981_0_rb79k07",
+      "content": "Amala manager agreed to provide Margaret with a call alert pendant or wrist alarm for night time use",
+      "original_text": "Saw the Amala manager and he agreed to provide Margaret with a call alert pendant or wrist alarm for night time use.",
+      "people": "Margaret",
+      "places": "Amala",
+      "topics": "aged care safety medical equipment caregiving Margaret's care safety equipment appointment",
+      "retrieval_cues": "Amala call alert pendant Margaret wrist alarm night time safety equipment Amala manager agreement",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "14",
+      "memory_id": "mem_1787891227708_0_d2153ab",
+      "content": "Received email reply from Westpac regarding EPOA verification requirements for Mum",
+      "original_text": "I got an email reply from Westpac in regard the EPOA verification requirements for Mum",
+      "people": "Mum",
+      "places": "",
+      "topics": "banking EPOA legal verification legal affairs family administration",
+      "retrieval_cues": "Westpac EPOA requirements EPOA verification email what did Westpac say about Mum's EPOA Mum EPOA banking requirements EPOA documentation mum is my mother mum (mum is my mother) mum is my mother mum my mum is my mother",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "15",
+      "memory_id": "mem_1788035969791_0_by9xklu",
+      "content": "Onyx book ends $80",
+      "original_text": "Onyx book ends $80",
+      "people": "",
+      "places": "",
+      "topics": "Mum's sold items inventory pricing finances selling",
+      "retrieval_cues": "Onyx book ends price How much were the book ends sold for Mum's sold items list Sales record for book ends Mum's sold items",
+      "items": "",
+      "subject": "Mum's sold items"
+    },
+    {
+      "rowid": "16",
+      "memory_id": "mem_1788036011287_0_6ah9w15",
+      "content": "Table lamp $55",
+      "original_text": "Table lamp $55",
+      "people": "",
+      "places": "",
+      "topics": "Mum's sold items pricing inventory accounting financial records",
+      "retrieval_cues": "How much was the table lamp? Mum's sold items list table lamp price sales records Mum's sold items",
+      "items": "",
+      "subject": "Mum's sold items"
+    },
+    {
+      "rowid": "17",
+      "memory_id": "mem_1788036102764_0_9nq1la3",
+      "content": "Ruler $20",
+      "original_text": "Ruler $20",
+      "people": "",
+      "places": "",
+      "topics": "Mum's sold items finance record keeping",
+      "retrieval_cues": "How much was the ruler Mum's sold items price Ruler sale price List of sold items Mum's sold items",
+      "items": "",
+      "subject": "Mum's sold items"
+    },
+    {
+      "rowid": "18",
+      "memory_id": "mem_1788127675492_0_gj2du8n",
+      "content": "I need to sharpen the knives",
+      "original_text": "I need to sharpen the knives",
+      "people": "",
+      "places": "",
+      "topics": "kitchen maintenance cooking tools kitchen home maintenance",
+      "retrieval_cues": "sharpen knives blunt knives knife maintenance tasks around the house",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "19",
+      "memory_id": "mem_1788170285590_0_s8loued",
+      "content": "Received a phone call from Lucy at the Human Rights Commission at approximately 3:00pm today.",
+      "original_text": "I received a phone call from Lucy, Human Rights Commission about 3:00pm",
+      "people": "Lucy",
+      "places": "",
+      "topics": "Human Rights Commission Phone call Communication Official correspondence",
+      "retrieval_cues": "phone call from Lucy Human Rights Commission contact calls received today correspondence from Human Rights Commission",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "29",
+      "memory_id": "syn_en_sarah_office",
+      "content": "Sarah's office extension is 4471, use it for anything work related.",
+      "original_text": "Sarah's office extension is 4471, use it for anything work related.",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "30",
+      "memory_id": "syn_en_sarah_home",
+      "content": "Sarah's home number is 0412 998 213, only call that after 6pm.",
+      "original_text": "Sarah's home number is 0412 998 213, only call that after 6pm.",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "31",
+      "memory_id": "syn_fr_pierre_garage",
+      "content": "Pierre du garage a dit que les plaquettes de frein sont à changer avant l'hiver.",
+      "original_text": "Pierre du garage a dit que les plaquettes de frein sont à changer avant l'hiver.",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "32",
+      "memory_id": "syn_fr_pierre_voisin",
+      "content": "Pierre, notre voisin, a proposé de garder le chat pendant les vacances.",
+      "original_text": "Pierre, notre voisin, a proposé de garder le chat pendant les vacances.",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "33",
+      "memory_id": "syn_ja_yuki_ryoko",
+      "content": "由紀さんが春に北海道へ旅行に行くと言っていた。",
+      "original_text": "由紀さんが春に北海道へ旅行に行くと言っていた。",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "34",
+      "memory_id": "syn_ja_yuki_tenshoku",
+      "content": "由紀さんが転職を考えていると言っていた。",
+      "original_text": "由紀さんが転職を考えていると言っていた。",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "35",
+      "memory_id": "xl_ja_kuruma",
+      "content": "車検の見積もりは38,000円で、来週火曜日に整備工場へ持っていく予定。",
+      "original_text": "車検の見積もりは38,000円で、来週火曜日に整備工場へ持っていく予定。",
+      "people": "",
+      "places": "",
+      "topics": "",
+      "retrieval_cues": "",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "45",
+      "memory_id": "mem_1788242806833_0_gmyt9cx",
+      "content": "Remove part of the front hedge, hire a box trailer, and take the garden waste to the tip.",
+      "original_text": "I need to remove part of my front hedge, hire a box trailer and take the remains to the tip.",
+      "people": "",
+      "places": "front hedge tip",
+      "topics": "home maintenance garden waste gardening waste disposal",
+      "retrieval_cues": "hire a box trailer take garden waste to the tip trim front hedge garden clean up trailer hire for garden waste",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "112",
+      "memory_id": "mem_1788313911209_0_5mcd0vo",
+      "content": "Dentist appointment for Mum at 10:00am on Friday, 4 September 2026.",
+      "original_text": "Dentist appointment for Mum at 10:00am on Friday, 4 September 2026.",
+      "people": "Mum",
+      "places": "dentist",
+      "topics": "healthcare appointments",
+      "retrieval_cues": "Mum's dentist appointment When is Mum's dentist appointment Dentist visit for Mum Upcoming appointments for Mum mum is my mother mum (mum is my mother) mum is my mother mum my mum is my mother",
+      "items": "00am Friday dentist appointment for Mum",
+      "subject": ""
+    },
+    {
+      "rowid": "123",
+      "memory_id": "mem_1788323303607_0_k0b2l7o",
+      "content": "John is my brother",
+      "original_text": "John is my brother",
+      "people": "John",
+      "places": "",
+      "topics": "relationship brother contact personal",
+      "retrieval_cues": "john brother john (brother) my brother john is my brother",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "124",
+      "memory_id": "mem_1788323307191_0_rvdpgse",
+      "content": "Dr Clark is my dentist — (02) 6296 1122",
+      "original_text": "Dr Clark is my dentist — (02) 6296 1122",
+      "people": "Dr Clark",
+      "places": "",
+      "topics": "relationship dentist contact phone personal",
+      "retrieval_cues": "dr clark dentist dr clark (dentist) my dentist dr clark is my dentist (02) 6296 1122 dr clark phone dr clark phone number dentist phone dentist phone number dr clark (02) 6296 1122",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "152",
+      "memory_id": "mem_1788368805723_0_jjv3sh1",
+      "content": "Harry is my plumber, 0412 345 678",
+      "original_text": "Harry is my plumber, 0412 345 678",
+      "people": "Harry",
+      "places": "",
+      "topics": "contact information tradesperson home maintenance tradespeople contacts",
+      "retrieval_cues": "plumber contact details Harry plumber phone number who is my plumber tradesperson contact information",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "153",
+      "memory_id": "mem_1788368812895_0_shweema",
+      "content": "Harry is my plumber",
+      "original_text": "Harry is my plumber",
+      "people": "Harry",
+      "places": "",
+      "topics": "home maintenance relationships contacts",
+      "retrieval_cues": "who is my plumber plumber contact Harry plumber",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "224",
+      "memory_id": "test_ask_mem_spare_key",
+      "content": "The spare car key is in the top drawer of the hallway table.",
+      "original_text": "The spare car key is in the top drawer of the hallway table.",
+      "people": "",
+      "places": "hallway table top drawer",
+      "topics": "keys car household home",
+      "retrieval_cues": "spare car key where is the spare car key car keys spare key",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "225",
+      "memory_id": "test_ask_mem_plumber_quote",
+      "content": "ZzTestFixturePlumberAlpha quoted $450 to clean and replace the gutters.",
+      "original_text": "ZzTestFixturePlumberAlpha quoted $450 to clean and replace the gutters.",
+      "people": "ZzTestFixturePlumberAlpha",
+      "places": "",
+      "topics": "home maintenance gutters plumbing repairs",
+      "retrieval_cues": "plumber quote gutters ZzTestFixturePlumberAlpha plumber quote gutter cleaning price",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "226",
+      "memory_id": "test_ask_mem_sold_ruler",
+      "content": "Ruler $20",
+      "original_text": "Ruler $20",
+      "people": "Mum",
+      "places": "",
+      "topics": "Mum's Sold Items finances inventory",
+      "retrieval_cues": "Mum's sold items sold item prices ruler price",
+      "items": "",
+      "subject": "Mum's Sold Items"
+    },
+    {
+      "rowid": "227",
+      "memory_id": "test_ask_mem_sold_clock",
+      "content": "Antique clock $85",
+      "original_text": "Antique clock $85",
+      "people": "Mum",
+      "places": "",
+      "topics": "Mum's Sold Items finances inventory",
+      "retrieval_cues": "Mum's sold items antique clock price",
+      "items": "",
+      "subject": "Mum's Sold Items"
+    },
+    {
+      "rowid": "228",
+      "memory_id": "test_ask_mem_sold_chair",
+      "content": "Rocking chair $120",
+      "original_text": "Rocking chair $120",
+      "people": "Mum",
+      "places": "",
+      "topics": "Mum's Sold Items finances inventory",
+      "retrieval_cues": "Mum's sold items rocking chair price",
+      "items": "",
+      "subject": "Mum's Sold Items"
+    },
+    {
+      "rowid": "229",
+      "memory_id": "test_ask_mem_bins_tomorrow",
+      "content": "Put the green waste bins out tomorrow morning",
+      "original_text": "Put the green waste bins out tomorrow morning",
+      "people": "",
+      "places": "",
+      "topics": "chores bins household",
+      "retrieval_cues": "green waste bins rubbish take out bins tomorrow",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "230",
+      "memory_id": "test_ask_mem_lawn_next_week",
+      "content": "Mow the back lawn next Friday",
+      "original_text": "Mow the back lawn next Friday",
+      "people": "",
+      "places": "",
+      "topics": "gardening home maintenance",
+      "retrieval_cues": "mow lawn lawn mowing",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "231",
+      "memory_id": "test_ask_mem_bunnings_yesterday",
+      "content": "Bought 2 bags of compost at Bunnings yesterday afternoon for $24",
+      "original_text": "Bought 2 bags of compost at Bunnings yesterday afternoon for $24",
+      "people": "",
+      "places": "Bunnings",
+      "topics": "gardening shopping",
+      "retrieval_cues": "compost Bunnings compost yesterday afternoon purchase",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "232",
+      "memory_id": "test_ask_mem_wa_election",
+      "content": "Roger Cook and WA Labor won the WA state election with a strong majority.",
+      "original_text": "Roger Cook and WA Labor won the WA state election with a strong majority.",
+      "people": "Roger Cook",
+      "places": "Western Australia",
+      "topics": "politics election news",
+      "retrieval_cues": "WA election who won WA election Western Australia election result",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "234",
+      "memory_id": "mem_test_1788395072273_0_c3qqb",
+      "content": "My red toolbox is in the garage cupboard.",
+      "original_text": "My red toolbox is in the garage cupboard.",
+      "people": "",
+      "places": "garage cupboard",
+      "topics": "storage organisation toolbox home tools",
+      "retrieval_cues": "where is my red toolbox toolbox location garage contents where did I put the toolbox",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "235",
+      "memory_id": "mem_test_1788395077496_0_pbgoo",
+      "content": "Buy bread",
+      "original_text": "Remind me tomorrow to buy bread.",
+      "people": "",
+      "places": "",
+      "topics": "shopping groceries household",
+      "retrieval_cues": "buy bread grocery list shopping reminder bread",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "236",
+      "memory_id": "mem_test_1788395081879_0_mamyj",
+      "content": "Peter is my gardener and he quoted me $300 to trim the hedge.",
+      "original_text": "Peter is my gardener and he quoted me $300 to trim the hedge.",
+      "people": "Peter",
+      "places": "",
+      "topics": "gardening quote hedge maintenance household home maintenance",
+      "retrieval_cues": "Peter gardener hedge trimming quote gardening costs how much to trim hedge",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "237",
+      "memory_id": "mem_phaseA_1788395830681_0_75so9",
+      "content": "My red toolbox is in the garage cupboard.",
+      "original_text": "My red toolbox is in the garage cupboard.",
+      "people": "",
+      "places": "garage cupboard",
+      "topics": "storage toolbox organisation household inventory",
+      "retrieval_cues": "where is the red toolbox toolbox location garage storage items in the garage cupboard",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "238",
+      "memory_id": "mem_phaseA_1788395836963_0_wwc84",
+      "content": "Buy bread",
+      "original_text": "Remind me tomorrow to buy bread.",
+      "people": "",
+      "places": "",
+      "topics": "shopping groceries",
+      "retrieval_cues": "buy bread groceries to get shopping reminder",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "239",
+      "memory_id": "mem_phaseA_1788395842644_0_n7tnu",
+      "content": "Peter is my gardener and he quoted me $300 to trim the hedge.",
+      "original_text": "Peter is my gardener and he quoted me $300 to trim the hedge.",
+      "people": "Peter",
+      "places": "",
+      "topics": "gardening quotes home maintenance",
+      "retrieval_cues": "Peter gardener quote cost to trim hedge gardening expenses who is my gardener gardener peter (gardener) gardener peter my gardener",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "240",
+      "memory_id": "mem_1788396718544_0_uwtrg0a",
+      "content": "我的红色工具箱在车库柜子里。",
+      "original_text": "我的红色工具箱在车库柜子里。",
+      "people": "",
+      "places": "车库",
+      "topics": "storage tools home inventory home maintenance",
+      "retrieval_cues": "红色工具箱位置 工具在哪里 车库物品 工具箱存放 找红色工具箱",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "243",
+      "memory_id": "mem_1788466889641_0_m57j7xf",
+      "content": "Ring Test_Fred tomorrow at 10am",
+      "original_text": "Ring Test_Fred tomorrow at 10am",
+      "people": "Test_Fred",
+      "places": "",
+      "topics": "communication",
+      "retrieval_cues": "call Test_Fred ring Test_Fred Test_Fred phone call electrician test_fred (electrician) electrician test_fred my electrician",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "244",
+      "memory_id": "mem_1788466898519_0_220iewx",
+      "content": "Test_Alice is my architect",
+      "original_text": "Test_Alice is my architect",
+      "people": "Test_Alice",
+      "places": "",
+      "topics": "professional relationship architect personal professional",
+      "retrieval_cues": "who is my architect architect contact Test_Alice role",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "245",
+      "memory_id": "mem_1788466901765_0_pmkupmf",
+      "content": "Bob is my mechanic, and his phone number is 0499 888 777.",
+      "original_text": "Test_Bob is my mechanic, his number is 0499 888 777",
+      "people": "Bob",
+      "places": "",
+      "topics": "contact details mechanic contacts car maintenance",
+      "retrieval_cues": "mechanic phone number Bob mechanic 0499 888 777",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "246",
+      "memory_id": "mem_1788469895981_0_72mdot4",
+      "content": "Barb is my wife — 0403 795 255",
+      "original_text": "Barb is my wife — 0403 795 255",
+      "people": "Barb",
+      "places": "",
+      "topics": "relationship wife contact phone personal",
+      "retrieval_cues": "barb wife barb (wife) my wife barb is my wife 0403 795 255 barb phone barb phone number wife phone wife phone number barb 0403 795 255",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "247",
+      "memory_id": "mem_1788478090472_0_tmzb4bi",
+      "content": "Ring Test_Fred tomorrow at 10am",
+      "original_text": "Ring Test_Fred tomorrow at 10am",
+      "people": "Test_Fred",
+      "places": "",
+      "topics": "communication",
+      "retrieval_cues": "contact Test_Fred call Test_Fred ring Test_Fred when to call Test_Fred electrician test_fred (electrician) electrician test_fred my electrician",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "248",
+      "memory_id": "mem_1788478101310_0_8vnumfs",
+      "content": "Test_Alice is my architect",
+      "original_text": "Test_Alice is my architect",
+      "people": "Test_Alice",
+      "places": "",
+      "topics": "architecture contacts professional services",
+      "retrieval_cues": "who is my architect Test_Alice role architect contact",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "249",
+      "memory_id": "mem_1788478104969_0_ss2pznz",
+      "content": "Bob is my mechanic, and his phone number is 0499 888 777.",
+      "original_text": "Test_Bob is my mechanic, his number is 0499 888 777",
+      "people": "Bob",
+      "places": "",
+      "topics": "contacts mechanic home maintenance automotive",
+      "retrieval_cues": "Bob mechanic phone number mechanic contact who is my mechanic Bob 0499 888 777",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "252",
+      "memory_id": "mem_1788478133773_0_j3mtpol",
+      "content": "Recuérdame llamar a Test_Barb mañana",
+      "original_text": "Recuérdame llamar a Test_Barb mañana",
+      "people": "Test_Barb",
+      "places": "",
+      "topics": "communication",
+      "retrieval_cues": "llamar a Test_Barb contactar a Test_Barb pendiente con Test_Barb friend test_barb (friend) friend test_barb my friend",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "253",
+      "memory_id": "mem_1788478147302_0_c7w81v8",
+      "content": "Appelle Test_Barb demain",
+      "original_text": "Appelle Test_Barb demain",
+      "people": "Test_Barb",
+      "places": "",
+      "topics": "communication",
+      "retrieval_cues": "call Test_Barb contact Test_Barb Test_Barb phone call friend test_barb (friend) friend test_barb my friend",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "254",
+      "memory_id": "mem_1788478155873_0_u7l7d68",
+      "content": "Rappelle-moi d'appeler Test_Barb demain",
+      "original_text": "Rappelle-moi d'appeler Test_Barb demain",
+      "people": "Test_Barb",
+      "places": "",
+      "topics": "phone call",
+      "retrieval_cues": "call Test_Barb phone call reminder to call friend test_barb (friend) friend test_barb my friend",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "257",
+      "memory_id": "mem_1788478244610_0_m2qup8x",
+      "content": "Ring Test_Fred tomorrow at 10am",
+      "original_text": "Ring Test_Fred tomorrow at 10am",
+      "people": "Test_Fred",
+      "places": "",
+      "topics": "phone call",
+      "retrieval_cues": "call Test_Fred ring Test_Fred Test_Fred phone call contact Test_Fred electrician test_fred (electrician) electrician test_fred my electrician",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "258",
+      "memory_id": "mem_1788478254938_0_wqy6owf",
+      "content": "Test_Alice is my architect",
+      "original_text": "Test_Alice is my architect",
+      "people": "Test_Alice",
+      "places": "",
+      "topics": "Professional relationships Professional Home design Project management",
+      "retrieval_cues": "Who is my architect Test_Alice role Professional contacts list",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "259",
+      "memory_id": "mem_1788478258330_0_kods3nk",
+      "content": "Bob is my mechanic, and his phone number is 0499 888 777.",
+      "original_text": "Test_Bob is my mechanic, his number is 0499 888 777",
+      "people": "Bob",
+      "places": "",
+      "topics": "contact service provider contacts service providers maintenance",
+      "retrieval_cues": "Bob mechanic phone number mechanic contact details who is my mechanic call Bob mechanic",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "262",
+      "memory_id": "mem_1788478285481_0_9a3ni5g",
+      "content": "Recuérdame llamar a Test_Barb mañana",
+      "original_text": "Recuérdame llamar a Test_Barb mañana",
+      "people": "Test_Barb",
+      "places": "",
+      "topics": "communication",
+      "retrieval_cues": "llamar a Test_Barb Test_Barb contact contactar a Test_Barb friend test_barb (friend) friend test_barb my friend",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "263",
+      "memory_id": "mem_1788486163319_0_8mmss99",
+      "content": "Mum has an appointment at 10:00 on Monday at the dentist.",
+      "original_text": "Mum has an appointment at 10:00 on Monday at the dentist.",
+      "people": "Mum",
+      "places": "dentist",
+      "topics": "appointment family health",
+      "retrieval_cues": "mum's dentist appointment dentist appointment Monday when is mum's dentist appointment mum health appointments",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "264",
+      "memory_id": "mem_1788491753149_0_o3s4xip",
+      "content": "Doug is my son — 0404 994 695",
+      "original_text": "Doug is my son — 0404 994 695",
+      "people": "Doug",
+      "places": "",
+      "topics": "relationship son contact phone personal",
+      "retrieval_cues": "doug son doug (son) my son doug is my son 0404 994 695 doug phone doug phone number son phone son phone number doug 0404 994 695",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "265",
+      "memory_id": "mem_1788491797090_0_sfnmpz0",
+      "content": "Travis is my son — 0431 387 517",
+      "original_text": "Travis is my son — 0431 387 517",
+      "people": "Travis",
+      "places": "",
+      "topics": "relationship son contact phone personal",
+      "retrieval_cues": "travis son travis (son) my son travis is my son 0431 387 517 travis phone travis phone number son phone son phone number travis 0431 387 517",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "266",
+      "memory_id": "mem_1788491834696_0_ta8dqnv",
+      "content": "Keith is my son — 0418 253 666",
+      "original_text": "Keith is my son — 0418 253 666",
+      "people": "Keith",
+      "places": "",
+      "topics": "relationship son contact phone personal",
+      "retrieval_cues": "keith son keith (son) my son keith is my son 0418 253 666 keith phone keith phone number son phone son phone number keith 0418 253 666",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "267",
+      "memory_id": "mem_1788491872227_0_ak11yo0",
+      "content": "Roland is my son — 0410 895 341",
+      "original_text": "Roland is my son — 0410 895 341",
+      "people": "Roland",
+      "places": "",
+      "topics": "relationship son contact phone personal",
+      "retrieval_cues": "roland son roland (son) my son roland is my son 0410 895 341 roland phone roland phone number son phone son phone number roland 0410 895 341",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "268",
+      "memory_id": "mem_1788491937239_0_d8uwlao",
+      "content": "Mum is my mum is my mother — 0401 532 259",
+      "original_text": "Mum is my mum is my mother — 0401 532 259",
+      "people": "Mum",
+      "places": "",
+      "topics": "relationship mum is my mother contact phone personal",
+      "retrieval_cues": "mum mum is my mother mum (mum is my mother) my mum is my mother mum is my mum is my mother 0401 532 259 mum phone mum phone number mum is my mother phone mum is my mother phone number mum 0401 532 259",
+      "items": "",
+      "subject": ""
+    },
+    {
+      "rowid": "269",
+      "memory_id": "mem_1788492082954_0_1m8dqsv",
+      "content": "Naveena is my doctor — (02) 6294 9366",
+      "original_text": "Naveena is my doctor — (02) 6294 9366",
+      "people": "Naveena",
+      "places": "",
+      "topics": "relationship doctor contact phone personal",
+      "retrieval_cues": "naveena doctor naveena (doctor) my doctor naveena is my doctor (02) 6294 9366 naveena phone naveena phone number doctor phone doctor phone number naveena (02) 6294 9366",
+      "items": "",
+      "subject": ""
+    }
+  ],
+  "memory_search_projection": [
+    {
+      "memory_id": "mem_1787523423129_0_vtusg5e",
+      "status": "active",
+      "createdAt": "2026-08-23T22:17:01.347Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_0_1aw37nd",
+      "status": "active",
+      "createdAt": "2026-08-24T07:26:52.638Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_1_olajw9g",
+      "status": "active",
+      "createdAt": "2026-08-24T07:26:52.638Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_2_0ga9xlv",
+      "status": "active",
+      "createdAt": "2026-08-24T07:26:52.638Z"
+    },
+    {
+      "memory_id": "mem_1787594114055_0_pfco7qp",
+      "status": "active",
+      "createdAt": "2026-08-24T17:55:12.252Z"
+    },
+    {
+      "memory_id": "mem_1787597925980_1_hugalao",
+      "status": "active",
+      "createdAt": "2026-08-24T18:58:43.924Z"
+    },
+    {
+      "memory_id": "mem_1787601312672_0_20z9ys4",
+      "status": "active",
+      "createdAt": "2026-08-24T19:55:11.075Z"
+    },
+    {
+      "memory_id": "mem_1787601332851_0_8k9xgwu",
+      "status": "active",
+      "createdAt": "2026-08-24T19:55:31.262Z"
+    },
+    {
+      "memory_id": "mem_1787601855345_0_u3l5rzt",
+      "status": "active",
+      "createdAt": "2026-08-24T20:04:13.666Z"
+    },
+    {
+      "memory_id": "mem_1787632041513_0_dryrcqz",
+      "status": "active",
+      "createdAt": "2026-08-25T04:27:19.391Z"
+    },
+    {
+      "memory_id": "mem_1787695795490_0_7603r73",
+      "status": "active",
+      "createdAt": "2026-08-25T22:09:53.798Z"
+    },
+    {
+      "memory_id": "mem_1787799864116_0_bf9dpob",
+      "status": "active",
+      "createdAt": "2026-08-27T03:04:22.262Z"
+    },
+    {
+      "memory_id": "mem_1787887526981_0_rb79k07",
+      "status": "active",
+      "createdAt": "2026-08-28T03:25:25.228Z"
+    },
+    {
+      "memory_id": "mem_1787891227708_0_d2153ab",
+      "status": "active",
+      "createdAt": "2026-08-28T04:27:05.869Z"
+    },
+    {
+      "memory_id": "mem_1788035969791_0_by9xklu",
+      "subject": "Mum's sold items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-29T20:39:28.005Z"
+    },
+    {
+      "memory_id": "mem_1788036011287_0_6ah9w15",
+      "subject": "Mum's sold items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-29T20:40:09.661Z"
+    },
+    {
+      "memory_id": "mem_1788036102764_0_9nq1la3",
+      "subject": "Mum's sold items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-29T20:41:41.171Z"
+    },
+    {
+      "memory_id": "mem_1788127675492_0_gj2du8n",
+      "status": "active",
+      "createdAt": "2026-08-30T22:07:53.635Z"
+    },
+    {
+      "memory_id": "mem_1788170285590_0_s8loued",
+      "status": "active",
+      "createdAt": "2026-08-31T09:58:03.641Z"
+    },
+    {
+      "memory_id": "syn_en_sarah_office",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "syn_en_sarah_home",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "syn_fr_pierre_garage",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "syn_fr_pierre_voisin",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "syn_ja_yuki_ryoko",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "syn_ja_yuki_tenshoku",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "xl_ja_kuruma",
+      "status": "active",
+      "createdAt": "2026-08-20T00:00:00.000Z"
+    },
+    {
+      "memory_id": "mem_1788242806833_0_gmyt9cx",
+      "status": "active",
+      "createdAt": "2026-09-01T06:06:44.776Z"
+    },
+    {
+      "memory_id": "mem_1788313911209_0_5mcd0vo",
+      "status": "active",
+      "createdAt": "2026-09-02T01:51:49.383Z"
+    },
+    {
+      "memory_id": "mem_1788323303607_0_k0b2l7o",
+      "status": "active",
+      "createdAt": "2026-09-02T04:28:23.607Z"
+    },
+    {
+      "memory_id": "mem_1788323307191_0_rvdpgse",
+      "status": "active",
+      "createdAt": "2026-09-02T04:28:27.191Z"
+    },
+    {
+      "memory_id": "mem_1788368805723_0_jjv3sh1",
+      "status": "active",
+      "createdAt": "2026-09-02T17:06:44.052Z"
+    },
+    {
+      "memory_id": "mem_1788368812895_0_shweema",
+      "status": "active",
+      "createdAt": "2026-09-02T17:06:51.024Z"
+    },
+    {
+      "memory_id": "test_ask_mem_spare_key",
+      "status": "active",
+      "createdAt": "2026-08-20T02:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_plumber_quote",
+      "status": "active",
+      "createdAt": "2026-08-22T04:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_ruler",
+      "subject": "Mum's Sold Items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-24T01:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_clock",
+      "subject": "Mum's Sold Items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-24T02:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_chair",
+      "subject": "Mum's Sold Items",
+      "subject_normalized": "mums sold items",
+      "status": "active",
+      "createdAt": "2026-08-24T03:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_bins_tomorrow",
+      "status": "active",
+      "createdAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_lawn_next_week",
+      "status": "active",
+      "createdAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_bunnings_yesterday",
+      "status": "active",
+      "createdAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "memory_id": "test_ask_mem_wa_election",
+      "status": "active",
+      "createdAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "memory_id": "mem_test_1788395072273_0_c3qqb",
+      "status": "active",
+      "createdAt": "2026-09-03T00:24:32.273Z"
+    },
+    {
+      "memory_id": "mem_test_1788395077496_0_pbgoo",
+      "status": "active",
+      "createdAt": "2026-09-03T00:24:37.496Z"
+    },
+    {
+      "memory_id": "mem_test_1788395081879_0_mamyj",
+      "status": "active",
+      "createdAt": "2026-09-03T00:24:41.879Z"
+    },
+    {
+      "memory_id": "mem_1788466889641_0_m57j7xf",
+      "status": "active",
+      "createdAt": "2026-09-03T20:21:28.066Z"
+    },
+    {
+      "memory_id": "mem_1788466898519_0_220iewx",
+      "status": "active",
+      "createdAt": "2026-09-03T20:21:37.103Z"
+    },
+    {
+      "memory_id": "mem_1788466901765_0_pmkupmf",
+      "status": "active",
+      "createdAt": "2026-09-03T20:21:40.269Z"
+    },
+    {
+      "memory_id": "mem_1788469895981_0_72mdot4",
+      "status": "active",
+      "createdAt": "2026-09-03T21:11:35.981Z"
+    },
+    {
+      "memory_id": "mem_1788478090472_0_tmzb4bi",
+      "status": "active",
+      "createdAt": "2026-09-03T23:28:08.510Z"
+    },
+    {
+      "memory_id": "mem_1788478101310_0_8vnumfs",
+      "status": "active",
+      "createdAt": "2026-09-03T23:28:19.235Z"
+    },
+    {
+      "memory_id": "mem_1788478104969_0_ss2pznz",
+      "status": "active",
+      "createdAt": "2026-09-03T23:28:23.222Z"
+    },
+    {
+      "memory_id": "mem_1788478133773_0_j3mtpol",
+      "status": "active",
+      "createdAt": "2026-09-03T23:28:51.934Z"
+    },
+    {
+      "memory_id": "mem_1788478147302_0_c7w81v8",
+      "status": "active",
+      "createdAt": "2026-09-03T23:29:05.703Z"
+    },
+    {
+      "memory_id": "mem_1788478155873_0_u7l7d68",
+      "status": "active",
+      "createdAt": "2026-09-03T23:29:14.340Z"
+    },
+    {
+      "memory_id": "mem_1788478244610_0_m2qup8x",
+      "status": "active",
+      "createdAt": "2026-09-03T23:30:42.898Z"
+    },
+    {
+      "memory_id": "mem_1788478254938_0_wqy6owf",
+      "status": "active",
+      "createdAt": "2026-09-03T23:30:53.354Z"
+    },
+    {
+      "memory_id": "mem_1788478258330_0_kods3nk",
+      "status": "active",
+      "createdAt": "2026-09-03T23:30:56.721Z"
+    },
+    {
+      "memory_id": "mem_1788478285481_0_9a3ni5g",
+      "status": "active",
+      "createdAt": "2026-09-03T23:31:24.038Z"
+    },
+    {
+      "memory_id": "mem_1788486163319_0_8mmss99",
+      "status": "active",
+      "createdAt": "2026-09-04T01:42:41.450Z"
+    },
+    {
+      "memory_id": "mem_1788491753149_0_o3s4xip",
+      "status": "active",
+      "createdAt": "2026-09-04T03:15:53.149Z"
+    },
+    {
+      "memory_id": "mem_1788491797090_0_sfnmpz0",
+      "status": "active",
+      "createdAt": "2026-09-04T03:16:37.090Z"
+    },
+    {
+      "memory_id": "mem_1788491834696_0_ta8dqnv",
+      "status": "active",
+      "createdAt": "2026-09-04T03:17:14.696Z"
+    },
+    {
+      "memory_id": "mem_1788491872227_0_ak11yo0",
+      "status": "active",
+      "createdAt": "2026-09-04T03:17:52.227Z"
+    },
+    {
+      "memory_id": "mem_1788491937239_0_d8uwlao",
+      "status": "active",
+      "createdAt": "2026-09-04T03:18:57.239Z"
+    },
+    {
+      "memory_id": "mem_1788492082954_0_1m8dqsv",
+      "status": "active",
+      "createdAt": "2026-09-04T03:21:22.954Z"
+    }
+  ],
+  "memory_vectors": [
+    {
+      "memory_id": "mem_1787523423129_0_vtusg5e",
+      "updated_at": "2026-08-31T19:11:01.540Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_0_1aw37nd",
+      "updated_at": "2026-08-31T19:11:02.684Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_1_olajw9g",
+      "updated_at": "2026-08-31T19:11:03.850Z"
+    },
+    {
+      "memory_id": "mem_1787556414573_2_0ga9xlv",
+      "updated_at": "2026-08-31T19:11:05.019Z"
+    },
+    {
+      "memory_id": "mem_1787594114055_0_pfco7qp",
+      "updated_at": "2026-08-31T19:11:06.140Z"
+    },
+    {
+      "memory_id": "mem_1787597925980_1_hugalao",
+      "updated_at": "2026-08-31T19:11:07.302Z"
+    },
+    {
+      "memory_id": "mem_1787601312672_0_20z9ys4",
+      "updated_at": "2026-08-31T19:11:08.476Z"
+    },
+    {
+      "memory_id": "mem_1787601332851_0_8k9xgwu",
+      "updated_at": "2026-08-31T19:11:09.641Z"
+    },
+    {
+      "memory_id": "mem_1787601855345_0_u3l5rzt",
+      "updated_at": "2026-08-31T19:11:10.746Z"
+    },
+    {
+      "memory_id": "mem_1787632041513_0_dryrcqz",
+      "updated_at": "2026-08-31T19:11:11.919Z"
+    },
+    {
+      "memory_id": "mem_1787695795490_0_7603r73",
+      "updated_at": "2026-08-31T19:11:13.079Z"
+    },
+    {
+      "memory_id": "mem_1787799864116_0_bf9dpob",
+      "updated_at": "2026-08-31T19:11:14.244Z"
+    },
+    {
+      "memory_id": "mem_1787887526981_0_rb79k07",
+      "updated_at": "2026-08-31T19:11:15.375Z"
+    },
+    {
+      "memory_id": "mem_1787891227708_0_d2153ab",
+      "updated_at": "2026-08-31T19:11:16.517Z"
+    },
+    {
+      "memory_id": "mem_1788035969791_0_by9xklu",
+      "updated_at": "2026-08-31T19:11:17.655Z"
+    },
+    {
+      "memory_id": "mem_1788036011287_0_6ah9w15",
+      "updated_at": "2026-08-31T19:11:18.777Z"
+    },
+    {
+      "memory_id": "mem_1788036102764_0_9nq1la3",
+      "updated_at": "2026-08-31T19:11:19.925Z"
+    },
+    {
+      "memory_id": "mem_1788127675492_0_gj2du8n",
+      "updated_at": "2026-08-31T19:11:21.056Z"
+    },
+    {
+      "memory_id": "mem_1788170285590_0_s8loued",
+      "updated_at": "2026-08-31T19:11:22.204Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_ruler",
+      "updated_at": "2026-09-02T20:03:19.928Z"
+    },
+    {
+      "memory_id": "test_ask_mem_spare_key",
+      "updated_at": "2026-09-02T20:03:19.967Z"
+    },
+    {
+      "memory_id": "test_ask_mem_plumber_quote",
+      "updated_at": "2026-09-02T20:03:19.964Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_clock",
+      "updated_at": "2026-09-02T20:03:19.934Z"
+    },
+    {
+      "memory_id": "test_ask_mem_sold_chair",
+      "updated_at": "2026-09-02T20:03:19.941Z"
+    },
+    {
+      "memory_id": "test_ask_mem_bunnings_yesterday",
+      "updated_at": "2026-09-02T20:03:19.969Z"
+    },
+    {
+      "memory_id": "test_ask_mem_wa_election",
+      "updated_at": "2026-09-02T20:03:19.949Z"
+    },
+    {
+      "memory_id": "test_ask_mem_lawn_next_week",
+      "updated_at": "2026-09-02T20:03:19.972Z"
+    },
+    {
+      "memory_id": "test_ask_mem_bins_tomorrow",
+      "updated_at": "2026-09-02T20:03:19.976Z"
+    },
+    {
+      "memory_id": "mem_1788313911209_0_5mcd0vo",
+      "updated_at": "2026-09-02T01:51:55.933Z"
+    },
+    {
+      "memory_id": "mem_1788323303607_0_k0b2l7o",
+      "updated_at": "2026-09-02T04:28:24.770Z"
+    },
+    {
+      "memory_id": "mem_1788323307191_0_rvdpgse",
+      "updated_at": "2026-09-02T04:28:28.359Z"
+    },
+    {
+      "memory_id": "mem_1788368805723_0_jjv3sh1",
+      "updated_at": "2026-09-02T17:06:47.667Z"
+    },
+    {
+      "memory_id": "mem_1788368812895_0_shweema",
+      "updated_at": "2026-09-02T17:06:54.081Z"
+    },
+    {
+      "memory_id": "mem_test_1788395072273_0_c3qqb",
+      "updated_at": "2026-09-03T00:24:34.180Z"
+    },
+    {
+      "memory_id": "mem_test_1788395077496_0_pbgoo",
+      "updated_at": "2026-09-03T00:24:38.678Z"
+    },
+    {
+      "memory_id": "mem_test_1788395081879_0_mamyj",
+      "updated_at": "2026-09-03T00:24:43.051Z"
+    },
+    {
+      "memory_id": "mem_phaseA_1788395830681_0_75so9",
+      "updated_at": "2026-09-03T00:37:12.677Z"
+    },
+    {
+      "memory_id": "mem_phaseA_1788395836963_0_wwc84",
+      "updated_at": "2026-09-03T00:37:18.123Z"
+    },
+    {
+      "memory_id": "mem_phaseA_1788395842644_0_n7tnu",
+      "updated_at": "2026-09-03T00:37:26.638Z"
+    },
+    {
+      "memory_id": "mem_1788396002719_0_wd0xg78",
+      "updated_at": "2026-09-03T00:40:03.878Z"
+    },
+    {
+      "memory_id": "mem_1788396005871_0_fshj4kx",
+      "updated_at": "2026-09-03T00:40:07.064Z"
+    },
+    {
+      "memory_id": "mem_1788396009253_0_cczief1",
+      "updated_at": "2026-09-03T00:40:10.485Z"
+    },
+    {
+      "memory_id": "mem_1788396718544_0_uwtrg0a",
+      "updated_at": "2026-09-03T00:51:59.745Z"
+    },
+    {
+      "memory_id": "mem_1788466889641_0_m57j7xf",
+      "updated_at": "2026-09-03T20:21:32.934Z"
+    },
+    {
+      "memory_id": "mem_1788466898519_0_220iewx",
+      "updated_at": "2026-09-03T20:21:39.668Z"
+    },
+    {
+      "memory_id": "mem_1788466901765_0_pmkupmf",
+      "updated_at": "2026-09-03T20:21:43.576Z"
+    },
+    {
+      "memory_id": "mem_1788469895981_0_72mdot4",
+      "updated_at": "2026-09-03T21:11:38.714Z"
+    },
+    {
+      "memory_id": "mem_1788478090472_0_tmzb4bi",
+      "updated_at": "2026-09-03T23:28:13.864Z"
+    },
+    {
+      "memory_id": "mem_1788478101310_0_8vnumfs",
+      "updated_at": "2026-09-03T23:28:22.470Z"
+    },
+    {
+      "memory_id": "mem_1788478104969_0_ss2pznz",
+      "updated_at": "2026-09-03T23:28:26.879Z"
+    },
+    {
+      "memory_id": "mem_1788478133773_0_j3mtpol",
+      "updated_at": "2026-09-03T23:28:57.076Z"
+    },
+    {
+      "memory_id": "mem_1788478147302_0_c7w81v8",
+      "updated_at": "2026-09-03T23:29:10.623Z"
+    },
+    {
+      "memory_id": "mem_1788478155873_0_u7l7d68",
+      "updated_at": "2026-09-03T23:29:19.209Z"
+    },
+    {
+      "memory_id": "mem_1788478244610_0_m2qup8x",
+      "updated_at": "2026-09-03T23:30:47.921Z"
+    },
+    {
+      "memory_id": "mem_1788478254938_0_wqy6owf",
+      "updated_at": "2026-09-03T23:30:56.071Z"
+    },
+    {
+      "memory_id": "mem_1788478258330_0_kods3nk",
+      "updated_at": "2026-09-03T23:31:00.228Z"
+    },
+    {
+      "memory_id": "mem_1788478285481_0_9a3ni5g",
+      "updated_at": "2026-09-03T23:31:28.790Z"
+    },
+    {
+      "memory_id": "mem_1788486163319_0_8mmss99",
+      "updated_at": "2026-09-04T01:43:11.013Z"
+    },
+    {
+      "memory_id": "mem_1788491753149_0_o3s4xip",
+      "updated_at": "2026-09-04T03:15:55.084Z"
+    },
+    {
+      "memory_id": "mem_1788491797090_0_sfnmpz0",
+      "updated_at": "2026-09-04T03:16:38.957Z"
+    },
+    {
+      "memory_id": "mem_1788491834696_0_ta8dqnv",
+      "updated_at": "2026-09-04T03:17:16.554Z"
+    },
+    {
+      "memory_id": "mem_1788491872227_0_ak11yo0",
+      "updated_at": "2026-09-04T03:17:54.104Z"
+    },
+    {
+      "memory_id": "mem_1788491937239_0_d8uwlao",
+      "updated_at": "2026-09-04T03:18:59.155Z"
+    },
+    {
+      "memory_id": "mem_1788492082954_0_1m8dqsv",
+      "updated_at": "2026-09-04T03:21:24.885Z"
+    }
+  ]
+}

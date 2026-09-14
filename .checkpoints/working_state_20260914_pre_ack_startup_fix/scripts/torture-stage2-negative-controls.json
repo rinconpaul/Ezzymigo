@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-09-01T01:22:24.034Z",
+  "total_attempted": 5,
+  "conclusive": 5,
+  "inconclusive": 0,
+  "detected": 5,
+  "missed": 0,
+  "results": [
+    {
+      "control_id": "NC-01",
+      "status": "DETECTED",
+      "retrieved_ids": [
+        "syn_en_sarah_office"
+      ],
+      "defect": "MISSING_REQUIRED_ID",
+      "reason": "Required memory ID 'syn_en_sarah_home' was NOT returned in retrieved IDs [syn_en_sarah_office]"
+    },
+    {
+      "control_id": "NC-02",
+      "status": "DETECTED",
+      "retrieved_ids": [],
+      "defect": "MISSING_REQUIRED_ID",
+      "reason": "Required memory ID 'syn_en_bins' was NOT returned in retrieved IDs []"
+    },
+    {
+      "control_id": "NC-03",
+      "status": "DETECTED",
+      "retrieved_ids": [
+        "syn_fr_pierre_garage",
+        "syn_fr_pierre_voisin"
+      ],
+      "defect": "FORBIDDEN_ID_LEAKAGE",
+      "reason": "Forbidden memory ID 'syn_fr_pierre_garage' was returned in retrieved IDs [syn_fr_pierre_garage, syn_fr_pierre_voisin]"
+    },
+    {
+      "control_id": "NC-04",
+      "status": "DETECTED",
+      "retrieved_ids": [
+        "syn_ja_yuki_tenshoku",
+        "syn_ja_yuki_ryoko"
+      ],
+      "defect": "CARDINALITY_MISMATCH_SINGLE",
+      "reason": "Expected exact_single (1 memory), but received 2 IDs: [syn_ja_yuki_tenshoku, syn_ja_yuki_ryoko]"
+    },
+    {
+      "control_id": "NC-05",
+      "status": "DETECTED",
+      "retrieved_ids": [
+        "xl_ja_kuruma"
+      ],
+      "defect": "MISSING_REQUIRED_ID",
+      "reason": "Required memory ID 'syn_ja_mitsumori' was NOT returned in retrieved IDs [xl_ja_kuruma]"
+    }
+  ]
+}

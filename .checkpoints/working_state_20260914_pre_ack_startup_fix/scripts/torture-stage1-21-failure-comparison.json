@@ -1,0 +1,446 @@
+{
+  "timestamp": "2026-09-01T00:07:26.598Z",
+  "baseline_total_failures": 21,
+  "stage1_total_passed": 48,
+  "stage1_total_conclusive": 66,
+  "baseline_total_passed": 45,
+  "baseline_total_conclusive": 66,
+  "comparison_records": [
+    {
+      "fixture_id": "TC-EN-01",
+      "language": "en",
+      "category": "same_language, sibling_disambiguation",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_en_sarah_office"
+      ],
+      "forbidden_ids": [
+        "syn_en_sarah_home"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_en_sarah_office",
+        "syn_en_sarah_home"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_en_sarah_office"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": true,
+      "status": "FIXED",
+      "defect_classification": "NONE"
+    },
+    {
+      "fixture_id": "TC-EN-02",
+      "language": "en",
+      "category": "same_language, role_mediated",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_en_electrician_role",
+        "syn_en_electrician_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_en_electrician_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_en_electrician_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-EN-04",
+      "language": "en",
+      "category": "same_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_en_compost"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_en_compost"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_en_compost"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-FR-04",
+      "language": "fr",
+      "category": "same_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_fr_compost"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_fr_compost"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_fr_compost"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-FR-06",
+      "language": "fr",
+      "category": "same_language, genuine_ambiguity",
+      "expected_outcome": "ambiguity",
+      "required_ids": [
+        "syn_fr_marie_conges",
+        "syn_fr_marie_demenagement"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_fr_marie_conges"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_fr_marie_conges",
+        "syn_fr_marie_demenagement"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": true,
+      "status": "FIXED",
+      "defect_classification": "NONE"
+    },
+    {
+      "fixture_id": "TC-ES-02",
+      "language": "es",
+      "category": "same_language, role_mediated",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_es_fontanero_role",
+        "syn_es_fontanero_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_es_fontanero_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_es_fontanero_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-ES-04",
+      "language": "es",
+      "category": "same_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_es_pasaje"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_es_pasaje"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_es_pasaje"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-ES-06",
+      "language": "es",
+      "category": "same_language, genuine_ambiguity",
+      "expected_outcome": "ambiguity",
+      "required_ids": [
+        "syn_es_ana_trabajo",
+        "syn_es_ana_viaje"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_es_ana_trabajo"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_es_ana_trabajo"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-DE-02",
+      "language": "de",
+      "category": "same_language, role_mediated",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_de_elektriker_role",
+        "syn_de_elektriker_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_de_elektriker_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_de_elektriker_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-DE-04",
+      "language": "de",
+      "category": "same_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_de_kompost"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_de_kompost"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_de_kompost"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-DE-06",
+      "language": "de",
+      "category": "same_language, genuine_ambiguity",
+      "expected_outcome": "ambiguity",
+      "required_ids": [
+        "syn_de_lena_urlaub",
+        "syn_de_lena_job"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_de_lena_urlaub"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_de_lena_urlaub",
+        "syn_de_lena_job"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": true,
+      "status": "FIXED",
+      "defect_classification": "NONE"
+    },
+    {
+      "fixture_id": "TC-IT-02",
+      "language": "it",
+      "category": "same_language, role_mediated",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_it_idraulico_role",
+        "syn_it_idraulico_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_it_idraulico_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_it_idraulico_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-IT-04",
+      "language": "it",
+      "category": "same_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_it_biglietti"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_it_biglietti"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_it_biglietti"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-JA-02",
+      "language": "ja",
+      "category": "same_language, role_mediated, non_latin_script",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_ja_denki_role",
+        "syn_ja_denki_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_ja_denki_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_ja_denki_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-JA-04",
+      "language": "ja",
+      "category": "same_language, near_miss_zero_result, non_latin_script",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_ja_kaimono"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_ja_kaimono"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_ja_kaimono"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-ZH-02",
+      "language": "zh",
+      "category": "same_language, role_mediated, non_latin_script",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_zh_shuidian_role",
+        "syn_zh_shuidian_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_zh_shuidian_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_zh_shuidian_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-ZH-04",
+      "language": "zh",
+      "category": "same_language, near_miss_zero_result, non_latin_script",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_zh_goumai"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_zh_goumai"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_zh_goumai"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-AR-02",
+      "language": "ar",
+      "category": "same_language, role_mediated, non_latin_script, rtl",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_ar_sabbak_role",
+        "syn_ar_sabbak_note"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "syn_ar_sabbak_note"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_ar_sabbak_note"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "MISSING_REQUIRED_ID"
+    },
+    {
+      "fixture_id": "TC-AR-04",
+      "language": "ar",
+      "category": "same_language, near_miss_zero_result, non_latin_script, rtl",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_ar_shira"
+      ],
+      "baseline_retrieved_ids": [
+        "syn_ar_shira"
+      ],
+      "stage1_retrieved_ids": [
+        "syn_ar_shira"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    },
+    {
+      "fixture_id": "TC-XL-04",
+      "language": "en",
+      "category": "cross_language, non_latin_script, currency_locale",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "xl_ja_kuruma"
+      ],
+      "forbidden_ids": [],
+      "baseline_retrieved_ids": [
+        "mem_1788036102764_0_9nq1la3",
+        "xl_ja_kuruma"
+      ],
+      "stage1_retrieved_ids": [
+        "xl_ja_kuruma"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": true,
+      "status": "FIXED",
+      "defect_classification": "NONE"
+    },
+    {
+      "fixture_id": "TC-XL-08",
+      "language": "en",
+      "category": "cross_language, near_miss_zero_result",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "xl_it_traslochi"
+      ],
+      "baseline_retrieved_ids": [
+        "xl_it_traslochi"
+      ],
+      "stage1_retrieved_ids": [
+        "xl_it_traslochi"
+      ],
+      "baseline_passed": false,
+      "stage1_passed": false,
+      "status": "STILL FAILING",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE"
+    }
+  ]
+}

@@ -1,0 +1,488 @@
+{
+  "batch": 5,
+  "indices": [
+    44,
+    54
+  ],
+  "total_in_batch": 11,
+  "passed_in_batch": 8,
+  "results": [
+    {
+      "test_id": "TC-ZH-03",
+      "language": "zh",
+      "category": "same_language, messy_phrasing, non_latin_script",
+      "query": "呃那个厨余垃圾是啥时候拿出去来着",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_zh_laji"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_zh_laji"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3616,
+        "embed_ms": 408,
+        "vec_sql_ms": 741,
+        "arb_ms": 685,
+        "rescue_ms": 0,
+        "hydrate_ms": 770
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_zh_laji",
+        "top_cosine_sim": 0.8276473879814148,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_zh_laji": 1.0776473879814148,
+          "test_ask_mem_bins_tomorrow": 0.6665461659431458
+        },
+        "lexical_unique_anchors": {
+          "syn_zh_laji": [
+            "厨",
+            "余",
+            "垃圾",
+            "拿出",
+            "去"
+          ],
+          "test_ask_mem_bins_tomorrow": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-ZH-04",
+      "language": "zh",
+      "category": "same_language, near_miss_zero_result, non_latin_script",
+      "query": "我在建材超市买水管了吗？",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_zh_goumai"
+      ],
+      "retrieved_ids": [
+        "syn_zh_goumai"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": false,
+      "failure_reason": "Forbidden memory ID 'syn_zh_goumai' was returned in retrieved IDs [syn_zh_goumai]",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+      "timings": {
+        "total_ms": 3649,
+        "embed_ms": 406,
+        "vec_sql_ms": 710,
+        "arb_ms": 716,
+        "rescue_ms": 0,
+        "hydrate_ms": 746
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_zh_goumai",
+        "top_cosine_sim": 0.6994777917861938,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_zh_goumai": 0.8994777917861938,
+          "test_ask_mem_bunnings_yesterday": 0.6455676257610321
+        },
+        "lexical_unique_anchors": {
+          "syn_zh_goumai": [
+            "建材",
+            "超市",
+            "买",
+            "了"
+          ],
+          "test_ask_mem_bunnings_yesterday": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-ZH-05",
+      "language": "zh",
+      "category": "same_language, currency_locale, non_latin_script",
+      "query": "水管维修报价多少钱？",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_zh_baojia"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_zh_baojia"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3685,
+        "embed_ms": 409,
+        "vec_sql_ms": 696,
+        "arb_ms": 721,
+        "rescue_ms": 0,
+        "hydrate_ms": 783
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_zh_baojia",
+        "top_cosine_sim": 0.8647016882896423,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_zh_baojia": 1.0147016882896422,
+          "test_ask_mem_plumber_quote": 0.6675050258636475
+        },
+        "lexical_unique_anchors": {
+          "syn_zh_baojia": [
+            "水管",
+            "维修",
+            "报价"
+          ],
+          "test_ask_mem_plumber_quote": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-ZH-06",
+      "language": "zh",
+      "category": "same_language, dates_times, non_latin_script",
+      "query": "牙医预约现在是什么时候？",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_zh_yuyue"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_zh_yuyue"
+      ],
+      "route": "vector_unambiguous",
+      "passed": true,
+      "timings": {
+        "total_ms": 2916,
+        "embed_ms": 423,
+        "vec_sql_ms": 724,
+        "arb_ms": 1,
+        "rescue_ms": 0,
+        "hydrate_ms": 770
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_zh_yuyue",
+        "top_cosine_sim": 0.7569578140974045,
+        "sibling_candidates_in_band": 1,
+        "composite_scores": {
+          "syn_zh_yuyue": 0.7569578140974045
+        },
+        "lexical_unique_anchors": {},
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-01",
+      "language": "ar",
+      "category": "same_language, sibling_disambiguation, non_latin_script, rtl",
+      "query": "ماذا قال أحمد عن لوحة الكهرباء؟",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_ar_ahmed_kahraba"
+      ],
+      "forbidden_ids": [
+        "syn_ar_ahmed_jar"
+      ],
+      "retrieved_ids": [
+        "syn_ar_ahmed_kahraba"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3559,
+        "embed_ms": 431,
+        "vec_sql_ms": 697,
+        "arb_ms": 692,
+        "rescue_ms": 0,
+        "hydrate_ms": 714
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_ahmed_kahraba",
+        "top_cosine_sim": 0.8143038153648376,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_ar_ahmed_kahraba": 0.9643038153648377,
+          "syn_ar_ahmed_jar": 0.613557755947113
+        },
+        "lexical_unique_anchors": {
+          "syn_ar_ahmed_kahraba": [
+            "قال",
+            "لوحة",
+            "الكهرباء"
+          ],
+          "syn_ar_ahmed_jar": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-02",
+      "language": "ar",
+      "category": "same_language, role_mediated, non_latin_script, rtl",
+      "query": "ماذا قال السباك عن التسرب؟",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_ar_sabbak_role",
+        "syn_ar_sabbak_note"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_ar_sabbak_note"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": false,
+      "failure_reason": "Required memory ID 'syn_ar_sabbak_role' was NOT returned in retrieved IDs [syn_ar_sabbak_note]",
+      "defect_classification": "MISSING_REQUIRED_ID",
+      "timings": {
+        "total_ms": 3684,
+        "embed_ms": 403,
+        "vec_sql_ms": 685,
+        "arb_ms": 742,
+        "rescue_ms": 0,
+        "hydrate_ms": 766
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_sabbak_note",
+        "top_cosine_sim": 0.7496780753135681,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "syn_ar_sabbak_note": 0.7996780753135682,
+          "syn_ar_sabbak_role": 0.7193269908428193,
+          "test_ask_mem_plumber_quote": 0.6137104332447052
+        },
+        "lexical_unique_anchors": {
+          "syn_ar_sabbak_note": [
+            "قال"
+          ],
+          "syn_ar_sabbak_role": [
+            "السباك"
+          ],
+          "test_ask_mem_plumber_quote": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-03",
+      "language": "ar",
+      "category": "same_language, messy_phrasing, non_latin_script, rtl",
+      "query": "طيب متى بالضبط لازم أطلع القمامة العضوية",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_ar_qumama"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_ar_qumama"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3686,
+        "embed_ms": 420,
+        "vec_sql_ms": 748,
+        "arb_ms": 709,
+        "rescue_ms": 0,
+        "hydrate_ms": 744
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_qumama",
+        "top_cosine_sim": 0.8134820014238358,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_ar_qumama": 0.9134820014238357,
+          "test_ask_mem_bins_tomorrow": 0.6302762925624847
+        },
+        "lexical_unique_anchors": {
+          "syn_ar_qumama": [
+            "القمامة",
+            "العضوية"
+          ],
+          "test_ask_mem_bins_tomorrow": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-04",
+      "language": "ar",
+      "category": "same_language, near_miss_zero_result, non_latin_script, rtl",
+      "query": "هل اشتريت خرطوم مياه من متجر الأدوات المنزلية؟",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_ar_shira"
+      ],
+      "retrieved_ids": [
+        "syn_ar_shira"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": false,
+      "failure_reason": "Forbidden memory ID 'syn_ar_shira' was returned in retrieved IDs [syn_ar_shira]",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+      "timings": {
+        "total_ms": 3533,
+        "embed_ms": 419,
+        "vec_sql_ms": 742,
+        "arb_ms": 683,
+        "rescue_ms": 0,
+        "hydrate_ms": 741
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_shira",
+        "top_cosine_sim": 0.6841653287410736,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_ar_shira": 0.9341653287410736,
+          "test_ask_mem_bunnings_yesterday": 0.609497994184494
+        },
+        "lexical_unique_anchors": {
+          "syn_ar_shira": [
+            "اشتريت",
+            "من",
+            "متجر",
+            "الأدوات",
+            "المنزلية"
+          ],
+          "test_ask_mem_bunnings_yesterday": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-05",
+      "language": "ar",
+      "category": "same_language, currency_locale, non_latin_script, rtl",
+      "query": "كم كان عرض السباك لإصلاح الحمام؟",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_ar_ijar"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_ar_ijar"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3554,
+        "embed_ms": 417,
+        "vec_sql_ms": 726,
+        "arb_ms": 706,
+        "rescue_ms": 0,
+        "hydrate_ms": 699
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_ijar",
+        "top_cosine_sim": 0.8319266736507416,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_ar_ijar": 1.0819266736507416,
+          "test_ask_mem_plumber_quote": 0.6746602356433868
+        },
+        "lexical_unique_anchors": {
+          "syn_ar_ijar": [
+            "كان",
+            "عرض",
+            "السباك",
+            "لإصلاح",
+            "الحمام"
+          ],
+          "test_ask_mem_plumber_quote": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-AR-06",
+      "language": "ar",
+      "category": "same_language, dates_times, non_latin_script, rtl",
+      "query": "متى موعد طبيب الأسنان الآن؟",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_ar_maweid"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_ar_maweid"
+      ],
+      "route": "vector_unambiguous",
+      "passed": true,
+      "timings": {
+        "total_ms": 2921,
+        "embed_ms": 432,
+        "vec_sql_ms": 699,
+        "arb_ms": 0,
+        "rescue_ms": 0,
+        "hydrate_ms": 742
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_ar_maweid",
+        "top_cosine_sim": 0.7500995248556137,
+        "sibling_candidates_in_band": 1,
+        "composite_scores": {
+          "syn_ar_maweid": 0.7500995248556137
+        },
+        "lexical_unique_anchors": {},
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-XL-01",
+      "language": "en",
+      "category": "cross_language",
+      "query": "What did the heating guy say about the boiler?",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "xl_fr_chaudiere"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "xl_fr_chaudiere"
+      ],
+      "route": "vector_unambiguous",
+      "passed": true,
+      "timings": {
+        "total_ms": 2867,
+        "embed_ms": 420,
+        "vec_sql_ms": 717,
+        "arb_ms": 0,
+        "rescue_ms": 0,
+        "hydrate_ms": 744
+      },
+      "telemetry": {
+        "top_candidate_id": "xl_fr_chaudiere",
+        "top_cosine_sim": 0.6639875173568726,
+        "sibling_candidates_in_band": 1,
+        "composite_scores": {
+          "xl_fr_chaudiere": 0.6639875173568726
+        },
+        "lexical_unique_anchors": {},
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    }
+  ]
+}

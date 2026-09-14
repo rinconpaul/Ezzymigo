@@ -1,0 +1,1281 @@
+import { GoogleGenAI } from '@google/genai';
+import { executeBunnySql } from '../db/client';
+import { initBunnyDb } from '../db/schema';
+import { readMemories, readMemoryById, updateMemoryInDb } from '../db/memories';
+import { detectClockTimeAmbiguity, ClockTimeAmbiguity } from '../utils/timeAmbiguity';
+
+// -------------------------------------------------------------
+// Relationship-Aware Entities Layer (V1) & Ambiguity Rule
+// -------------------------------------------------------------
+export function normalizeRoleName(role: string): string {
+  if (!role || typeof role !== 'string') return '';
+  let cleaned = role.toLowerCase().trim();
+  // Strip leading possessives/articles (English, Spanish, French, German)
+  cleaned = cleaned.replace(/^(?:my|our|the|a|an|mi|mis|el|la|los|las|mon|ma|mes|le|la|les|un|une|mein|meine|meinen|der|die|das|ein|eine|einen)\s+/i, '').trim();
+  // Strip trailing punctuation or possessives like "'s"
+  cleaned = cleaned.replace(/['’]s$/i, '').replace(/[.,?!]+$/, '').trim();
+
+  // Normalize common synonyms and multilingual terms
+  if (['general practitioner', 'physician', 'doc', 'dr', 'médico', 'medico', 'médecin', 'arzt', 'ärztin'].includes(cleaned)) return 'doctor';
+  if (['physiotherapist', 'kinésithérapeute', 'fisioterapeuta'].includes(cleaned)) return 'physio';
+  if (['electricista', 'électricien', 'electricien', 'elektriker'].includes(cleaned)) return 'electrician';
+  if (['plomero', 'fontanero', 'plombier', 'klempner', 'installateur'].includes(cleaned)) return 'plumber';
+  if (['constructor', 'constructeur', 'baumeister', 'bauarbeiter'].includes(cleaned)) return 'builder';
+  if (['arquitecto', 'architecte'].includes(cleaned)) return 'architect';
+  if (['mecánico', 'mecanico', 'mécanicien', 'mecanicien', 'mechaniker'].includes(cleaned)) return 'mechanic';
+  if (['hermana', 'soeur', 'sœur', 'schwester'].includes(cleaned)) return 'sister';
+  if (['hermano', 'frère', 'frere', 'bruder'].includes(cleaned)) return 'brother';
+  if (['madre', 'mamá', 'mama', 'maman', 'mère', 'mere', 'mutter', 'mum', 'mom', 'mother', 'mummy'].includes(cleaned) ||
+      /\b(?:mother|mum|mom|madre|mutter)\b/i.test(cleaned)) {
+    return 'mother';
+  }
+  if (['padre', 'papá', 'papa', 'père', 'pere', 'vater', 'dad', 'daddy', 'father'].includes(cleaned) ||
+      /\b(?:father|dad|padre|vater)\b/i.test(cleaned)) {
+    return 'father';
+  }
+  if (['esposo', 'hubby', 'mari', 'ehemann'].includes(cleaned)) return 'husband';
+  if (['esposa', 'wifey', 'femme', 'ehefrau'].includes(cleaned)) return 'wife';
+  return cleaned;
+}
+
+// Read all active user relationships
+export async function readActiveRelationships(ezzyId: string = 'ezzy_default'): Promise<Array<{ id: string; person: string; role: string; normalized_role: string; subject_person?: string; is_active: boolean; updated_at: string }>> {
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, person, role, normalized_role, subject_person, is_active, updated_at FROM user_relationships WHERE is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC;',
+      args: [ezzyId]
+    }]);
+
+    if (!results[0] || !results[0].rows) return [];
+
+    return results[0].rows.map((row: any) => ({
+      id: row.id,
+      person: row.person,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      subject_person: (row.subject_person || '').trim() || 'user',
+      is_active: Boolean(Number(row.is_active)),
+      updated_at: row.updated_at,
+    }));
+  } catch (err) {
+    console.error('[Relationships] Error reading active relationships:', err);
+    return [];
+  }
+}
+
+// Targeted query to look up a specific active relationship by normalized role and subject
+export async function getActiveRelationshipByRole(role: string, ezzyId: string = 'ezzy_default', subjectPerson: string = 'user'): Promise<{ id: string; person: string; role: string; normalized_role: string; subject_person?: string; is_active: boolean; updated_at: string } | null> {
+  const norm = normalizeRoleName(role);
+  if (!norm) return null;
+  const subj = (subjectPerson || 'user').trim().toLowerCase();
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, person, role, normalized_role, subject_person, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND LOWER(COALESCE(subject_person, "user")) = ? AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm, subj, ezzyId]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    return {
+      id: row.id,
+      person: row.person,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      subject_person: (row.subject_person || '').trim() || 'user',
+      is_active: Boolean(Number(row.is_active)),
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Relationships] Error finding active relationship by role:', err);
+    return null;
+  }
+}
+
+// Targeted query to look up a specific active relationship by person name
+export async function getActiveRelationshipByPerson(person: string, ezzyId: string = 'ezzy_default'): Promise<{ id: string; person: string; role: string; normalized_role: string; subject_person?: string; is_active: boolean; updated_at: string } | null> {
+  const p = (person || '').trim();
+  if (!p) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, person, role, normalized_role, subject_person, is_active, updated_at FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [p, ezzyId]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    return {
+      id: row.id,
+      person: row.person,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      subject_person: (row.subject_person || '').trim() || 'user',
+      is_active: Boolean(Number(row.is_active)),
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Relationships] Error finding active relationship by person:', err);
+    return null;
+  }
+}
+
+// Architectural separation of phone number extraction:
+// 1. General International / E.164-capable parsing (+<country code> followed by subscriber number)
+// 2. Region-specific parsing (e.g. AU national mobile, landline, service numbers)
+const INTERNATIONAL_E164_PATTERN = /(?<!\w)\+(?:[1-9]\d{0,2})(?:[ -.]?(?:\([0-9]{1,4}\)|[0-9]{1,4})){2,5}(?!\w)/;
+
+const AU_NATIONAL_PHONE_PATTERN = /(?:(?:(?:0)[2-478](?:[ -]?[0-9]){8})|(?:(?:0)4(?:[ -]?[0-9]){8})|(?:\(?0[2-478]\)?\s*[0-9]{4}[ -]?[0-9]{4})|(?:1[38]00[ -]?[0-9]{3}[ -]?[0-9]{3})|(?:13[ -]?[0-9]{2}[ -]?[0-9]{2})|(?<!\d|\$|\/|-)(?:[2-9][0-9]{3}[ -][0-9]{4})(?!\d|\/|-)|(?<!\d|\$|\/|-)\b(?:04[0-9]{2}[ -]?[0-9]{3}[ -]?[0-9]{3})\b)/i;
+
+// Extract phone number from raw clarification answer or freeform text
+export function extractPhoneNumber(
+  text: string,
+  options?: { region?: string }
+): { phoneNumber: string | null; cleanedText: string } {
+  if (!text || typeof text !== 'string') {
+    return { phoneNumber: null, cleanedText: text || '' };
+  }
+
+  let rawPhone: string | null = null;
+
+  // 1. General International / E.164-capable parsing
+  // Matches + followed by country code (1-3 digits) and national subscriber number (6-12 digits)
+  const intlMatch = text.match(INTERNATIONAL_E164_PATTERN);
+  if (intlMatch) {
+    const digitsOnly = intlMatch[0].replace(/\D/g, '');
+    if (digitsOnly.length >= 7 && digitsOnly.length <= 15) {
+      rawPhone = intlMatch[0].trim();
+    }
+  }
+
+  // 2. Region-specific parsing when no international prefix is present
+  if (!rawPhone) {
+    const region = (options?.region || 'AU').toUpperCase();
+    if (region === 'AU') {
+      // Australian national numbers (mobile 04xx, landline 02/03/07/08, 8-digit landline, 1300/1800/13)
+      const auMatch = text.match(AU_NATIONAL_PHONE_PATTERN);
+      if (auMatch) {
+        rawPhone = auMatch[0].trim();
+      }
+    }
+  }
+
+  if (!rawPhone) {
+    return { phoneNumber: null, cleanedText: text };
+  }
+
+  // Strip phone and optional contact/label prefixes (e.g. "phone:", "ph:", "mob:", "mobile:", "tel:", etc.)
+  let cleaned = text.replace(rawPhone, '');
+  cleaned = cleaned.replace(/\b(?:phone(?:\s*number)?|ph|mob|mobile|tel|telephone|contact(?:\s*number)?)\s*[:#-]?\s*/gi, '');
+  cleaned = cleaned.replace(/^[,\s:—-]+|[,\s:—-]+$/g, '').replace(/\s*,\s*/g, ', ').replace(/\s{2,}/g, ' ').trim();
+  cleaned = cleaned.replace(/[,\s:—-]+$/, '').trim();
+
+  return { phoneNumber: rawPhone, cleanedText: cleaned };
+}
+
+// ==========================================
+// PERSON-LEVEL DURABLE SUPPRESSION ENGINE
+// ==========================================
+
+export async function getSuppressedEntities(ezzyId: string = 'ezzy_default'): Promise<Set<string>> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  await initBunnyDb();
+  try {
+    const results = await executeBunnySql([
+      { sql: 'SELECT name FROM suppressed_entities WHERE ezzy_id = ?;', args: [scopeEzzyId] }
+    ]);
+    const rows = results[0]?.rows || [];
+    return new Set(rows.map((r: any) => (r.name || '').trim().toLowerCase()));
+  } catch (err) {
+    console.error('[Suppressed Entities] Error reading suppressed entities:', err);
+    return new Set();
+  }
+}
+
+export async function isEntitySuppressed(person: string, ezzyId: string = 'ezzy_default'): Promise<boolean> {
+  const p = (person || '').trim().toLowerCase();
+  if (!p) return false;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  await initBunnyDb();
+  try {
+    const results = await executeBunnySql([
+      {
+        sql: 'SELECT name FROM suppressed_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ? LIMIT 1;',
+        args: [p, scopeEzzyId]
+      }
+    ]);
+    return (results[0]?.rows?.length || 0) > 0;
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error checking if "${p}" is suppressed:`, err);
+    return false;
+  }
+}
+
+export async function suppressUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<void> {
+  const p = (person || '').trim();
+  if (!p) return;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  const nowIso = new Date().toISOString();
+  await initBunnyDb();
+  try {
+    await executeBunnySql([
+      {
+        sql: `INSERT INTO suppressed_entities (name, ezzy_id, suppressed_at)
+              VALUES (LOWER(?), ?, ?)
+              ON CONFLICT(name, ezzy_id) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, scopeEzzyId, nowIso]
+      }
+    ]);
+    console.log(`[Suppressed Entities] Durably marked "${p}" as suppressed in ezzy "${scopeEzzyId}".`);
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error suppressing "${p}":`, err);
+  }
+}
+
+export async function unsuppressUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<void> {
+  const p = (person || '').trim().toLowerCase();
+  if (!p) return;
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  await initBunnyDb();
+  try {
+    await executeBunnySql([
+      {
+        sql: 'DELETE FROM suppressed_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [p, scopeEzzyId]
+      }
+    ]);
+    console.log(`[Suppressed Entities] Cleared durable suppression for explicitly re-taught entity "${p}" in ezzy "${scopeEzzyId}".`);
+  } catch (err) {
+    console.error(`[Suppressed Entities] Error unsuppressing entity "${p}":`, err);
+  }
+}
+
+// Save or update reusable user entity (supporting future metadata like phone, email, notes)
+export async function saveUserEntity(
+  entity: {
+    name: string;
+    entity_type?: string;
+    role?: string;
+    normalized_role?: string;
+    metadata?: Record<string, any>;
+  },
+  options?: { skipSuppressionCheck?: boolean },
+  ezzyId: string = 'ezzy_default'
+): Promise<void> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  const name = (entity.name || '').trim();
+  if (!name) return;
+
+  if (!options?.skipSuppressionCheck) {
+    const suppressed = await isEntitySuppressed(name, scopeEzzyId);
+    if (suppressed) {
+      console.log(`[Entities] Skipping saveUserEntity for "${name}" because entity is durably suppressed in ezzy "${scopeEzzyId}".`);
+      return;
+    }
+  }
+  const entityType = entity.entity_type || 'person';
+  const role = entity.role || '';
+  const normalizedRole = entity.normalized_role || normalizeRoleName(role);
+  const metadataStr = JSON.stringify(entity.metadata || {});
+  const nowIso = new Date().toISOString();
+  const id = `ent_${scopeEzzyId}_${entityType}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+  try {
+    await initBunnyDb();
+    await executeBunnySql([{
+      sql: `INSERT INTO user_entities (id, name, entity_type, role, normalized_role, metadata, updated_at, ezzy_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              entity_type = excluded.entity_type,
+              role = excluded.role,
+              normalized_role = excluded.normalized_role,
+              metadata = CASE WHEN excluded.metadata != '{}' THEN excluded.metadata ELSE user_entities.metadata END,
+              updated_at = excluded.updated_at,
+              ezzy_id = excluded.ezzy_id;`,
+      args: [id, name, entityType, role, normalizedRole, metadataStr, nowIso, scopeEzzyId]
+    }]);
+    console.log(`[Entities] Successfully saved user entity "${name}" (${entityType}) in ezzy "${scopeEzzyId}" with metadata:`, metadataStr);
+  } catch (err) {
+    console.error('[Entities] Error saving user entity:', err);
+  }
+}
+
+export async function getUserEntity(name: string, ezzyId: string = 'ezzy_default'): Promise<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+} | null> {
+  const n = (name || '').trim();
+  if (!n) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [n, ezzyId]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    let meta: Record<string, any> = {};
+    try {
+      meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    } catch {
+      meta = {};
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      entity_type: row.entity_type,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      metadata: meta,
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Entities] Error getting user entity:', err);
+    return null;
+  }
+}
+
+export async function getUserEntities(ezzyId: string = 'ezzy_default'): Promise<Array<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+}>> {
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE ezzy_id = ? ORDER BY updated_at DESC;',
+      args: [ezzyId]
+    }]);
+    if (!results[0]?.rows) return [];
+    return results[0].rows.map((row: any) => {
+      let meta: Record<string, any> = {};
+      try {
+        meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+      } catch {
+        meta = {};
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        entity_type: row.entity_type,
+        role: row.role,
+        normalized_role: row.normalized_role,
+        metadata: meta,
+        updated_at: row.updated_at,
+      };
+    });
+  } catch (err) {
+    console.error('[Entities] Error getting all user entities:', err);
+    return [];
+  }
+}
+
+export async function getUserEntityByRole(role: string, ezzyId: string = 'ezzy_default'): Promise<{
+  id: string;
+  name: string;
+  entity_type: string;
+  role?: string | null;
+  normalized_role?: string | null;
+  metadata: Record<string, any>;
+  updated_at: string;
+} | null> {
+  const norm = normalizeRoleName(role);
+  if (!norm) return null;
+  try {
+    await initBunnyDb();
+    const results = await executeBunnySql([{
+      sql: 'SELECT id, name, entity_type, role, normalized_role, metadata, updated_at FROM user_entities WHERE normalized_role = ? AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      args: [norm, ezzyId]
+    }]);
+    if (!results[0]?.rows?.[0]) return null;
+    const row = results[0].rows[0];
+    let meta: Record<string, any> = {};
+    try {
+      meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : (row.metadata || {});
+    } catch {
+      meta = {};
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      entity_type: row.entity_type,
+      role: row.role,
+      normalized_role: row.normalized_role,
+      metadata: meta,
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Entities] Error getting user entity by role:', err);
+    return null;
+  }
+}
+
+// Pure in-memory merge of extracted relationships into active relationships (0 ms latency)
+export function mergeRelationshipsWithExtracted(
+  activeRelationships: Array<{ id?: string; person: string; role: string; normalized_role: string; is_active?: boolean; updated_at?: string }>,
+  extracted: Array<{ person: string; role: string; is_active?: boolean }>
+): Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }> {
+  if (!extracted || extracted.length === 0) {
+    return (activeRelationships || []).map(r => ({
+      id: r.id || `rel_${r.normalized_role}_${(r.person || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      person: r.person,
+      role: r.role,
+      normalized_role: r.normalized_role,
+      is_active: r.is_active !== false,
+      updated_at: r.updated_at || new Date().toISOString(),
+    }));
+  }
+
+  const nowIso = new Date().toISOString();
+  const merged: Array<{ id: string; person: string; role: string; normalized_role: string; is_active: boolean; updated_at: string }> = (activeRelationships || []).map(r => ({
+    id: r.id || `rel_${r.normalized_role}_${(r.person || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+    person: r.person,
+    role: r.role,
+    normalized_role: r.normalized_role,
+    is_active: r.is_active !== false,
+    updated_at: r.updated_at || nowIso,
+  }));
+
+  for (const rel of extracted) {
+    const person = (rel.person || '').trim();
+    const rawRole = (rel.role || '').trim();
+    const normalizedRole = normalizeRoleName(rawRole);
+    const isActive = rel.is_active !== false;
+
+    if (!person || !normalizedRole) continue;
+
+    const id = `rel_${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+    if (isActive) {
+      // Singular / exclusive personal roles (wife, husband, spouse, partner) supersede previous holders.
+      // Trades and professional relationships (plumber, doctor, electrician, accountant, etc.) are NOT mutually exclusive.
+      const exclusivePersonalRoles = ['wife', 'husband', 'spouse', 'partner'];
+      if (exclusivePersonalRoles.includes(normalizedRole)) {
+        for (let i = 0; i < merged.length; i++) {
+          if (merged[i].normalized_role === normalizedRole && merged[i].person.toLowerCase() !== person.toLowerCase()) {
+            merged[i] = { ...merged[i], is_active: false };
+          }
+        }
+      }
+
+      const existingIdx = merged.findIndex(
+        r => r.person.toLowerCase() === person.toLowerCase() && r.normalized_role === normalizedRole
+      );
+
+      const entry = {
+        id,
+        person,
+        role: rawRole,
+        normalized_role: normalizedRole,
+        is_active: true,
+        updated_at: nowIso,
+      };
+
+      if (existingIdx >= 0) {
+        merged[existingIdx] = entry;
+      } else {
+        merged.unshift(entry);
+      }
+    } else {
+      const existingIdx = merged.findIndex(
+        r => r.id === id || (r.normalized_role === normalizedRole && r.person.toLowerCase() === person.toLowerCase())
+      );
+      if (existingIdx >= 0) {
+        merged[existingIdx] = { ...merged[existingIdx], is_active: false };
+      }
+    }
+  }
+
+  return merged.filter(r => r.is_active);
+}
+
+// Save or update relationships extracted from memories
+export async function saveRelationships(
+  relationships: Array<{ person: string; role: string; subject_person?: string; is_active?: boolean }>,
+  options?: { skipSuppressionCheck?: boolean },
+  ezzyId: string = 'ezzy_default'
+): Promise<void> {
+  if (!Array.isArray(relationships) || relationships.length === 0) return;
+  await initBunnyDb();
+
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  let suppressedSet = new Set<string>();
+  if (!options?.skipSuppressionCheck) {
+    suppressedSet = await getSuppressedEntities(scopeEzzyId);
+  }
+
+  const stmts: Array<{ sql: string; args: any[] }> = [];
+  const nowIso = new Date().toISOString();
+
+  for (const rel of relationships) {
+    const person = (rel.person || '').trim();
+    const rawRole = (rel.role || '').trim();
+    const normalizedRole = normalizeRoleName(rawRole);
+    const rawSubject = (rel.subject_person || '').trim();
+    const normalizedSubject = (!rawSubject || rawSubject.toLowerCase() === 'user' || rawSubject.toLowerCase() === 'me') ? 'user' : rawSubject;
+    const isActive = rel.is_active !== false ? 1 : 0;
+
+    if (!person || !normalizedRole) continue;
+
+    if (suppressedSet.has(person.toLowerCase()) || (normalizedSubject !== 'user' && suppressedSet.has(normalizedSubject.toLowerCase()))) {
+      console.log(`[Relationships] Skipping saveRelationships for "${person}" / "${normalizedSubject}" because entity is durably suppressed.`);
+      continue;
+    }
+
+    const subjectKey = normalizedSubject === 'user' ? '' : `${normalizedSubject.toLowerCase().replace(/[^a-z0-9]/g, '_')}_`;
+    const id = `rel_${scopeEzzyId}_${subjectKey}${normalizedRole}_${person.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+    if (isActive === 1) {
+      // Singular / exclusive personal roles (wife, husband, spouse, partner) supersede previous holders for the SAME subject.
+      // E.g. Steve's new wife supersedes Steve's old wife, but never user's wife. User's new wife supersedes user's old wife.
+      const exclusivePersonalRoles = ['wife', 'husband', 'spouse', 'partner'];
+      if (exclusivePersonalRoles.includes(normalizedRole)) {
+        stmts.push({
+          sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE normalized_role = ? AND LOWER(person) != LOWER(?) AND LOWER(COALESCE(subject_person, "user")) = LOWER(?) AND ezzy_id = ?;',
+          args: [nowIso, normalizedRole, person, normalizedSubject, scopeEzzyId]
+        });
+      }
+
+      stmts.push({
+        sql: `INSERT INTO user_relationships (id, person, role, normalized_role, subject_person, is_active, updated_at, ezzy_id)
+              VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                person = excluded.person,
+                role = excluded.role,
+                normalized_role = excluded.normalized_role,
+                subject_person = excluded.subject_person,
+                is_active = 1,
+                updated_at = excluded.updated_at,
+                ezzy_id = excluded.ezzy_id;`,
+        args: [id, person, rawRole, normalizedRole, normalizedSubject, nowIso, scopeEzzyId]
+      });
+
+      // Also persist to reusable user_entities
+      const entityRole = normalizedSubject === 'user' ? rawRole : `${normalizedSubject}'s ${rawRole}`;
+      saveUserEntity({
+        name: person,
+        entity_type: 'person',
+        role: entityRole,
+        normalized_role: normalizedRole,
+        metadata: { subject_person: normalizedSubject }
+      }, { skipSuppressionCheck: options?.skipSuppressionCheck }, scopeEzzyId).catch(e => console.error('[Entities] Auto-save error:', e));
+
+      // If third-party relationship, ensure subject person is also preserved in user_entities
+      if (normalizedSubject !== 'user') {
+        saveUserEntity({
+          name: normalizedSubject,
+          entity_type: 'person',
+        }, { skipSuppressionCheck: options?.skipSuppressionCheck }, scopeEzzyId).catch(e => console.error('[Entities] Auto-save subject error:', e));
+      }
+    } else {
+      // Deactivating / superseding relationship (e.g. "Steve isn't my plumber anymore")
+      stmts.push({
+        sql: `UPDATE user_relationships SET is_active = 0, updated_at = ?
+              WHERE (id = ? OR (normalized_role = ? AND LOWER(person) = LOWER(?) AND LOWER(COALESCE(subject_person, "user")) = LOWER(?))) AND ezzy_id = ?;`,
+        args: [nowIso, id, normalizedRole, person, normalizedSubject, scopeEzzyId]
+      });
+    }
+  }
+
+  if (stmts.length > 0) {
+    try {
+      await executeBunnySql(stmts);
+      console.log(`[Relationships] Successfully persisted relationship updates in ezzy "${scopeEzzyId}":`, relationships);
+    } catch (dbErr) {
+      console.error('[Relationships] Error persisting relationships:', dbErr);
+    }
+  }
+}
+
+// Idempotently restore any relationships already present in stored memory records into user_relationships table
+export async function backfillStoredRelationships(ezzyId: string = 'ezzy_default'): Promise<void> {
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  try {
+    const [allMemories, suppressedSet] = await Promise.all([
+      readMemories(scopeEzzyId),
+      getSuppressedEntities(scopeEzzyId)
+    ]);
+    const relationshipsToSave: Array<{ person: string; role: string; is_active?: boolean }> = [];
+    for (const mem of allMemories) {
+      const rels = mem.interpretation?.relationships;
+      if (Array.isArray(rels) && rels.length > 0) {
+        for (const rel of rels) {
+          const pLower = (rel.person || '').trim().toLowerCase();
+          if (pLower && !suppressedSet.has(pLower)) {
+            relationshipsToSave.push(rel);
+          }
+        }
+      }
+    }
+    if (relationshipsToSave.length > 0) {
+      await saveRelationships(relationshipsToSave, { skipSuppressionCheck: true }, scopeEzzyId);
+      console.log(`[Relationships] Idempotently synced ${relationshipsToSave.length} relationships from stored memories (suppressed entities excluded).`);
+    }
+  } catch (err) {
+    console.error('[Relationships] Error backfilling relationships from memories:', err);
+  }
+}
+
+// Deactivate a specific relationship or all relationships for a person without deleting memories
+export async function deactivateUserRelationship(person: string, role?: string, ezzyId: string = 'ezzy_default'): Promise<{ deactivated: boolean; remainingRoles: string[] }> {
+  const p = (person || '').trim();
+  if (!p) return { deactivated: false, remainingRoles: [] };
+  const r = (role || '').trim();
+  const normalizedRole = r ? normalizeRoleName(r) : '';
+  const nowIso = new Date().toISOString();
+
+  await initBunnyDb();
+  const stmts: Array<{ sql: string; args: any[] }> = [];
+
+  if (normalizedRole) {
+    stmts.push({
+      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND (normalized_role = ? OR LOWER(role) = LOWER(?)) AND ezzy_id = ?;',
+      args: [nowIso, p, normalizedRole, r.toLowerCase(), ezzyId]
+    });
+  } else {
+    stmts.push({
+      sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND ezzy_id = ?;',
+      args: [nowIso, p, ezzyId]
+    });
+  }
+
+  try {
+    await executeBunnySql(stmts);
+    console.log(`[Relationships] Deactivated relationship for person="${p}", role="${r || 'all'}" in ezzy "${ezzyId}"`);
+
+    // Check remaining active relationships for this person
+    const remResults = await executeBunnySql([{
+      sql: 'SELECT role, normalized_role FROM user_relationships WHERE LOWER(person) = LOWER(?) AND is_active = 1 AND ezzy_id = ?;',
+      args: [p, ezzyId]
+    }]);
+
+    const remainingRows = remResults[0]?.rows || [];
+    const remainingRoles = remainingRows.map((row: any) => row.role);
+
+    if (remainingRows.length > 0) {
+      const topRole = remainingRows[0].role;
+      const topNorm = remainingRows[0].normalized_role;
+      await executeBunnySql([{
+        sql: 'UPDATE user_entities SET role = ?, normalized_role = ?, updated_at = ? WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [topRole, topNorm, nowIso, p, ezzyId]
+      }]);
+    } else {
+      await executeBunnySql([{
+        sql: 'UPDATE user_entities SET role = NULL, normalized_role = NULL, updated_at = ? WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [nowIso, p, ezzyId]
+      }]);
+    }
+
+    return { deactivated: true, remainingRoles };
+  } catch (err) {
+    console.error('[Relationships] Error deactivating relationship:', err);
+    return { deactivated: false, remainingRoles: [] };
+  }
+}
+
+// Forget entire entity and all its relationships after user confirmation
+export async function forgetUserEntity(person: string, ezzyId: string = 'ezzy_default'): Promise<boolean> {
+  const p = (person || '').trim();
+  if (!p) return false;
+  const nowIso = new Date().toISOString();
+  const canonicalId = `ent_${ezzyId}_person_${p.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+  await initBunnyDb();
+  try {
+    await executeBunnySql([
+      {
+        sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE LOWER(person) = LOWER(?) AND ezzy_id = ?;',
+        args: [nowIso, p, ezzyId]
+      },
+      {
+        sql: 'DELETE FROM user_entities WHERE LOWER(name) = LOWER(?) AND ezzy_id = ?;',
+        args: [p, ezzyId]
+      },
+      {
+        sql: 'DELETE FROM memory_entities WHERE (entity_id = ? OR entity_id LIKE ?) AND ezzy_id = ?;',
+        args: [canonicalId, `%_${p.toLowerCase()}%`, ezzyId]
+      },
+      {
+        sql: `INSERT INTO suppressed_entities (name, ezzy_id, suppressed_at)
+              VALUES (LOWER(?), ?, ?)
+              ON CONFLICT(name, ezzy_id) DO UPDATE SET suppressed_at = excluded.suppressed_at;`,
+        args: [p, ezzyId, nowIso]
+      }
+    ]);
+    console.log(`[Entities] Successfully forgot entity "${p}" in ezzy "${ezzyId}", removed from user_entities, deactivated all relationships, and created durable suppression marker.`);
+    return true;
+  } catch (err) {
+    console.error(`[Entities] Error forgetting entity "${p}":`, err);
+    return false;
+  }
+}
+
+// Correct a relationship (deactivates old role and learns new role without contradictory duplicates)
+export async function correctUserRelationship(person: string, oldRole: string, newRole: string, ezzyId: string = 'ezzy_default'): Promise<void> {
+  const p = (person || '').trim();
+  const oldR = (oldRole || '').trim();
+  const newR = (newRole || '').trim();
+  if (!p || !newR) return;
+
+  await unsuppressUserEntity(p, ezzyId);
+  if (oldR) {
+    await deactivateUserRelationship(p, oldR, ezzyId);
+  }
+  await saveRelationships([{ person: p, role: newR, is_active: true }], { skipSuppressionCheck: true }, ezzyId);
+}
+
+// Forget / Correction Intent Engine for Ask Ezzymigo
+export async function evaluateKnowledgeModification(
+  query: string,
+  activeRelationshipsOrEzzyId?: Array<{ person: string; role: string; normalized_role: string }> | string,
+  confirmed: boolean = false,
+  ai: GoogleGenAI | null = null,
+  ezzyId: string = 'ezzy_default'
+): Promise<{
+  handled: boolean;
+  answer?: string;
+  confirmation_required?: boolean;
+  pending_action?: { type: string; entityName: string };
+} | null> {
+  const q = query.trim();
+  const qLower = q.toLowerCase();
+
+  let activeRelationships: Array<{ person: string; role: string; normalized_role: string }> = [];
+  let scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+
+  if (typeof activeRelationshipsOrEzzyId === 'string') {
+    scopeEzzyId = activeRelationshipsOrEzzyId.trim() || 'ezzy_default';
+    activeRelationships = await readActiveRelationships(scopeEzzyId);
+  } else if (Array.isArray(activeRelationshipsOrEzzyId)) {
+    activeRelationships = activeRelationshipsOrEzzyId;
+  } else {
+    activeRelationships = await readActiveRelationships(scopeEzzyId);
+  }
+
+  // 1. CONFIRMATION OF ENTITY FORGET
+  const confirmMatch = q.match(/^(?:yes(?:,\s*please)?|confirm(?:ed)?)\s*,?\s*(?:please\s+)?forget\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?([A-Za-z0-9\s]+?)[.!]?$/i);
+  if (confirmMatch || (confirmed && q.match(/^(?:please\s+)?(?:forget|delete|remove)\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?([A-Za-z0-9\s]+?)[.!]?$/i))) {
+    const rawTarget = confirmMatch ? confirmMatch[1].trim() : q.replace(/^(?:please\s+)?(?:forget|delete|remove)\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?/i, '').replace(/[.!]?$/, '').trim();
+    if (rawTarget && !rawTarget.toLowerCase().startsWith('that ')) {
+      await forgetUserEntity(rawTarget, scopeEzzyId);
+      return {
+        handled: true,
+        answer: `I've forgotten all saved knowledge about ${rawTarget}.`,
+      };
+    }
+  }
+
+  // 2. CORRECTION & REPLACEMENT REQUESTS
+  // Pattern 2A: Same person role shift: "X isn't my [oldRole], he's my [newRole]"
+  const corrMatch1 = q.match(/^(?:actually,?\s*)?([A-Za-z0-9\s]+?)\s+(?:is\s+not|isn['’]t|is\s+no\s+longer)\s+(?:my\s+|the\s+|a\s+|an\s+)?([a-z\s]+?)(?:,|\s+|-)+(?:he['’]?s|she['’]?s|they['’]?re|he\s+is|she\s+is|they\s+are|is)\s+(?:my\s+|a\s+|an\s+)?([a-z\s]+?)[.!]?$/i);
+  if (corrMatch1) {
+    const person = corrMatch1[1].trim();
+    const oldRole = corrMatch1[2].trim();
+    const newRole = corrMatch1[3].trim();
+    await correctUserRelationship(person, oldRole, newRole, scopeEzzyId);
+    return {
+      handled: true,
+      answer: `I've updated my knowledge: ${person} is your ${newRole} (and no longer listed as your ${oldRole}).`,
+    };
+  }
+
+  // Pattern 2B: Explicit cross-person replacement: "[NewPerson] replaced [OldPerson] as my [Role]"
+  const corrMatchReplace = q.match(/^(?:actually,?\s*)?([A-Za-z0-9\s]+?)\s+(?:has\s+)?replaced\s+([A-Za-z0-9\s]+?)\s+as\s+(?:my\s+|our\s+|the\s+|a\s+|an\s+)?([a-z\s]+?)[.!]?$/i);
+  if (corrMatchReplace) {
+    const newPerson = corrMatchReplace[1].trim();
+    const oldPerson = corrMatchReplace[2].trim();
+    const role = corrMatchReplace[3].trim();
+    await deactivateUserRelationship(oldPerson, role, scopeEzzyId);
+    await saveRelationships([{ person: newPerson, role, is_active: true }], { skipSuppressionCheck: true }, scopeEzzyId);
+    return {
+      handled: true,
+      answer: `I've updated my knowledge: ${newPerson} has replaced ${oldPerson} as your ${role}.`,
+    };
+  }
+
+  // Pattern 2C: "X is my [new] [Role] (replacing / instead of / not) Y"
+  // Disambiguates between Person Replacement (Y is a known person) and Role Correction (Y is an old role)
+  const corrMatchDual = q.match(/^(?:actually,?\s*)?([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|our\s+|a\s+|an\s+)?(?:new\s+)?([a-z\s]+?)(?:,|\s+|-)+(replacing|instead\s+of|not)\s+(?:my\s+|the\s+|a\s+|an\s+)?([A-Za-z0-9\s]+?)[.!]?$/i);
+  if (corrMatchDual) {
+    const first = corrMatchDual[1].trim();
+    const roleOrNew = corrMatchDual[2].trim();
+    const connector = corrMatchDual[3].trim().toLowerCase();
+    const third = corrMatchDual[4].trim();
+
+    const isKnownPerson = activeRelationships.some(
+      r => r.person.toLowerCase() === third.toLowerCase()
+    );
+    const isExplicitReplacing = connector === 'replacing';
+
+    if (isKnownPerson || isExplicitReplacing) {
+      // Person Replacement: "first" replaces "third" in "roleOrNew"
+      await deactivateUserRelationship(third, roleOrNew, scopeEzzyId);
+      await saveRelationships([{ person: first, role: roleOrNew, is_active: true }], { skipSuppressionCheck: true }, scopeEzzyId);
+      return {
+        handled: true,
+        answer: `I've updated my knowledge: ${first} has replaced ${third} as your ${roleOrNew}.`,
+      };
+    } else {
+      // Role Correction: "first" is "roleOrNew" instead of old role "third"
+      await correctUserRelationship(first, third, roleOrNew, scopeEzzyId);
+      return {
+        handled: true,
+        answer: `I've updated my knowledge: ${first} is your ${roleOrNew} (and no longer listed as your ${third}).`,
+      };
+    }
+  }
+
+  // 3. RELATIONSHIP-SPECIFIC FORGET (e.g. "Forget that Bill is my cousin", "Bill isn't my cousin", "Steve is no longer my plumber")
+  // Pattern 3A: "Forget that X is my Y"
+  const relForgetMatch1 = q.match(/^(?:please\s+)?forget\s+(?:that\s+)?([A-Za-z0-9\s]+?)\s+(?:is|was)\s+(?:my\s+|the\s+|a\s+|an\s+)?([a-z\s]+?)[.!]?$/i);
+  if (relForgetMatch1) {
+    const person = relForgetMatch1[1].trim();
+    const role = relForgetMatch1[2].trim();
+    await deactivateUserRelationship(person, role, scopeEzzyId);
+    return {
+      handled: true,
+      answer: `I've forgotten that ${person} is your ${role}.`,
+    };
+  }
+
+  // Pattern 3B: "X isn't my Y" (standalone without replacement)
+  const relForgetMatch2 = q.match(/^(?:actually,?\s*)?([A-Za-z0-9\s]+?)\s+(?:is\s+not|isn['’]t|is\s+no\s+longer)\s+(?:my\s+|the\s+|a\s+|an\s+)?([a-z\s]+?)(?:\s+anymore)?[.!]?$/i);
+  if (relForgetMatch2) {
+    const person = relForgetMatch2[1].trim();
+    const role = relForgetMatch2[2].trim();
+    await deactivateUserRelationship(person, role, scopeEzzyId);
+    return {
+      handled: true,
+      answer: `I've forgotten that ${person} is your ${role}.`,
+    };
+  }
+
+  // Pattern 3C: "Forget X as my Y"
+  const relForgetMatch3 = q.match(/^(?:please\s+)?(?:forget|remove|delete)\s+(?:relationship\s+(?:with|between)\s+)?([A-Za-z0-9\s]+?)\s+(?:as|being)\s+(?:my\s+|the\s+|a\s+|an\s+)?([a-z\s]+?)[.!]?$/i);
+  if (relForgetMatch3) {
+    const person = relForgetMatch3[1].trim();
+    const role = relForgetMatch3[2].trim();
+    await deactivateUserRelationship(person, role, scopeEzzyId);
+    return {
+      handled: true,
+      answer: `I've forgotten that ${person} is your ${role}.`,
+    };
+  }
+
+  // 4. ENTITY-WIDE FORGET (e.g. "Forget Bill", "Forget about Bill", "Forget all about Bill")
+  const entityForgetMatch = q.match(/^(?:please\s+)?(?:forget|delete|remove)\s+(?:about\s+|all\s+about\s+|everything\s+about\s+)?([A-Za-z0-9\s]+?)[.!]?$/i);
+  if (entityForgetMatch) {
+    const target = entityForgetMatch[1].trim();
+    if (target && !target.toLowerCase().startsWith('that ') && !target.toLowerCase().includes(' is ')) {
+      // Require explicit confirmation
+      return {
+        handled: true,
+        answer: `Are you sure you want to forget all learned knowledge about ${target}? This will remove all saved relationships and details for ${target}.`,
+        confirmation_required: true,
+        pending_action: {
+          type: 'forget_entity',
+          entityName: target,
+        },
+      };
+    }
+  }
+
+  return null;
+}
+
+// Enrich a newly saved memory with a learned or resolved relationship without altering past memories
+export async function enrichMemoryWithRelationship(memoryId: string, person: string, role: string, ezzyId: string = 'ezzy_default'): Promise<void> {
+  try {
+    const memory = await readMemoryById(memoryId, ezzyId);
+    if (!memory || !memory.interpretation) return;
+
+    const interp = memory.interpretation;
+
+    // 1. Add relationship if missing
+    if (!Array.isArray(interp.relationships)) interp.relationships = [];
+    if (!interp.relationships.some((r: any) => r.person?.toLowerCase() === person.toLowerCase() && r.role?.toLowerCase() === role.toLowerCase())) {
+      interp.relationships.push({ person, role, is_active: true });
+    }
+
+    // 2. Add people if missing
+    if (!Array.isArray(interp.people)) interp.people = [];
+    if (!interp.people.some((p: string) => p.toLowerCase() === person.toLowerCase())) {
+      interp.people.push(person);
+    }
+
+    // 3. Add retrieval cues
+    if (!Array.isArray(interp.retrieval_cues)) interp.retrieval_cues = [];
+    const cuesToAdd = [
+      role.toLowerCase(),
+      `${person} (${role})`.toLowerCase(),
+      `${role} ${person}`.toLowerCase(),
+      `my ${role}`.toLowerCase(),
+    ];
+    for (const cue of cuesToAdd) {
+      if (!interp.retrieval_cues.includes(cue)) {
+        interp.retrieval_cues.push(cue);
+      }
+    }
+
+    await updateMemoryInDb(memoryId, interp, undefined, ezzyId);
+    console.log(`[Ambiguity Rule] Successfully enriched memory ${memoryId} with relationship: ${person} <-> ${role} in ezzy "${ezzyId}"`);
+  } catch (err) {
+    console.error(`[Ambiguity Rule] Error enriching memory ${memoryId}:`, err);
+  }
+}
+
+// Ambiguity Detection Engine (Ezzymigo Ambiguity Rule)
+// Detects potentially ambiguous personal references in saved memories and prompts optional clarification
+export async function detectAmbiguityInSavedMemories(
+  memories: any[],
+  activeRelationships: Array<{ person: string; role: string; normalized_role: string }>,
+  originalText: string,
+  ai: GoogleGenAI | null,
+  preLoadedMemories?: any[],
+  enrichedOut?: Array<{ memoryId: string; person: string; role: string }>,
+  ezzyId: string = 'ezzy_default'
+): Promise<{
+  id: string;
+  question: string;
+  entityName: string;
+  entityType: string;
+  candidateOptions?: string[];
+  memoryId?: string;
+  context?: string;
+  metadata?: Record<string, any>;
+} | null> {
+  // If memory is not_sure, never trigger entity clarification
+  const validMemories = memories.filter(m => m.interpretation?.kind !== 'not_sure');
+  if (validMemories.length === 0) return null;
+
+  // 1. FIRST PRIORITY: Check for ambiguous clock times requiring exact notifications
+  for (const memory of validMemories) {
+    const ambiguity: ClockTimeAmbiguity = memory.interpretation?.temporal_ambiguity ||
+      detectClockTimeAmbiguity(memory.originalText, memory.interpretation?.resurfacing?.timing || memory.interpretation?.original_time_expression);
+
+    if (ambiguity && ambiguity.isAmbiguous && ambiguity.question) {
+      console.log(`[Ambiguity Rule] Ambiguous clock time detected for memory "${memory.id}". Asking: "${ambiguity.question}"`);
+      return {
+        id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        question: ambiguity.question,
+        entityName: ambiguity.hourStr || 'time',
+        entityType: 'time_meridiem',
+        candidateOptions: ambiguity.candidateOptions || [`${ambiguity.hourStr} am`, `${ambiguity.hourStr} pm`],
+        memoryId: memory.id,
+        context: memory.interpretation?.content || memory.originalText,
+        metadata: {
+          hour: ambiguity.hour,
+          minute: ambiguity.minute,
+          hourStr: ambiguity.hourStr,
+          targetDate: ambiguity.targetDate,
+          timeExpr: ambiguity.timeExpr,
+        }
+      };
+    }
+  }
+
+  // Retrieve existing stored memories and suppressed entities to distinguish first-mention from established contextual entities
+  const scopeEzzyId = (ezzyId || 'ezzy_default').trim();
+  const [allStored, suppressedSet] = await Promise.all([
+    preLoadedMemories !== undefined ? preLoadedMemories : readMemories(scopeEzzyId),
+    getSuppressedEntities(scopeEzzyId)
+  ]);
+  const newIds = new Set(memories.map(m => m.id));
+  const priorStored = allStored.filter(m => !newIds.has(m.id));
+
+  for (const memory of validMemories) {
+    const people: string[] = Array.isArray(memory.interpretation?.people) ? memory.interpretation.people : [];
+    const memoryRelationships = Array.isArray(memory.interpretation?.relationships) ? memory.interpretation.relationships : [];
+
+    // If the memory already explicitly defined the relationship (e.g. "Barb is my wife"), it was learned in saveRelationships
+    if (memoryRelationships.length > 0) {
+      continue;
+    }
+
+    for (const rawPerson of people) {
+      const person = (rawPerson || '').trim();
+      if (!person || person.length < 2) continue;
+
+      if (suppressedSet.has(person.toLowerCase())) {
+        // Person is forgotten/suppressed: do not auto-associate, prompt clarifiers, or resurrect
+        continue;
+      }
+
+      // Search active relationships for this person
+      const rawMatches = activeRelationships.filter(r => r.person.toLowerCase() === person.toLowerCase());
+
+      // Deduplicate candidate matches by normalized role to prevent duplicate UI choices and artificial ambiguity
+      const uniqueByNormalizedRole = new Map<string, typeof rawMatches[0]>();
+      for (const m of rawMatches) {
+        const norm = normalizeRoleName(m.normalized_role || m.role);
+        if (!uniqueByNormalizedRole.has(norm)) {
+          uniqueByNormalizedRole.set(norm, m);
+        }
+      }
+      const matches = Array.from(uniqueByNormalizedRole.values());
+
+      if (matches.length === 1) {
+        // 1 Confident Match (all records agree on role): Silently associate!
+        console.log(`[Ambiguity Rule] Confidently matched "${person}" to known role "${matches[0].role}". Silently associating without asking.`);
+        await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role);
+        if (enrichedOut) {
+          enrichedOut.push({ memoryId: memory.id, person: matches[0].person, role: matches[0].role });
+        }
+        continue;
+      } else if (matches.length > 1) {
+        // Multiple known matches with distinct roles: Disambiguate! (e.g. "Which Peter? Peter — brother, Peter — plumber")
+        console.log(`[Ambiguity Rule] Multiple distinct candidates for person "${person}". Asking disambiguation question.`);
+        const options = Array.from(new Set(matches.map(m => `${m.person} — ${m.role}`)));
+        return {
+          id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          question: `Which ${person}?`,
+          entityName: person,
+          entityType: 'person',
+          candidateOptions: options,
+          memoryId: memory.id,
+          context: memory.interpretation?.content || memory.originalText,
+        };
+      } else {
+        // 0 matches: Check if this person already appears in prior stored memories
+        const pLower = person.toLowerCase();
+        const escaped = pLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const wordRegex = new RegExp(`\\b${escaped}\\b`, 'i');
+
+        const alreadyInPriorMemories = priorStored.some(m => {
+          const mPeople: string[] = Array.isArray(m.interpretation?.people) ? m.interpretation.people : [];
+          if (mPeople.some(p => (p || '').toLowerCase().trim() === pLower)) return true;
+          const orig = m.originalText || '';
+          const cont = m.interpretation?.content || '';
+          return wordRegex.test(orig) || wordRegex.test(cont);
+        });
+
+        if (alreadyInPriorMemories) {
+          console.log(`[Ambiguity Rule] Person "${person}" already exists in stored memories. Treating as established contextual entity with unspecified relationship; suppressing repeat clarification.`);
+          continue;
+        }
+
+        // 0 matches and first-ever mention: Optional clarification (e.g. "Who is Margaret?")
+        console.log(`[Ambiguity Rule] Unknown person "${person}" detected (first mention). Generating optional clarification.`);
+        return {
+          id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          question: `Who is ${person}?`,
+          entityName: person,
+          entityType: 'person',
+          memoryId: memory.id,
+          context: memory.interpretation?.content || memory.originalText,
+        };
+      }
+    }
+
+    // Also check for role references mentioned in text when people array might be empty (e.g. "My sister wants the book", "I'll ask my doctor")
+    const textLower = (memory.originalText || '').toLowerCase();
+    const commonRoles = ['sister', 'brother', 'son', 'daughter', 'doctor', 'physio', 'plumber', 'electrician', 'mechanic', 'dentist', 'boss', 'accountant'];
+
+    if (people.length === 0) {
+      for (const role of commonRoles) {
+        const regex = new RegExp(`\\b(?:my|our)\\s+(${role})\\b`, 'i');
+        const match = textLower.match(regex);
+        if (match) {
+          const matchedRole = match[1].toLowerCase();
+          const normalized = normalizeRoleName(matchedRole);
+          const matches = activeRelationships.filter(r => r.normalized_role === normalized);
+
+          if (matches.length === 1) {
+            console.log(`[Ambiguity Rule] Silently resolving role "my ${matchedRole}" to known person "${matches[0].person}".`);
+            await enrichMemoryWithRelationship(memory.id, matches[0].person, matches[0].role, ezzyId);
+            if (enrichedOut) {
+              enrichedOut.push({ memoryId: memory.id, person: matches[0].person, role: matches[0].role });
+            }
+          } else if (matches.length > 1) {
+            console.log(`[Ambiguity Rule] Multiple candidates for role "${matchedRole}". Asking disambiguation question.`);
+            return {
+              id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              question: `Which ${matchedRole}?`,
+              entityName: matchedRole,
+              entityType: 'relationship',
+              candidateOptions: matches.map(m => m.person),
+              memoryId: memory.id,
+              context: memory.interpretation?.content || memory.originalText,
+            };
+          } else if (matches.length === 0) {
+            // Check if this role was already mentioned in prior memories
+            const roleRegex = new RegExp(`\\b(?:my|our)\\s+${matchedRole}\\b`, 'i');
+            const priorRoleMentioned = priorStored.some(m =>
+              roleRegex.test(m.originalText || '') || roleRegex.test(m.interpretation?.content || '')
+            );
+            if (priorRoleMentioned) {
+              console.log(`[Ambiguity Rule] Role "my ${matchedRole}" already mentioned in prior memories. Suppressing repeat clarification.`);
+              continue;
+            }
+
+            console.log(`[Ambiguity Rule] Unknown role "my ${matchedRole}" detected (first mention). Prompting clarification.`);
+            return {
+              id: `clar_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              question: `Who is your ${matchedRole}?`,
+              entityName: matchedRole,
+              entityType: 'relationship',
+              memoryId: memory.id,
+              context: memory.interpretation?.content || memory.originalText,
+            };
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+// Resolve relational cues in user query before retrieval
+export function resolveRelationshipsInQuery(
+  query: string,
+  activeRelationships: Array<{ person: string; role: string; normalized_role: string; subject_person?: string }>
+): {
+  resolvedEntities: Array<{ roleMatch: string; normalizedRole: string; resolvedPerson: string; subjectPerson?: string }>;
+  ambiguousEntities: Array<{ roleMatch: string; normalizedRole: string; candidatePeople: string[]; subjectPerson?: string }>;
+  expandedTokens: string[];
+} {
+  const resolvedEntities: Array<{ roleMatch: string; normalizedRole: string; resolvedPerson: string; subjectPerson?: string }> = [];
+  const ambiguousEntities: Array<{ roleMatch: string; normalizedRole: string; candidatePeople: string[]; subjectPerson?: string }> = [];
+  const expandedTokens: string[] = [];
+
+  if (!query || !Array.isArray(activeRelationships) || activeRelationships.length === 0) {
+    return { resolvedEntities, ambiguousEntities, expandedTokens };
+  }
+
+  const qLower = query.toLowerCase();
+
+  // Track matched query substrings so a third-party match (e.g. "Doug's daughter") prevents "daughter" from matching user-direct
+  const matchedSpans: Array<{ start: number; end: number }> = [];
+
+  // Separate active relationships into third-party vs user-direct
+  const thirdPartyRels = activeRelationships.filter(r => r.subject_person && r.subject_person.toLowerCase() !== 'user' && r.subject_person.toLowerCase() !== 'me');
+  const userDirectRels = activeRelationships.filter(r => !r.subject_person || r.subject_person.toLowerCase() === 'user' || r.subject_person.toLowerCase() === 'me');
+
+  // 1. THIRD-PARTY RELATIONSHIP MATCHING
+  // Check patterns like:
+  // - "Doug's daughter" or "Doug’s daughter"
+  // - "Doug ... his daughter" or "Doug ... her daughter"
+  // - "daughter of Doug" or "carer for Mum"
+  for (const rel of thirdPartyRels) {
+    const subj = (rel.subject_person || '').trim();
+    if (!subj) continue;
+    const subjEsc = subj.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nRoleEsc = rel.normalized_role.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rawRoleEsc = (rel.role || '').toLowerCase().trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Pattern A: "<Subject>'s <role>" (e.g. "Doug's daughter", "Mum's carer", "Bill's apprentice", "Steve's wife")
+    const possessiveRegex = new RegExp(`\\b${subjEsc}['’]s\\s+(?:${nRoleEsc}|${rawRoleEsc})\\b`, 'i');
+    // Pattern B: "<Subject> ... (his|her|their) <role>" (e.g. "Doug saying about his daughter")
+    const pronounRegex = new RegExp(`\\b${subjEsc}\\b.*?\\b(?:his|her|their)\\s+(?:${nRoleEsc}|${rawRoleEsc})\\b`, 'i');
+    // Pattern C: "<role> of/for <Subject>" (e.g. "carer of Mum", "carer for Mum")
+    const ofForRegex = new RegExp(`\\b(?:${nRoleEsc}|${rawRoleEsc})\\s+(?:of|for)\\s+${subjEsc}\\b`, 'i');
+
+    const posMatch = qLower.match(possessiveRegex);
+    const pronMatch = !posMatch ? qLower.match(pronounRegex) : null;
+    const ofForMatch = !posMatch && !pronMatch ? qLower.match(ofForRegex) : null;
+    const match = posMatch || pronMatch || ofForMatch;
+
+    if (match && match.index !== undefined) {
+      matchedSpans.push({ start: match.index, end: match.index + match[0].length });
+      if (!resolvedEntities.some(re => re.resolvedPerson.toLowerCase() === rel.person.toLowerCase() && re.normalizedRole === rel.normalized_role)) {
+        resolvedEntities.push({
+          roleMatch: match[0],
+          normalizedRole: rel.normalized_role,
+          resolvedPerson: rel.person,
+          subjectPerson: subj,
+        });
+      }
+      if (!expandedTokens.includes(rel.person)) expandedTokens.push(rel.person);
+      if (!expandedTokens.includes(subj)) expandedTokens.push(subj);
+      if (!expandedTokens.includes(rel.normalized_role)) expandedTokens.push(rel.normalized_role);
+      if (rel.role && !expandedTokens.includes(rel.role)) expandedTokens.push(rel.role);
+    }
+  }
+
+  // 2. USER-DIRECT RELATIONSHIP MATCHING
+  // Group user-direct relationships by normalized role
+  const userRoleMap = new Map<string, string[]>();
+  for (const rel of userDirectRels) {
+    const nRole = rel.normalized_role;
+    if (!userRoleMap.has(nRole)) {
+      userRoleMap.set(nRole, []);
+    }
+    const list = userRoleMap.get(nRole)!;
+    if (!list.some(p => p.toLowerCase() === rel.person.toLowerCase())) {
+      list.push(rel.person);
+    }
+  }
+
+  for (const [nRole, people] of userRoleMap.entries()) {
+    // Matches e.g. "my wife", "our wife", "the wife", "wife's", "wife", "my brother"
+    const regex = new RegExp(`\\b(?:(?:my|our|the)\\s+)?${nRole}(?:['’]s)?\\b`, 'ig');
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(qLower)) !== null) {
+      const matchStart = match.index;
+      const matchEnd = match.index + match[0].length;
+
+      // Ensure this occurrence is NOT already covered by a third-party span (e.g. "Doug's daughter")
+      const overlaps = matchedSpans.some(span => matchStart >= span.start && matchEnd <= span.end);
+      if (overlaps) continue;
+
+      // Ensure it's not preceded by a third-party possessive: e.g. "Steve's wife"
+      const prefix = qLower.slice(0, matchStart);
+      if (/[a-z]+['’]s\s*$/i.test(prefix)) {
+        continue;
+      }
+
+      const roleMatch = match[0];
+      if (people.length === 1) {
+        if (!resolvedEntities.some(re => re.resolvedPerson.toLowerCase() === people[0].toLowerCase() && re.normalizedRole === nRole)) {
+          resolvedEntities.push({
+            roleMatch,
+            normalizedRole: nRole,
+            resolvedPerson: people[0],
+            subjectPerson: 'user',
+          });
+        }
+        if (!expandedTokens.includes(people[0])) {
+          expandedTokens.push(people[0]);
+        }
+      } else if (people.length > 1) {
+        ambiguousEntities.push({
+          roleMatch,
+          normalizedRole: nRole,
+          candidatePeople: people,
+          subjectPerson: 'user',
+        });
+      }
+    }
+  }
+
+  // 3. DIRECT PERSON MENTION IN QUERY (Expands person -> roles and associated persons)
+  for (const rel of activeRelationships) {
+    if (rel.person && qLower.includes(rel.person.toLowerCase())) {
+      if (!expandedTokens.includes(rel.person)) {
+        expandedTokens.push(rel.person);
+      }
+      if (rel.role && !expandedTokens.includes(rel.role)) {
+        expandedTokens.push(rel.role);
+      }
+      if (rel.normalized_role && !expandedTokens.includes(rel.normalized_role)) {
+        expandedTokens.push(rel.normalized_role);
+      }
+      if (rel.subject_person && rel.subject_person.toLowerCase() !== 'user' && !expandedTokens.includes(rel.subject_person)) {
+        expandedTokens.push(rel.subject_person);
+      }
+    }
+  }
+
+  return { resolvedEntities, ambiguousEntities, expandedTokens };
+}

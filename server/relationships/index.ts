@@ -72,7 +72,7 @@ export async function getActiveRelationshipByRole(role: string, ezzyId: string =
   try {
     await initBunnyDb();
     const results = await executeBunnySql([{
-      sql: 'SELECT id, person, role, normalized_role, subject_person, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND LOWER(COALESCE(subject_person, "user")) = ? AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;',
+      sql: `SELECT id, person, role, normalized_role, subject_person, is_active, updated_at FROM user_relationships WHERE normalized_role = ? AND LOWER(COALESCE(subject_person, 'user')) = ? AND is_active = 1 AND ezzy_id = ? ORDER BY updated_at DESC LIMIT 1;`,
       args: [norm, subj, ezzyId]
     }]);
     if (!results[0]?.rows?.[0]) return null;
@@ -540,7 +540,7 @@ export async function saveRelationships(
       const exclusivePersonalRoles = ['wife', 'husband', 'spouse', 'partner'];
       if (exclusivePersonalRoles.includes(normalizedRole)) {
         stmts.push({
-          sql: 'UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE normalized_role = ? AND LOWER(person) != LOWER(?) AND LOWER(COALESCE(subject_person, "user")) = LOWER(?) AND ezzy_id = ?;',
+          sql: `UPDATE user_relationships SET is_active = 0, updated_at = ? WHERE normalized_role = ? AND LOWER(person) != LOWER(?) AND LOWER(COALESCE(subject_person, 'user')) = LOWER(?) AND ezzy_id = ?;`,
           args: [nowIso, normalizedRole, person, normalizedSubject, scopeEzzyId]
         });
       }
@@ -580,7 +580,7 @@ export async function saveRelationships(
       // Deactivating / superseding relationship (e.g. "Steve isn't my plumber anymore")
       stmts.push({
         sql: `UPDATE user_relationships SET is_active = 0, updated_at = ?
-              WHERE (id = ? OR (normalized_role = ? AND LOWER(person) = LOWER(?) AND LOWER(COALESCE(subject_person, "user")) = LOWER(?))) AND ezzy_id = ?;`,
+              WHERE (id = ? OR (normalized_role = ? AND LOWER(person) = LOWER(?) AND LOWER(COALESCE(subject_person, 'user')) = LOWER(?))) AND ezzy_id = ?;`,
         args: [nowIso, id, normalizedRole, person, normalizedSubject, scopeEzzyId]
       });
     }

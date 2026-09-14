@@ -1,0 +1,762 @@
+[
+  {
+    "query_num": 1,
+    "query": "Where is the spare car key?",
+    "desc": "Case 1: Direct fact retrieval",
+    "legacy_candidate_ids": [
+      "test_ask_mem_spare_key",
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787887526981_0_rb79k07",
+      "mem_1787799864116_0_bf9dpob",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_spare_key"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_spare_key"
+    ],
+    "legacy_only_ids": [
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787887526981_0_rb79k07",
+      "mem_1787799864116_0_bf9dpob",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15"
+    ],
+    "native_only_ids": [],
+    "native_route": "stage_b",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 1,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 738,
+    "native_timings": {
+      "stage_a_ms": 1413,
+      "stage_b_ms": 755,
+      "stage_c_ms": 0,
+      "hydration_ms": 701,
+      "total_native_ms": 2870
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 6860,
+      "response_answer": "The spare car key is in the top drawer of the hallway table.",
+      "response_memory_ids": [
+        "test_ask_mem_spare_key"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 2,
+    "query": "Who is my plumber?",
+    "desc": "Case 2a: Relationship Identity",
+    "legacy_candidate_ids": [
+      "test_ask_mem_plumber_quote",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_plumber_quote"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_plumber_quote"
+    ],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_only_ids": [],
+    "native_route": "stage_b",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 1,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 706,
+    "native_timings": {
+      "stage_a_ms": 1433,
+      "stage_b_ms": 747,
+      "stage_c_ms": 0,
+      "hydration_ms": 689,
+      "total_native_ms": 2869
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 10185,
+      "response_answer": "Your plumber is ZzTestFixturePlumberAlpha.",
+      "response_memory_ids": [
+        "test_ask_mem_plumber_quote"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 3,
+    "query": "What did my plumber quote for the gutters?",
+    "desc": "Case 2b: Relationship fact",
+    "legacy_candidate_ids": [
+      "test_ask_mem_plumber_quote",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_plumber_quote",
+      "mem_1788036102764_0_9nq1la3",
+      "test_ask_mem_sold_ruler",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_chair",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_plumber_quote",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu"
+    ],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_only_ids": [
+      "test_ask_mem_sold_ruler",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_chair"
+    ],
+    "native_route": "stage_b",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 7,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 7,
+    "legacy_retrieval_ms": 734,
+    "native_timings": {
+      "stage_a_ms": 1413,
+      "stage_b_ms": 718,
+      "stage_c_ms": 0,
+      "hydration_ms": 693,
+      "total_native_ms": 2824
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 7506,
+      "response_answer": "ZzTestFixturePlumberAlpha quoted $450 to clean and replace the gutters.",
+      "response_memory_ids": [
+        "test_ask_mem_plumber_quote"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 4,
+    "query": "When am I seeing Dr Marning?",
+    "desc": "Case 3: Calendar-Specific",
+    "legacy_candidate_ids": [
+      "mem_1787597925980_1_hugalao",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab"
+    ],
+    "native_candidate_ids": [],
+    "intersection_ids": [],
+    "legacy_only_ids": [
+      "mem_1787597925980_1_hugalao",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab"
+    ],
+    "native_only_ids": [],
+    "native_route": "zero_result",
+    "stage_c_triggered": true,
+    "stage_c_reason": "LOW_CONFIDENCE_DISCRIMINATING_TOKEN_MISS",
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 7,
+    "stage_c_fts_count": 8,
+    "final_native_hydrated_count": 0,
+    "legacy_retrieval_ms": 730,
+    "native_timings": {
+      "stage_a_ms": 1471,
+      "stage_b_ms": 717,
+      "stage_c_ms": 14537,
+      "hydration_ms": 0,
+      "total_native_ms": 16725
+    },
+    "gemini_calls": {
+      "reformulation": true,
+      "rerank": true
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 30965,
+      "response_answer": "You are scheduled to see Dr Marning on Monday, 7 September 2026 at 3:30 pm.",
+      "response_memory_ids": [],
+      "response_calendar_ids": [
+        "cal_google_primary_70s38cpi64o36bb16gpjeb9kc8p6ab9o64pmcbb174s3adhi6gsjgd9j6o",
+        "test_ask_cal_drmarning"
+      ],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 5,
+    "query": "What appointments have I got coming up?",
+    "desc": "Case 4: Generic schedule",
+    "legacy_candidate_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "test_ask_mem_bins_tomorrow",
+      "test_ask_mem_lawn_next_week",
+      "test_ask_mem_bunnings_yesterday",
+      "mem_1787632041513_0_dryrcqz",
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787556414573_1_olajw9g"
+    ],
+    "native_candidate_ids": [
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787556414573_1_olajw9g",
+      "mem_1787556414573_2_0ga9xlv"
+    ],
+    "intersection_ids": [
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787556414573_1_olajw9g"
+    ],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "test_ask_mem_bins_tomorrow",
+      "test_ask_mem_lawn_next_week",
+      "test_ask_mem_bunnings_yesterday",
+      "mem_1787632041513_0_dryrcqz"
+    ],
+    "native_only_ids": [
+      "mem_1787556414573_2_0ga9xlv"
+    ],
+    "native_route": "stage_c",
+    "stage_c_triggered": true,
+    "stage_c_reason": "LOW_CONFIDENCE_DISCRIMINATING_TOKEN_MISS",
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 3,
+    "stage_c_fts_count": 10,
+    "final_native_hydrated_count": 3,
+    "legacy_retrieval_ms": 704,
+    "native_timings": {
+      "stage_a_ms": 1429,
+      "stage_b_ms": 728,
+      "stage_c_ms": 9225,
+      "hydration_ms": 748,
+      "total_native_ms": 12132
+    },
+    "gemini_calls": {
+      "reformulation": true,
+      "rerank": true
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 19911,
+      "response_answer": "You have your regular visit with Mum on Monday, 31 August from 9:00 am to 11:00 am, an appointment with Dr Marning on Monday, 7 September at 3:30 pm, and a Dentist Checkup on Monday, 14 September at 10:00 am.",
+      "response_memory_ids": [
+        "mem_1787556414573_0_1aw37nd"
+      ],
+      "response_calendar_ids": [
+        "cal_google_primary_70s38cpi64o36bb16gpjeb9kc8p6ab9o64pmcbb174s3adhi6gsjgd9j6o",
+        "test_ask_cal_drmarning",
+        "test_ask_cal_dentist"
+      ],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 6,
+    "query": "What’s in Mum’s sold items?",
+    "desc": "Case 5: List retrieval",
+    "legacy_candidate_ids": [
+      "test_ask_mem_sold_chair",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_ruler",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_sold_ruler",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_chair",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob",
+      "mem_1787556414573_2_0ga9xlv",
+      "mem_1787556414573_1_olajw9g",
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1787632041513_0_dryrcqz",
+      "mem_1787695795490_0_7603r73",
+      "mem_1787597925980_1_hugalao",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_sold_chair",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_ruler",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob"
+    ],
+    "legacy_only_ids": [],
+    "native_only_ids": [
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787556414573_2_0ga9xlv",
+      "mem_1787556414573_1_olajw9g",
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1787632041513_0_dryrcqz",
+      "mem_1787695795490_0_7603r73",
+      "mem_1787597925980_1_hugalao",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_route": "stage_a",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 6,
+    "stage_b_fts_count": 17,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 17,
+    "legacy_retrieval_ms": 758,
+    "native_timings": {
+      "stage_a_ms": 1422,
+      "stage_b_ms": 741,
+      "stage_c_ms": 0,
+      "hydration_ms": 718,
+      "total_native_ms": 2881
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 17067,
+      "response_answer": "Mum's sold items include a rocking chair ($120), an antique clock ($85), a ruler ($20), a table lamp ($55), and onyx book ends ($80).",
+      "response_memory_ids": [
+        "test_ask_mem_sold_chair",
+        "test_ask_mem_sold_clock",
+        "test_ask_mem_sold_ruler",
+        "mem_1788036102764_0_9nq1la3",
+        "mem_1788036011287_0_6ah9w15",
+        "mem_1788035969791_0_by9xklu"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 7,
+    "query": "How much have I sold Mum’s items for altogether?",
+    "desc": "Case 6: List reasoning",
+    "legacy_candidate_ids": [
+      "test_ask_mem_sold_chair",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_ruler",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_sold_ruler",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_chair",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob",
+      "mem_1787556414573_2_0ga9xlv",
+      "mem_1787556414573_1_olajw9g",
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1787632041513_0_dryrcqz",
+      "mem_1787695795490_0_7603r73",
+      "mem_1787597925980_1_hugalao",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_sold_chair",
+      "test_ask_mem_sold_clock",
+      "test_ask_mem_sold_ruler",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787799864116_0_bf9dpob"
+    ],
+    "legacy_only_ids": [],
+    "native_only_ids": [
+      "mem_1787556414573_0_1aw37nd",
+      "mem_1787556414573_2_0ga9xlv",
+      "mem_1787556414573_1_olajw9g",
+      "mem_1787523423129_0_vtusg5e",
+      "mem_1787594114055_0_pfco7qp",
+      "mem_1787632041513_0_dryrcqz",
+      "mem_1787695795490_0_7603r73",
+      "mem_1787597925980_1_hugalao",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_route": "stage_a",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 6,
+    "stage_b_fts_count": 17,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 17,
+    "legacy_retrieval_ms": 692,
+    "native_timings": {
+      "stage_a_ms": 2124,
+      "stage_b_ms": 700,
+      "stage_c_ms": 0,
+      "hydration_ms": 711,
+      "total_native_ms": 3535
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 10700,
+      "response_answer": "Altogether, you have recorded $380 across your saved entries (or $360 if the ruler is counted once): the rocking chair ($120), antique clock ($85), onyx book ends ($80), table lamp ($55), and ruler ($20).",
+      "response_memory_ids": [
+        "test_ask_mem_sold_chair",
+        "test_ask_mem_sold_clock",
+        "test_ask_mem_sold_ruler",
+        "mem_1788036102764_0_9nq1la3",
+        "mem_1788036011287_0_6ah9w15",
+        "mem_1788035969791_0_by9xklu"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 8,
+    "query": "What do I need to do tomorrow?",
+    "desc": "Case 7: Temporal memory",
+    "legacy_candidate_ids": [
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "legacy_only_ids": [],
+    "native_only_ids": [],
+    "native_route": "stage_c",
+    "stage_c_triggered": true,
+    "stage_c_reason": "LOW_CONFIDENCE_DISCRIMINATING_TOKEN_MISS",
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 2,
+    "stage_c_fts_count": 10,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 712,
+    "native_timings": {
+      "stage_a_ms": 1465,
+      "stage_b_ms": 706,
+      "stage_c_ms": 5250,
+      "hydration_ms": 696,
+      "total_native_ms": 8117
+    },
+    "gemini_calls": {
+      "reformulation": true,
+      "rerank": true
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 27620,
+      "response_answer": "Tomorrow morning, you need to put the green waste bins out.",
+      "response_memory_ids": [
+        "test_ask_mem_bins_tomorrow"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 9,
+    "query": "What did I buy at Bunnings yesterday afternoon?",
+    "desc": "Case 8: Human/contextual time",
+    "legacy_candidate_ids": [
+      "test_ask_mem_bunnings_yesterday"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_bunnings_yesterday"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_bunnings_yesterday"
+    ],
+    "legacy_only_ids": [],
+    "native_only_ids": [],
+    "native_route": "stage_b",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 1,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 731,
+    "native_timings": {
+      "stage_a_ms": 1467,
+      "stage_b_ms": 740,
+      "stage_c_ms": 0,
+      "hydration_ms": 740,
+      "total_native_ms": 2947
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 6561,
+      "response_answer": "You bought 2 bags of compost at Bunnings yesterday afternoon for $24.",
+      "response_memory_ids": [
+        "test_ask_mem_bunnings_yesterday"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 10,
+    "query": "Who won the WA election?",
+    "desc": "Case 9: Grounded general question",
+    "legacy_candidate_ids": [
+      "test_ask_mem_wa_election",
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_wa_election"
+    ],
+    "intersection_ids": [
+      "test_ask_mem_wa_election"
+    ],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07"
+    ],
+    "native_only_ids": [],
+    "native_route": "stage_b",
+    "stage_c_triggered": false,
+    "stage_c_reason": null,
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 1,
+    "stage_c_fts_count": 0,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 706,
+    "native_timings": {
+      "stage_a_ms": 1408,
+      "stage_b_ms": 717,
+      "stage_c_ms": 0,
+      "hydration_ms": 717,
+      "total_native_ms": 2842
+    },
+    "gemini_calls": {
+      "reformulation": false,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 13843,
+      "response_answer": "According to your notes, Roger Cook and WA Labor won the WA state election with a strong majority.",
+      "response_memory_ids": [
+        "test_ask_mem_wa_election"
+      ],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  },
+  {
+    "query_num": 11,
+    "query": "Who is the President of France?",
+    "desc": "Case 10: Out of scope",
+    "legacy_candidate_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07",
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "native_candidate_ids": [
+      "test_ask_mem_wa_election"
+    ],
+    "intersection_ids": [],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07",
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "native_only_ids": [
+      "test_ask_mem_wa_election"
+    ],
+    "native_route": "stage_c",
+    "stage_c_triggered": true,
+    "stage_c_reason": "ZERO_FTS_CANDIDATES",
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 0,
+    "stage_c_fts_count": 1,
+    "final_native_hydrated_count": 1,
+    "legacy_retrieval_ms": 756,
+    "native_timings": {
+      "stage_a_ms": 1451,
+      "stage_b_ms": 708,
+      "stage_c_ms": 10433,
+      "hydration_ms": 725,
+      "total_native_ms": 13317
+    },
+    "gemini_calls": {
+      "reformulation": true,
+      "rerank": false
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 20793,
+      "response_answer": "I'm here to help manage your personal memories, tasks, and calendar rather than search the web for general trivia or world knowledge.",
+      "response_memory_ids": [],
+      "response_calendar_ids": [],
+      "is_out_of_scope": true
+    }
+  },
+  {
+    "query_num": 12,
+    "query": "Who is my mechanic?",
+    "desc": "Case 11: Forgotten relationship",
+    "legacy_candidate_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07",
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "native_candidate_ids": [],
+    "intersection_ids": [],
+    "legacy_only_ids": [
+      "mem_1788170285590_0_s8loued",
+      "mem_1788127675492_0_gj2du8n",
+      "mem_1788036102764_0_9nq1la3",
+      "mem_1788036011287_0_6ah9w15",
+      "mem_1788035969791_0_by9xklu",
+      "mem_1787891227708_0_d2153ab",
+      "mem_1787887526981_0_rb79k07",
+      "test_ask_mem_bins_tomorrow"
+    ],
+    "native_only_ids": [],
+    "native_route": "zero_result",
+    "stage_c_triggered": true,
+    "stage_c_reason": "ZERO_FTS_CANDIDATES",
+    "stage_a_exact_subject_count": 0,
+    "stage_b_fts_count": 0,
+    "stage_c_fts_count": 8,
+    "final_native_hydrated_count": 0,
+    "legacy_retrieval_ms": 729,
+    "native_timings": {
+      "stage_a_ms": 1381,
+      "stage_b_ms": 696,
+      "stage_c_ms": 6168,
+      "hydration_ms": 0,
+      "total_native_ms": 8245
+    },
+    "gemini_calls": {
+      "reformulation": true,
+      "rerank": true
+    },
+    "api_ask_http": {
+      "status": "ok",
+      "total_http_latency_ms": 15178,
+      "response_answer": "I don't have any record of who your mechanic is in your saved memories or relationships.",
+      "response_memory_ids": [],
+      "response_calendar_ids": [],
+      "is_out_of_scope": false
+    }
+  }
+]

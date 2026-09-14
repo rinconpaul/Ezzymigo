@@ -120,6 +120,7 @@ import {
 } from './server/instances/entitlements';
 import { extractUserId } from './server/instances/identity';
 import { evaluateAnticipatoryResponsePersistence } from './server/anticipatory/persistenceGate';
+import { evaluateStorageWorthiness, isStorageWorthyMemory } from './server/memory/storageWorthiness';
 import {
   getLatestShadowEvaluation,
   getLatestTodayEvaluation,
@@ -231,6 +232,75 @@ app.get(['/manifest.webmanifest', '/manifest.json'], (req, res) => {
   }
 });
 
+// -------------------------------------------------------------
+// STARTUP SYNCHRONIZATION & DATA INTEGRITY GUARD
+// -------------------------------------------------------------
+export interface StartupCoordinationState {
+  dbPromise: Promise<void>;
+  dbReady: boolean;
+  dbError: Error | null;
+  backfillPromise: Promise<void> | null;
+  backfillReady: boolean;
+  backfillError: Error | null;
+}
+
+export const startupCoordinator: StartupCoordinationState = {
+  dbPromise: Promise.resolve(),
+  dbReady: false,
+  dbError: null,
+  backfillPromise: null,
+  backfillReady: false,
+  backfillError: null,
+};
+
+// Startup synchronization guard: protects data endpoints from querying incomplete
+// schema or writing before required migrations finish, while preserving immediate shell availability.
+app.use('/api', async (req, res, next) => {
+  // Allow health check and push public key without waiting
+  if (req.path === '/health' || req.path === '/push/vapid-public-key') {
+    return next();
+  }
+
+  // If database initialization is in progress, bounded wait (up to 3500ms)
+  if (!startupCoordinator.dbReady) {
+    try {
+      await Promise.race([
+        startupCoordinator.dbPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database initialization pending')), 3500)),
+      ]);
+    } catch (err: any) {
+      console.warn(`[Startup Guard] Endpoint ${req.method} ${req.path} waiting: Database initializing`);
+      res.setHeader('Retry-After', '2');
+      return res.status(503).json({
+        error: 'Database schema is initializing. Please retry shortly.',
+        status: 'INITIALISING',
+        retryAfter: 2,
+      });
+    }
+  }
+
+  // Endpoints that require full relationship/entity backfill consistency before returning data
+  const requiresBackfill = req.path === '/today' || req.path.startsWith('/relationships');
+  if (requiresBackfill && !startupCoordinator.backfillReady && startupCoordinator.backfillPromise) {
+    try {
+      await Promise.race([
+        startupCoordinator.backfillPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Backfill pending')), 3500)),
+      ]);
+    } catch (err: any) {
+      console.warn(`[Startup Guard] Endpoint ${req.method} ${req.path} waiting: Backfill initializing`);
+      res.setHeader('Retry-After', '2');
+      return res.status(503).json({
+        error: 'Relationship and entity index is initializing. Please retry shortly.',
+        status: 'INITIALISING',
+        retryAfter: 2,
+      });
+    }
+  }
+
+  next();
+});
+
 // GET /api/push/vapid-public-key
 app.get('/api/push/vapid-public-key', async (req, res) => {
   try {
@@ -339,11 +409,15 @@ app.get('/api/push/status', async (req, res) => {
 // -------------------------------------------------------------
 
 app.get('/api/memories', async (req, res) => {
+  const startMs = performance.now();
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
+    await initBunnyDb();
     await assertEzzyAccess(ezzyId, userId, 'read');
     const memories = await readMemories(ezzyId);
+    const elapsed = (performance.now() - startMs).toFixed(1);
+    console.log(`[API Timing] GET /api/memories served ${memories.length} memories in ${elapsed}ms (ezzyId: ${ezzyId})`);
     res.json({ memories });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
@@ -568,8 +642,57 @@ app.post('/api/memories', async (req, res) => {
       }
     }
 
-    const { memories: newMemories } = await processThoughtCapturePipeline(
+    // -------------------------------------------------------------
+    // STORAGE-WORTHINESS DECISION GATE
+    // "Does this input contain durable information, a user intention, a requested action,
+    // a correction, an answer containing meaningful new information, or something
+    // the user explicitly wants remembered?"
+    // If NOT, do not create a memory.
+    // -------------------------------------------------------------
+    const storageDecision = evaluateStorageWorthiness(
       trimmedText,
+      effectiveContextEnvelope,
+      { isCaptureFlow, linkedEventId }
+    );
+
+    if (!storageDecision.isStorageWorthy) {
+      console.log(
+        `[Storage Worthiness Gate] Suppressed non-durable input "${trimmedText}" (${storageDecision.classification}). Reason: ${storageDecision.reason}`
+      );
+
+      // Record prompt acknowledgement / satisfaction state if attached to a prompt,
+      // without creating a fake memory.
+      if (effectiveContextEnvelope?.originatingCommunicationId) {
+        await recordShadowInteraction({
+          ezzyId,
+          communicationId: effectiveContextEnvelope.originatingCommunicationId,
+          promptHeadline: effectiveContextEnvelope.promptHeadline,
+          promptQuestion: effectiveContextEnvelope.originatingQuestion,
+          userResponse: trimmedText,
+          capturedMemoryId: null, // No fake memory created
+        }).catch((err) => {
+          console.warn('[Storage Worthiness] Error recording shadow prompt acknowledgement:', err);
+        });
+      }
+
+      return res.status(200).json({
+        memories: [],
+        memory: null,
+        persisted: false,
+        classification: storageDecision.classification,
+        reason: storageDecision.reason,
+        clarification: null,
+        phoneOffer: null,
+        ack_level: 0,
+        ack_evidence: [],
+        ack_label: 'Acknowledged',
+      });
+    }
+
+    const textToInterpret = storageDecision.substantiveRemainder || trimmedText;
+
+    const { memories: newMemoriesRaw } = await processThoughtCapturePipeline(
+      textToInterpret,
       localContext,
       ai,
       linkedEventId,
@@ -577,6 +700,38 @@ app.post('/api/memories', async (req, res) => {
       effectiveContextEnvelope,
       ezzyId
     );
+
+    // Defense-in-depth safety check: ensure interpreted memories are storage worthy
+    const newMemories = newMemoriesRaw.filter((m) => isStorageWorthyMemory(m));
+
+    if (newMemories.length === 0) {
+      console.log(`[Storage Worthiness Gate] Defense-in-depth filtered all produced memories for "${trimmedText}". Zero memories persisted.`);
+      if (effectiveContextEnvelope?.originatingCommunicationId) {
+        await recordShadowInteraction({
+          ezzyId,
+          communicationId: effectiveContextEnvelope.originatingCommunicationId,
+          promptHeadline: effectiveContextEnvelope.promptHeadline,
+          promptQuestion: effectiveContextEnvelope.originatingQuestion,
+          userResponse: trimmedText,
+          capturedMemoryId: null,
+        }).catch((err) => {
+          console.warn('[Storage Worthiness] Error recording shadow prompt acknowledgement:', err);
+        });
+      }
+
+      return res.status(200).json({
+        memories: [],
+        memory: null,
+        persisted: false,
+        classification: 'CONVERSATIONAL_FILLER',
+        reason: 'Produced memory contained no durable information, intention, or requested action.',
+        clarification: null,
+        phoneOffer: null,
+        ack_level: 0,
+        ack_evidence: [],
+        ack_label: 'Acknowledged',
+      });
+    }
 
 
     // Initial phoneOffer computation from newMemories (deterministic in-memory)
@@ -1858,9 +2013,11 @@ app.post('/api/ask', async (req, res) => {
 
 // GET /api/today - Canonical New Ezzy Today Evaluation & Attention Review
 app.get('/api/today', async (req, res) => {
+  const startMs = performance.now();
   const ezzyId = extractEzzyId(req);
   const userId = extractUserId(req);
   try {
+    await initBunnyDb();
     await assertEzzyAccess(ezzyId, userId, 'read');
 
     const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
@@ -1894,6 +2051,8 @@ app.get('/api/today', async (req, res) => {
           clientTzStr
         );
         const freshState = await getShadowDisplayState(ezzyId, clientNowStr);
+        const elapsed = (performance.now() - startMs).toFixed(1);
+        console.log(`[API Timing] GET /api/today fresh sync served in ${elapsed}ms (ezzyId: ${ezzyId})`);
         return res.json({
           evaluation: freshState.todayEvaluation,
           todayEvaluation: freshState.todayEvaluation,
@@ -1909,6 +2068,8 @@ app.get('/api/today', async (req, res) => {
       }
     }
 
+    const elapsed = (performance.now() - startMs).toFixed(1);
+    console.log(`[API Timing] GET /api/today cached served in ${elapsed}ms (ezzyId: ${ezzyId})`);
     return res.json({
       evaluation: state.todayEvaluation,
       todayEvaluation: state.todayEvaluation,
@@ -1921,8 +2082,17 @@ app.get('/api/today', async (req, res) => {
     });
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
-    console.error('Error fetching latest today evaluation:', error);
-    return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
+    console.warn('[Today] Non-fatal error fetching today evaluation (graceful fallback):', error?.message || error);
+    return res.status(200).json({
+      evaluation: null,
+      todayEvaluation: null,
+      checkInEvaluation: null,
+      recentEvaluations: [],
+      attentionReview: null,
+      attentionChannel: [],
+      isEvaluating: false,
+      nextInvalidationAt: null,
+    });
   }
 });
 
@@ -2258,9 +2428,35 @@ app.delete('/api/instances/:id/members/:userId', async (req, res) => {
 
 // Vite middleware & Static serving
 async function setupServer() {
-  await initBunnyDb();
-  await cleanupContaminatedOriginalTexts();
-  await backfillStoredRelationships();
+  const bootStart = performance.now();
+  console.log('[Startup] Booting Ezzymigo server...');
+
+  // Start DB initialization immediately in background
+  const dbInitPromise = initBunnyDb();
+  startupCoordinator.dbPromise = dbInitPromise;
+
+  // Run data cleanup and backfills safely after DB is initialized
+  dbInitPromise
+    .then(() => {
+      startupCoordinator.dbReady = true;
+      if (!startupCoordinator.backfillPromise) {
+        startupCoordinator.backfillPromise = (async () => {
+          const bgStart = performance.now();
+          await cleanupContaminatedOriginalTexts();
+          await backfillStoredRelationships();
+          await backfillMemoryEntities();
+          startupCoordinator.backfillReady = true;
+          console.log(`[Startup Timing] Background backfills completed in ${(performance.now() - bgStart).toFixed(1)}ms`);
+        })().catch((bgErr) => {
+          startupCoordinator.backfillError = bgErr;
+          console.error('[Startup] Critical background backfill error:', bgErr);
+        });
+      }
+    })
+    .catch((err) => {
+      startupCoordinator.dbError = err;
+      console.error('[Startup] DB Init error:', err);
+    });
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -2310,10 +2506,8 @@ async function setupServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Ezzymigo server running on port ${PORT}`);
-    backfillMemoryEntities().catch(err => {
-      console.warn('[MemoryEntities Backfill] Startup non-fatal error:', err);
-    });
+    const elapsed = (performance.now() - bootStart).toFixed(1);
+    console.log(`[Startup Timing] Ezzymigo server listening on port ${PORT} in ${elapsed}ms`);
   });
 }
 

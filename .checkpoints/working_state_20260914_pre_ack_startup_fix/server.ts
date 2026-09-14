@@ -1,0 +1,2320 @@
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import webpush from 'web-push';
+import { GoogleGenAI, Type } from '@google/genai';
+
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
+
+import { getBunnyTargetUrl, executeBunnySql } from './server/db/client';
+import { initBunnyDb } from './server/db/schema';
+import { getGeminiClient } from './server/config/gemini';
+import {
+  formatLocalTimeContext,
+  formatIsoToLocal,
+  formatAllDayCivilDateSpan,
+  getYMDInTz,
+  getTimeStrInTz,
+  parseTimeStringToHM,
+  parseReminderTriggerTime,
+} from './server/utils/time';
+import {
+  resolveAmbiguousTimeToIso,
+  formatTimingWithResolvedMeridiem,
+  detectClockTimeAmbiguity,
+} from './server/utils/timeAmbiguity';
+import {
+  evaluateMemoryAcknowledgement,
+  compositeAcknowledgement,
+  MemoryProcessingEvidence,
+} from './server/ai/acknowledgementPolicy';
+import {
+  splitterResponseSchema,
+  memoryItemSchema,
+  memoriesResponseSchema,
+} from './server/ai/schemas';
+import {
+  isDependentReminderClause,
+  applyDependentClauseRule,
+  isCollectionContinuation,
+  applyCollectionListRule,
+  splitCaptureIntoUnits,
+} from './server/ai/splitter';
+import {
+  extractItemsFromText,
+  fallbackInterpretation,
+  interpretSingleMemoryUnit,
+  processThoughtCapturePipeline,
+} from './server/ai/interpreter';
+import { ConversationalContextEnvelope } from './server/types';
+import {
+  normalizeRoleName,
+  extractPhoneNumber,
+  readActiveRelationships,
+  getActiveRelationshipByRole,
+  getActiveRelationshipByPerson,
+  saveUserEntity,
+  saveRelationships,
+  backfillStoredRelationships,
+  deactivateUserRelationship,
+  forgetUserEntity,
+  correctUserRelationship,
+  evaluateKnowledgeModification,
+  enrichMemoryWithRelationship,
+  detectAmbiguityInSavedMemories,
+  mergeRelationshipsWithExtracted,
+  resolveRelationshipsInQuery,
+  getUserEntities,
+  unsuppressUserEntity,
+} from './server/relationships/index';
+import { routeUserIntent } from './server/intent/router';
+import { resolveContactAction, resolveContactQuery } from './server/contacts/resolver';
+import { assembleEzzyWorldSnapshot } from './server/snapshot/assembler';
+import { executeNewEzzyReasoningLoop } from './server/reasoning/loop';
+import { backfillMemoryEntities } from './server/db/memory_entities';
+import {
+  initVapidKeys,
+  dispatchDueReminders,
+  startReminderDispatcherInterval,
+} from './server/push/index';
+import {
+  getEzzyOccasionPreferences,
+  saveEzzyOccasionPreferences,
+  getUserOccasionPreferences,
+  saveUserOccasionPreferences,
+} from './server/db/occasions';
+import {
+  readMemories,
+  readMemoryById,
+  insertMemories,
+  toggleMemoryInDb,
+  updateMemoryInDb,
+  deleteMemoryFromDb,
+  cleanupContaminatedOriginalTexts,
+} from './server/db/memories';
+import {
+  readCalendarEvents,
+  queryCalendarEvents,
+  retrieveTargetedCalendarEvents,
+  upsertCalendarEvents,
+  deleteCalendarEventFromDb,
+} from './server/calendar/store';
+import {
+  DEFAULT_EZZY_ID,
+  getEzzyInstance,
+  createEzzyInstance,
+  updateEzzyInstance,
+  listEzzyInstances,
+  getEzzyMembers,
+  addEzzyMember,
+  removeEzzyMember,
+  checkEzzyEntitlement,
+  assertEzzyWriteAllowed,
+  assertEzzyAccess,
+  handleEntitlementError,
+  EntitlementViolation,
+  MemberRole,
+} from './server/instances/entitlements';
+import { extractUserId } from './server/instances/identity';
+import { evaluateAnticipatoryResponsePersistence } from './server/anticipatory/persistenceGate';
+import {
+  getLatestShadowEvaluation,
+  getLatestTodayEvaluation,
+  getLatestCheckInEvaluation,
+  getShadowDisplayState,
+  evaluateShadowOpportunity,
+} from './server/shadow/service';
+import {
+  recordShadowInteraction,
+  runUnifiedAttentionReview,
+  getLatestActiveAttentionChannel,
+} from './server/attention/service';
+import {
+  checkAttentionFreshness,
+  invalidateEzzyCaches,
+} from './server/attention/freshness';
+import { recordShadowDismissal } from './server/attention/dismissals';
+
+export { extractUserId };
+
+export function extractEzzyId(req: express.Request): string {
+  const headerId = (req.headers['x-ezzy-id'] || req.headers['ezzy-id']) as string | undefined;
+  if (headerId && typeof headerId === 'string' && headerId.trim()) {
+    return headerId.trim();
+  }
+  if (req.query && typeof req.query.ezzy_id === 'string' && req.query.ezzy_id.trim()) {
+    return req.query.ezzy_id.trim();
+  }
+  if (req.body && typeof req.body.ezzy_id === 'string' && req.body.ezzy_id.trim()) {
+    return req.body.ezzy_id.trim();
+  }
+  return DEFAULT_EZZY_ID;
+}
+
+// Start background push dispatcher interval
+startReminderDispatcherInterval(10000);
+
+// -------------------------------------------------------------
+// HEALTH CHECK API ENDPOINT
+// -------------------------------------------------------------
+app.get('/api/health', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  const checks: {
+    database: { status: 'ok' | 'error'; latency_ms?: number; message?: string };
+    gemini_config: { status: 'ok' | 'error'; configured: boolean };
+  } = {
+    database: { status: 'error' },
+    gemini_config: { status: 'error', configured: false },
+  };
+
+  // 1. Check Gemini configuration without performing paid LLM generation
+  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+  checks.gemini_config = {
+    status: hasGeminiKey ? 'ok' : 'error',
+    configured: hasGeminiKey,
+  };
+
+  // 2. Check Bunny Database connectivity with minimal query
+  const startDbTime = Date.now();
+  try {
+    const dbResult = await executeBunnySql([{ sql: 'SELECT 1 as health_check;' }]);
+    const latency = Date.now() - startDbTime;
+    if (dbResult && dbResult.length > 0 && dbResult[0]?.rows?.[0]?.health_check !== undefined) {
+      checks.database = { status: 'ok', latency_ms: latency };
+    } else {
+      checks.database = { status: 'error', message: 'Unexpected query response from database' };
+    }
+  } catch (err: any) {
+    checks.database = {
+      status: 'error',
+      message: 'Database query failed',
+    };
+  }
+
+  const isHealthy = checks.database.status === 'ok' && checks.gemini_config.status === 'ok';
+  const statusCode = isHealthy ? 200 : 503;
+
+  return res.status(statusCode).json({
+    status: isHealthy ? 'ok' : 'error',
+    timestamp,
+    checks,
+  });
+});
+
+// -------------------------------------------------------------
+// PUSH NOTIFICATION API ENDPOINTS
+// -------------------------------------------------------------
+
+// Serve Service Worker directly at root scope with required headers
+app.get('/sw.js', (req, res) => {
+  const swPath = path.join(process.cwd(), 'public', 'sw.js');
+  if (fs.existsSync(swPath)) {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.sendFile(swPath);
+  } else {
+    res.status(404).send('Service worker not found');
+  }
+});
+
+// Serve Web App Manifest
+app.get(['/manifest.webmanifest', '/manifest.json'], (req, res) => {
+  const manifestPath = path.join(process.cwd(), 'public', 'manifest.webmanifest');
+  if (fs.existsSync(manifestPath)) {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.sendFile(manifestPath);
+  } else {
+    res.status(404).send('Manifest not found');
+  }
+});
+
+// GET /api/push/vapid-public-key
+app.get('/api/push/vapid-public-key', async (req, res) => {
+  try {
+    const keys = await initVapidKeys();
+    res.json({ publicKey: keys.publicKey });
+  } catch (error) {
+    console.error('Error providing VAPID public key:', error);
+    res.status(500).json({ error: 'Failed to retrieve VAPID public key' });
+  }
+});
+
+// POST /api/push/subscribe
+app.post('/api/push/subscribe', async (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+    return res.status(400).json({ error: 'Valid push subscription object is required' });
+  }
+
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+
+  try {
+    await initBunnyDb();
+    const endpoint = subscription.endpoint;
+    const p256dh = subscription.keys.p256dh;
+    const auth = subscription.keys.auth;
+    const userAgent = req.headers['user-agent'] || '';
+    const nowIso = new Date().toISOString();
+
+    await executeBunnySql([{
+      sql: `INSERT INTO push_subscriptions (endpoint, p256dh, auth, userAgent, createdAt, ezzy_id, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(endpoint) DO UPDATE SET
+              p256dh = excluded.p256dh,
+              auth = excluded.auth,
+              userAgent = excluded.userAgent,
+              ezzy_id = excluded.ezzy_id,
+              user_id = excluded.user_id;`,
+      args: [endpoint, p256dh, auth, userAgent, nowIso, ezzyId, userId]
+    }]);
+
+    console.log(`[Web Push] Successfully stored/refreshed subscription for ezzy "${ezzyId}", user "${userId}": ${endpoint.slice(-16)}`);
+    res.status(201).json({ success: true, message: 'Push subscription saved successfully', ezzyId, userId });
+  } catch (error) {
+    console.error('Error storing push subscription:', error);
+    res.status(500).json({ error: 'Failed to save push subscription' });
+  }
+});
+
+// POST /api/push/test - Test push dispatch to current subscriber
+app.post('/api/push/test', async (req, res) => {
+  const { subscription, title, body } = req.body;
+  if (!subscription || !subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+    return res.status(400).json({ error: 'Subscription object required' });
+  }
+
+  try {
+    await initVapidKeys();
+    const pushSubscription = {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+      },
+    };
+
+    const payload = JSON.stringify({
+      title: title || 'Ezzymigo Notification Test',
+      body: body || 'Background and lock-screen reminders are active and ready!',
+      id: 'test_notification_' + Date.now(),
+      url: '/',
+      timestamp: Date.now(),
+    });
+
+    await webpush.sendNotification(pushSubscription, payload);
+    console.log(`[Web Push] Test notification sent successfully to endpoint ${subscription.endpoint.slice(-16)}`);
+    res.json({ success: true, message: 'Test notification delivered successfully' });
+  } catch (error: any) {
+    console.error('Error sending test push notification:', error);
+    res.status(500).json({
+      error: 'Failed to send test push notification',
+      details: error?.message || String(error)
+    });
+  }
+});
+
+// GET /api/push/status
+app.get('/api/push/status', async (req, res) => {
+  try {
+    const keys = await initVapidKeys();
+    const subsRes = await executeBunnySql([{
+      sql: 'SELECT COUNT(*) as count FROM push_subscriptions;'
+    }]);
+    const count = subsRes[0]?.rows?.[0]?.count || 0;
+    res.json({
+      isConfigured: Boolean(keys.publicKey),
+      subscriptionCount: count,
+    });
+  } catch (error) {
+    res.json({ isConfigured: false, subscriptionCount: 0 });
+  }
+});
+
+// -------------------------------------------------------------
+// MEMORY API ROUTES
+// -------------------------------------------------------------
+
+app.get('/api/memories', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const memories = await readMemories(ezzyId);
+    res.json({ memories });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error fetching memories:', error);
+    res.status(500).json({ error: 'Failed to retrieve memories from database' });
+  }
+});
+
+app.post('/api/memories', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+  } catch (entErr: any) {
+    if (handleEntitlementError(res, entErr, ezzyId)) return;
+    throw entErr;
+  }
+
+  const rawInput = req.body?.originalText || req.body?.text;
+  let { clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body || {};
+
+  if (!rawInput || typeof rawInput !== 'string' || !rawInput.trim()) {
+    return res.status(400).json({ error: 'Original thought text is required' });
+  }
+
+  const trimmedText = rawInput.trim();
+  console.log(`[API MEMORY WRITE] POST /api/memories - Received thought to save: "${trimmedText}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, linkedEventId: ${linkedEventId || 'none'}, subject: ${subject || 'none'})`);
+  const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
+  const ai = getGeminiClient();
+
+  try {
+    // -------------------------------------------------------------
+    // INTENT & ACTION GATEWAY ROUTER
+    // Immediate communication commands ("Ring Fred", "Text Fred I'm running late")
+    // must NEVER reach memory or reminder persistence!
+    // -------------------------------------------------------------
+    const intentResult = await routeUserIntent(trimmedText, ai);
+    if (intentResult.intent_class === 'IMMEDIATE_CONTACT_ACTION') {
+      console.log(`[Intent Router] Intercepted IMMEDIATE_CONTACT_ACTION:`, intentResult);
+      const actionPayload = await resolveContactAction({
+        targetPerson: intentResult.target_person,
+        targetRole: intentResult.target_role,
+        actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
+        prefilledMessage: intentResult.prefilled_message,
+        rawInput: trimmedText,
+        ezzyId,
+      });
+
+      return res.status(200).json({
+        deviceAction: actionPayload,
+        memories: [],
+        memory: null,
+        clarification: null,
+        phoneOffer: null,
+        ack_level: 3,
+        ack_evidence: ['device_action_created'],
+        ack_label: 'Action ready',
+      });
+    }
+
+    // -------------------------------------------------------------
+    // ANTICIPATORY PERSISTENCE GATE
+    // Invariant: "Ezzy may initiate a conversation; the user initiates persistence."
+    // - An anticipatory prompt and ordinary response must NOT automatically create permanent memory.
+    // - Ignore / dismiss / nope creates nothing.
+    // - Only an explicit Save / capture / reminder instruction crosses into the Tell/reminder pipeline.
+    // -------------------------------------------------------------
+    const isCaptureFlow = Boolean(req.body?.isCaptureFlow);
+    if (linkedEventId || req.body?.isAnticipatoryResponse || isCaptureFlow) {
+      const gateResult = evaluateAnticipatoryResponsePersistence(trimmedText, { isCaptureFlow });
+      if (!gateResult.shouldPersist) {
+        console.log(
+          `[Anticipatory Persistence Gate] Blocked automatic persistence for response "${trimmedText}" (${gateResult.classification}). Reason: ${gateResult.reason}`
+        );
+        return res.status(200).json({
+          memories: [],
+          memory: null,
+          persisted: false,
+          classification: gateResult.classification,
+          reason: gateResult.reason,
+          clarification: null,
+          phoneOffer: null,
+          ack_level: 0,
+          ack_evidence: [],
+          ack_label: gateResult.classification === 'DISMISS' ? 'Check-in dismissed' : 'Check-in noted',
+        });
+      }
+      console.log(
+        `[Anticipatory Persistence Gate] Permitted persistence instruction: "${trimmedText}" (${gateResult.instructionType}). Crossing into Tell/reminder pipeline.`
+      );
+    }
+
+    // -------------------------------------------------------------
+    // OCCASION / ANTICIPATORY CAPTURE CONTEXT DECOUPLING
+    // LOCKED SEMANTIC RULE:
+    // An anticipatory prompt, post-event prompt, post-call prompt, or Occasion prompt provides CAPTURE CONTEXT ONLY.
+    // It must NOT automatically become the memory subject, storage container, or a List.
+    // The user's response determines whether anything is a List.
+    // -------------------------------------------------------------
+    let effectiveSubject = subject && typeof subject === 'string' ? subject.trim() : undefined;
+    if (effectiveSubject && (linkedEventId || req.body?.isAnticipatoryResponse || isCaptureFlow || req.body?.eventTitle)) {
+      const eventTitleClean = (req.body?.eventTitle || '').trim().toLowerCase();
+      const subjectClean = effectiveSubject.toLowerCase();
+      if (eventTitleClean && (subjectClean === eventTitleClean || subjectClean.includes(eventTitleClean) || eventTitleClean.includes(subjectClean))) {
+        console.log(`[Anticipatory Pipeline] Decoupled occasion/event context "${effectiveSubject}" from list subject.`);
+        effectiveSubject = undefined;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // CONVERSATIONAL CONTEXT ENVELOPE RESOLUTION
+    // Unifies ordinary Tell, New Ezzy responses, anticipatory trays,
+    // and calendar event reflections into a single contextual boundary.
+    // Invariant: "CONTEXT MAY RESOLVE MEANING. IT MUST NOT MANUFACTURE INTENT."
+    // -------------------------------------------------------------
+    let effectiveContextEnvelope: ConversationalContextEnvelope | null =
+      (req.body?.contextEnvelope || req.body?.conversationalContext) ? { ...(req.body?.contextEnvelope || req.body?.conversationalContext) } : null;
+
+    if (!effectiveContextEnvelope && (req.body?.originatingQuestion || req.body?.promptHeadline || req.body?.eventTitle || linkedEventId)) {
+      effectiveContextEnvelope = {
+        userUtterance: trimmedText,
+        originatingCommunicationId: req.body?.communicationId || req.body?.originatingCommunicationId,
+        originatingQuestion: req.body?.originatingQuestion || req.body?.promptQuestion,
+        promptHeadline: req.body?.promptHeadline || req.body?.eventTitle,
+        linkedEventId: linkedEventId || req.body?.linkedEventId,
+        linkedEventTitle: req.body?.eventTitle,
+        relevantEntities: req.body?.relevantEntities || [],
+        conversationHistory: req.body?.conversationHistory || [],
+      };
+    }
+
+    // Contextual continuity: If no envelope was explicitly passed (e.g. user typed into Tell while prompt active),
+    // check if there is an active PROMPT on the ticker right now for this ezzyId and attach it as outcome context
+    if (!effectiveContextEnvelope && !linkedEventId) {
+      try {
+        const clientNowStr = typeof req.body?.clientNow === 'string' ? req.body.clientNow : undefined;
+        const activeRecord = await getLatestActiveAttentionChannel(ezzyId, clientNowStr);
+        const activePrompt = activeRecord?.active_channel?.find(
+          (c) => c.mode === 'PROMPT' || Boolean(c.question)
+        );
+        if (activePrompt) {
+          effectiveContextEnvelope = {
+            userUtterance: trimmedText,
+            originatingCommunicationId: activePrompt.id,
+            originatingQuestion: activePrompt.question || activePrompt.body || activePrompt.headline || undefined,
+            promptHeadline: activePrompt.headline || undefined,
+            linkedEventId: activePrompt.linkedEventId || undefined,
+            relevantEntities: activePrompt.subjectPerson ? [{ name: activePrompt.subjectPerson }] : [],
+            conversationHistory: [
+              { speaker: 'ezzy', text: activePrompt.question || activePrompt.body || activePrompt.headline || '' },
+              { speaker: 'user', text: trimmedText },
+            ],
+          };
+          if (activePrompt.linkedEventId) {
+            linkedEventId = activePrompt.linkedEventId;
+          }
+        }
+      } catch (promptErr) {
+        console.warn('[Context Envelope] Error checking active prompt for Tell:', promptErr);
+      }
+    }
+
+    // If linked to an event, hydrate context and relevant entities from calendar event if not already populated
+    if (linkedEventId && (!effectiveContextEnvelope?.linkedEventTitle || !effectiveContextEnvelope?.relevantEntities?.length)) {
+      try {
+        const allCalendarEvents = await readCalendarEvents({}, ezzyId);
+        const matchedEvt = allCalendarEvents.find(
+          (e: any) => e.id === linkedEventId || e.source_event_id === linkedEventId
+        );
+        if (matchedEvt) {
+          if (!effectiveContextEnvelope) {
+            effectiveContextEnvelope = { userUtterance: trimmedText };
+          }
+          if (!effectiveContextEnvelope.linkedEventTitle) {
+            effectiveContextEnvelope.linkedEventTitle = matchedEvt.title;
+          }
+          if (!effectiveContextEnvelope.linkedEventContent) {
+            effectiveContextEnvelope.linkedEventContent = matchedEvt.notes || matchedEvt.location || undefined;
+          }
+          if (!effectiveContextEnvelope.promptHeadline && matchedEvt.title) {
+            effectiveContextEnvelope.promptHeadline = matchedEvt.title;
+          }
+          if (!effectiveContextEnvelope.originatingQuestion && matchedEvt.title) {
+            effectiveContextEnvelope.originatingQuestion = `How did ${matchedEvt.title} go? Any outcome or notes?`;
+          }
+        }
+      } catch (err) {
+        console.warn('[Context Envelope] Error enriching calendar event context:', err);
+      }
+    }
+
+    // Hydrate known relevant people from user_entities and active relationships if Mum / doctor / etc. mentioned
+    if (effectiveContextEnvelope) {
+      try {
+        const [activeRels, userEnts] = await Promise.all([
+          readActiveRelationships(ezzyId),
+          getUserEntities(ezzyId),
+        ]);
+        const knownEntitiesList: Array<{ name: string; role?: string }> = [];
+        for (const rel of activeRels) {
+          if (rel.person) {
+            knownEntitiesList.push({ name: rel.person, role: rel.role });
+          }
+        }
+        for (const ent of userEnts) {
+          if (ent.name && !knownEntitiesList.some(k => k.name.toLowerCase() === ent.name.toLowerCase())) {
+            knownEntitiesList.push({ name: ent.name, role: ent.role || ent.normalized_role || undefined });
+          }
+        }
+        if (!effectiveContextEnvelope.relevantEntities || effectiveContextEnvelope.relevantEntities.length === 0) {
+          const searchContext = `${effectiveContextEnvelope.originatingQuestion || ''} ${effectiveContextEnvelope.promptHeadline || ''} ${effectiveContextEnvelope.linkedEventTitle || ''}`.toLowerCase();
+          const matchedEntities = knownEntitiesList.filter(ke => {
+            const re = new RegExp(`\\b${ke.name.toLowerCase()}\\b`, 'i');
+            return re.test(searchContext);
+          });
+          if (matchedEntities.length > 0) {
+            effectiveContextEnvelope.relevantEntities = matchedEntities;
+          }
+        }
+      } catch (err) {
+        console.warn('[Context Envelope] Error hydrating relevant entities:', err);
+      }
+    }
+
+    const { memories: newMemories } = await processThoughtCapturePipeline(
+      trimmedText,
+      localContext,
+      ai,
+      linkedEventId,
+      effectiveSubject,
+      effectiveContextEnvelope,
+      ezzyId
+    );
+
+
+    // Initial phoneOffer computation from newMemories (deterministic in-memory)
+    let phoneOffer: { person: string; role: string } | null = null;
+    const extractedRelationships = newMemories.flatMap(m => m.interpretation?.relationships || []);
+    for (const m of newMemories) {
+      const itemRels = m.interpretation?.relationships || [];
+      if (itemRels.length > 0) {
+        const textToScan = m.originalText || trimmedText;
+        const { phoneNumber } = extractPhoneNumber(textToScan);
+        if (!phoneNumber && !phoneOffer) {
+          const activeRel = itemRels.find(r => r && r.person && r.role && r.is_active !== false);
+          if (activeRel) {
+            phoneOffer = { person: activeRel.person, role: activeRel.role };
+          }
+        }
+      }
+    }
+
+    // Persist relationships & entity metadata asynchronously where present
+    const persistRelationshipsPromise = (async () => {
+      if (extractedRelationships.length === 0) return;
+      for (const m of newMemories) {
+        const itemRels = m.interpretation?.relationships || [];
+        if (itemRels.length > 0) {
+          const textToScan = m.originalText || trimmedText;
+          const { phoneNumber } = extractPhoneNumber(textToScan);
+          if (phoneNumber) {
+            for (const rel of itemRels) {
+              if (rel.person && rel.role && rel.is_active !== false) {
+                await saveUserEntity({
+                  name: rel.person,
+                  entity_type: 'person',
+                  role: rel.role,
+                  normalized_role: normalizeRoleName(rel.role),
+                  metadata: { phone: phoneNumber },
+                }, undefined, ezzyId);
+              }
+            }
+          }
+        }
+      }
+      await saveRelationships(extractedRelationships, undefined, ezzyId);
+    })();
+
+    // Phase A Tell Concurrency:
+    // 1. insertMemories writes memories and scheduled reminders
+    // 2. persistRelationshipsPromise writes relationships and entities
+    // 3. readMemories pre-loads historical memories for ambiguity detection
+    // 4. readActiveRelationships loads pre-existing active relationships
+    const [insertResult, _relResult, historicalMemories, currentActiveRelationships] = await Promise.all([
+      insertMemories(newMemories, { skipRelationshipSave: true }, ezzyId),
+      persistRelationshipsPromise,
+      readMemories(ezzyId),
+      readActiveRelationships(ezzyId),
+    ]);
+
+    if (!phoneOffer && insertResult?.phoneOffer) {
+      phoneOffer = insertResult.phoneOffer;
+    }
+
+    // In-Memory Relationship Merge (0 ms DB wait):
+    // Merge pre-existing active relationships with newly extracted relationships from this request
+    const activeRelationships = mergeRelationshipsWithExtracted(currentActiveRelationships, extractedRelationships);
+
+    // Synchronous Ambiguity Detection with pre-loaded historical memories (0 ms DB wait):
+    const enrichedRelationships: Array<{ memoryId: string; person: string; role: string }> = [];
+    const clarification = await detectAmbiguityInSavedMemories(
+      newMemories,
+      activeRelationships,
+      trimmedText,
+      ai,
+      historicalMemories,
+      enrichedRelationships,
+      ezzyId
+    );
+
+    // Prioritise resolving who the person is first: if ambiguity clarification exists, suppress phone offer
+    if (clarification) {
+      phoneOffer = null;
+    }
+
+    // Determine calendar context if linkedEventId is passed or present on memory
+    let candidateCalendarEvent: { id: string; title?: string; isUpcoming: boolean } | null = null;
+    const effectiveLinkedEventId = linkedEventId || newMemories[0]?.interpretation?.linked_event_id;
+    if (effectiveLinkedEventId) {
+      try {
+        const allCalendarEvents = await readCalendarEvents({}, ezzyId);
+        const matchedEvt = allCalendarEvents.find(
+          (e: any) => e.id === effectiveLinkedEventId || e.source_event_id === effectiveLinkedEventId
+        );
+        if (matchedEvt) {
+          const startMs = Date.parse(matchedEvt.start_datetime);
+          const isUpcoming = !isNaN(startMs) && startMs >= Date.now();
+          candidateCalendarEvent = {
+            id: matchedEvt.id,
+            title: matchedEvt.title,
+            isUpcoming,
+          };
+        } else if (req.body?.eventTitle) {
+          const isUpcoming = req.body?.isUpcoming ?? true;
+          candidateCalendarEvent = {
+            id: effectiveLinkedEventId,
+            title: req.body.eventTitle,
+            isUpcoming,
+          };
+        }
+      } catch (err) {
+        console.warn('[Calendar Context] Error checking calendar event context:', err);
+      }
+    }
+
+    // Deterministic Acknowledgement Evaluation:
+    // Evaluate acknowledgement level and truthful evidence for each memory
+    const memoryAckResults = newMemories.map(m => {
+      // Find scheduled reminder for this specific memory
+      const memoryReminder = insertResult?.scheduledReminders?.find(r => r.memoryId === m.id);
+      const scheduledRemindAt = memoryReminder?.remindAt || null;
+      const isReminderScheduled = Boolean(scheduledRemindAt && Date.parse(scheduledRemindAt) > Date.now());
+
+      // Find canonical entity links created for this memory
+      const memoryEntities = insertResult?.linkedEntities?.filter(e => e.memoryId === m.id) || [];
+      const linkedEntityIds = memoryEntities.map(e => e.entityId);
+      const usedEntityNames = memoryEntities.map(e => e.entityName).filter(Boolean) as string[];
+
+      // Check if an existing relationship was materially used
+      const memoryEnrichedRel = enrichedRelationships.find(r => r.memoryId === m.id);
+      const wasExistingRelationshipUsed = Boolean(memoryEnrichedRel);
+      const usedRelationshipDescription = memoryEnrichedRel
+        ? `${memoryEnrichedRel.person} (${memoryEnrichedRel.role})`
+        : null;
+
+      // Check if matched pre-existing Same Subject cluster
+      const targetSubject = (m.interpretation?.subject || subject || '').trim();
+      let matchedExistingSubjectCluster: string | null = null;
+      if (targetSubject) {
+        const normTarget = targetSubject.replace(/\s+/g, ' ').toLowerCase();
+        const hasPrior = historicalMemories.some(
+          (h: any) => h.id !== m.id &&
+               h.interpretation?.subject &&
+               h.interpretation.subject.replace(/\s+/g, ' ').trim().toLowerCase() === normTarget
+        );
+        if (hasPrior) {
+          matchedExistingSubjectCluster = targetSubject;
+        }
+      }
+
+      // Check temporal ambiguity (e.g. bare "at 4" without am/pm)
+      const clockAmbiguity = detectClockTimeAmbiguity(
+        m.originalText,
+        m.interpretation?.resurfacing?.timing || m.interpretation?.original_time_expression
+      );
+      const isAmbiguousClockTime = clockAmbiguity.isAmbiguous;
+
+      // Extracted structure (Level 1)
+      const resolvedDatetime = m.interpretation?.resolved_datetime || m.interpretation?.reminder_datetime || m.interpretation?.event_datetime || null;
+      const hasTemporalMeaning = Boolean(resolvedDatetime || m.interpretation?.original_time_expression);
+      const recognisedPeopleMentions = Array.isArray(m.interpretation?.people) ? m.interpretation.people : [];
+      const recognisedRelationships = Array.isArray(m.interpretation?.relationships) ? m.interpretation.relationships : [];
+      const extractedItems = Array.isArray(m.interpretation?.items) ? m.interpretation.items : [];
+      const hasPrerequisite = Boolean(m.interpretation?.prerequisite);
+      const hasSuggestedAction = Boolean(m.interpretation?.suggested_action);
+      const structuredIntent = m.interpretation?.intent || null;
+
+      const evidence: MemoryProcessingEvidence = {
+        memoryId: m.id,
+        stored: true,
+        isReminderScheduled,
+        scheduledRemindAt,
+        isLinkedToUpcomingEvent: Boolean(candidateCalendarEvent?.isUpcoming),
+        upcomingEventTitle: candidateCalendarEvent?.isUpcoming ? candidateCalendarEvent.title : null,
+        linkedEntityIds,
+        wasExistingEntityUsed: linkedEntityIds.length > 0,
+        usedEntityNames,
+        wasExistingRelationshipUsed,
+        usedRelationshipDescription,
+        matchedExistingSubjectCluster,
+        contributedCalendarEvent: candidateCalendarEvent,
+        resolvedDatetime,
+        hasTemporalMeaning,
+        recognisedPeopleMentions,
+        recognisedRelationships,
+        extractedItems,
+        hasPrerequisite,
+        hasSuggestedAction,
+        structuredIntent,
+        isAmbiguousClockTime,
+      };
+
+      const ackResult = evaluateMemoryAcknowledgement(evidence);
+      m.ack_level = ackResult.ack_level;
+      m.ack_evidence = ackResult.ack_evidence;
+      return ackResult;
+    });
+
+    const compositeAck = compositeAcknowledgement(memoryAckResults);
+
+    // If this memory was in response to a ticker prompt (either through ticker interaction or contextual Tell):
+    // Record interaction and invalidate cache immediately so ticker updates within 0ms!
+    if (effectiveContextEnvelope?.originatingCommunicationId) {
+      recordShadowInteraction({
+        ezzyId,
+        communicationId: effectiveContextEnvelope.originatingCommunicationId,
+        promptHeadline: effectiveContextEnvelope.promptHeadline,
+        promptQuestion: effectiveContextEnvelope.originatingQuestion,
+        userResponse: trimmedText,
+        capturedMemoryId: newMemories[0]?.id || null,
+      }).catch((intErr) => console.warn('[Auto-Interaction] Failed to record interaction:', intErr));
+    }
+
+    return res.status(201).json({
+      memory: newMemories[0],
+      memories: newMemories,
+      clarification: clarification || null,
+      phoneOffer: phoneOffer || null,
+      ack_level: compositeAck.ack_level,
+      ack_evidence: compositeAck.ack_evidence,
+      ack_label: compositeAck.ack_label,
+      ack_detail: compositeAck.ack_detail,
+    });
+  } catch (err: any) {
+    console.error('Error in capture & save pipeline:', err);
+    return res.status(500).json({ error: 'Failed to save memories to database' });
+  }
+});
+
+// -------------------------------------------------------------
+// NON-PERSISTING TEST & INTERPRETATION PIPELINE
+// Runs the exact same production splitter & interpreter logic,
+// but does NOT perform any database INSERT or mutation.
+// -------------------------------------------------------------
+const handleNonPersistingInterpret = async (req: express.Request, res: express.Response) => {
+  const { originalText, text, clientNow, clientTimeZone, clientLanguage, clientRegion, linkedEventId, subject } = req.body;
+  const rawInput = originalText || text;
+
+  if (!rawInput || typeof rawInput !== 'string' || !rawInput.trim()) {
+    return res.status(400).json({ error: 'Original thought text is required' });
+  }
+
+  const trimmedText = rawInput.trim();
+  const ezzyId = extractEzzyId(req);
+  console.log(`[TEST/PREVIEW PIPELINE - NON-PERSISTING] Interpreting thought: "${trimmedText}" (subject: ${subject || 'none'})`);
+  const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
+  const ai = getGeminiClient();
+
+  try {
+    const intentResult = await routeUserIntent(trimmedText, ai);
+    if (intentResult.intent_class === 'IMMEDIATE_CONTACT_ACTION') {
+      const actionPayload = await resolveContactAction({
+        targetPerson: intentResult.target_person,
+        targetRole: intentResult.target_role,
+        actionType: intentResult.action_type === 'sms' ? 'sms' : 'call',
+        prefilledMessage: intentResult.prefilled_message,
+        rawInput: trimmedText,
+        ezzyId,
+      });
+
+      return res.status(200).json({
+        success: true,
+        splitUnits: [trimmedText],
+        memories: [],
+        memory: null,
+        count: 0,
+        persisted: false,
+        deviceAction: actionPayload,
+      });
+    }
+
+    const { splitUnits, memories } = await processThoughtCapturePipeline(trimmedText, localContext, ai, linkedEventId, subject);
+
+    return res.status(200).json({
+      success: true,
+      splitUnits,
+      memories,
+      memory: memories[0] || null,
+      count: memories.length,
+      persisted: false,
+    });
+  } catch (err: any) {
+    console.error('Error in non-persisting interpretation pipeline:', err);
+    return res.status(500).json({ error: 'Failed to process interpretation pipeline' });
+  }
+};
+
+app.post('/api/memories/test-interpret', handleNonPersistingInterpret);
+app.post('/api/interpret-preview', handleNonPersistingInterpret);
+
+// -------------------------------------------------------------
+// CLARIFICATIONS API (EZZYMIGO AMBIGUITY RULE)
+// -------------------------------------------------------------
+
+app.post('/api/clarifications/resolve', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { clarificationId, entityName, entityType, answer, candidateChosen, memoryId, metadata, clientNow, clientTimeZone, clientLanguage, clientRegion } = req.body;
+
+    if (!entityName || typeof entityName !== 'string') {
+      return res.status(400).json({ error: 'entityName is required' });
+    }
+
+    const trimmedEntity = entityName.trim();
+    const rawAnswer = (candidateChosen || answer || '').trim();
+
+    if (!rawAnswer) {
+      return res.status(400).json({ error: 'Answer is required to resolve clarification' });
+    }
+
+    console.log(`[Ambiguity Rule] Resolving clarification (ezzyId: ${ezzyId}, type: ${entityType || 'person/rel'}) for "${trimmedEntity}" with answer: "${rawAnswer}" (memoryId: ${memoryId || 'none'})`);
+
+    // -------------------------------------------------------------
+    // TEMPORAL CLARIFICATION (Time Meridiem AM/PM resolution)
+    // -------------------------------------------------------------
+    if (entityType === 'time_meridiem' || (metadata && metadata.hour !== undefined) || (memoryId && (/^\d{1,2}(?::\d{2})?$/i.test(trimmedEntity) || /o'?clock|heures?|uhr/i.test(trimmedEntity)) && /(?:am|pm|morning|afternoon|evening|night|matin|après-midi|soir|mañana|tarde|noche|morgens|nachmittags|abends|mattino|pomeriggio|sera|manhã|da tarde|noite|上午|下午|晚上|午前|午後|夕方|\d{1,2}:\d{2})/i.test(rawAnswer))) {
+      // Determine if PM vs AM across languages and 24-hour format
+      let isPm = /pm|p\.m\.|afternoon|evening|night|après-midi|soir|tarde|noche|nachmittags|abends|pomeriggio|sera|da tarde|noite|下午|晚上|午后|午後|夕方/i.test(rawAnswer);
+      
+      // Check 24-hour notation in answer (e.g. "16:00" or "16h")
+      const match24 = rawAnswer.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+      if (match24) {
+        const h24 = parseInt(match24[1], 10);
+        if (h24 >= 12) isPm = true;
+        else isPm = false;
+      }
+
+      const meridiem: 'am' | 'pm' = isPm ? 'pm' : 'am';
+
+      let hour = metadata?.hour;
+      let minute = metadata?.minute || 0;
+
+      if (hour === undefined || hour === null) {
+        const hMatch = rawAnswer.match(/(\d{1,2})(?::(\d{2}))?/);
+        if (hMatch) {
+          hour = parseInt(hMatch[1], 10);
+          if (hour > 12) hour -= 12;
+          minute = hMatch[2] ? parseInt(hMatch[2], 10) : 0;
+        } else {
+          const entMatch = trimmedEntity.match(/(\d{1,2})(?::(\d{2}))?/);
+          if (entMatch) {
+            hour = parseInt(entMatch[1], 10);
+            if (hour > 12) hour -= 12;
+            minute = entMatch[2] ? parseInt(entMatch[2], 10) : 0;
+          }
+        }
+      }
+
+      if (hour === undefined || hour === null) {
+        return res.status(400).json({ error: 'Could not determine hour for time clarification' });
+      }
+
+      const allStored = await readMemories(ezzyId);
+      const targetMemory = allStored.find((m: any) => m.id === memoryId);
+      if (!targetMemory) {
+        return res.status(404).json({ error: `Memory with ID ${memoryId} not found` });
+      }
+
+      const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
+      const targetDate = metadata?.targetDate || getYMDInTz(localContext.referenceDate, localContext.timeZone);
+      const offsetStr = metadata?.offsetStr || localContext.offsetStr;
+
+      const resolvedIso = resolveAmbiguousTimeToIso(targetDate, hour, minute, meridiem, offsetStr);
+      const formattedTiming = formatTimingWithResolvedMeridiem(
+        targetMemory.interpretation.resurfacing?.timing || targetMemory.interpretation.original_time_expression || '',
+        hour,
+        minute,
+        meridiem
+      );
+
+      const updatedInterpretation = {
+        ...targetMemory.interpretation,
+        resolved_datetime: resolvedIso,
+        reminder_datetime: resolvedIso,
+        resurfacing: {
+          mode: 'date_based',
+          timing: formattedTiming,
+        },
+        temporal_ambiguity: null,
+      };
+
+      const updatedMemory = await updateMemoryInDb(targetMemory.id, updatedInterpretation, undefined, ezzyId);
+
+      // Ensure scheduled_reminders has exactly one notification
+      await initBunnyDb();
+      await executeBunnySql([
+        {
+          sql: 'DELETE FROM scheduled_reminders WHERE memoryId = ? AND ezzy_id = ?;',
+          args: [targetMemory.id, ezzyId]
+        },
+        {
+          sql: `INSERT INTO scheduled_reminders (id, memoryId, ezzy_id, title, body, remindAt, notified, createdAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+          args: [
+            `remind_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            targetMemory.id,
+            ezzyId,
+            'Ezzymigo Reminder',
+            targetMemory.interpretation.content,
+            new Date(resolvedIso).toISOString(),
+            0,
+            new Date().toISOString(),
+          ]
+        }
+      ]);
+
+      console.log(`[Ambiguity Rule] Resolved time clarification for memory "${targetMemory.id}" in ezzyId "${ezzyId}": ${resolvedIso} (${formattedTiming})`);
+
+      return res.json({
+        success: true,
+        message: `Scheduled reminder for ${formattedTiming}.`,
+        memory: updatedMemory,
+      });
+    }
+
+    // Extract phone number from rawAnswer if present, to avoid corrupting role/person regex matching
+    const { phoneNumber: extractedPhone, cleanedText } = extractPhoneNumber(rawAnswer);
+    const isPhoneOffer = entityType === 'phone_offer' || metadata?.isPhoneOffer === true;
+    const phoneToSave = extractedPhone || (isPhoneOffer && rawAnswer.replace(/[^\d+]/g, '').length >= 6 ? rawAnswer.trim() : null);
+    const textToParse = cleanedText || rawAnswer;
+
+    let resolvedPerson = trimmedEntity;
+    let resolvedRole = (metadata && metadata.role) ? metadata.role : textToParse;
+
+    if (!metadata?.role) {
+      // Check for "X is my Y" / "X is the Y" / "X is a Y"
+      const isMyMatch = textToParse.match(/^(?:([A-Za-z0-9\s]+?)\s+is\s+(?:my\s+|the\s+|a\s+|an\s+)?|he['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|she['’]?s\s+(?:my\s+|the\s+|a\s+|an\s+)?|they['’]?re\s+(?:my\s+|the\s+|a\s+|an\s+)?|my\s+)([A-Za-z0-9\s]+?)[.!]?$/i);
+
+      if (textToParse.includes('—')) {
+        const parts = textToParse.split('—').map((s: string) => s.trim());
+        resolvedPerson = parts[0] || trimmedEntity;
+        resolvedRole = parts[1] || '';
+      } else if (textToParse.includes('-')) {
+        const parts = textToParse.split('-').map((s: string) => s.trim());
+        resolvedPerson = parts[0] || trimmedEntity;
+        resolvedRole = parts[1] || '';
+      } else if (isMyMatch) {
+        if (isMyMatch[1] && isMyMatch[1].trim() && !['he', 'she', 'they', 'it'].includes(isMyMatch[1].trim().toLowerCase())) {
+          resolvedPerson = isMyMatch[1].trim();
+        } else {
+          resolvedPerson = trimmedEntity;
+        }
+        resolvedRole = isMyMatch[2] ? isMyMatch[2].trim() : isMyMatch[1].trim();
+      } else {
+        const normalizedEntity = normalizeRoleName(trimmedEntity);
+        const commonRoles = ['sister', 'brother', 'son', 'daughter', 'doctor', 'physio', 'plumber', 'electrician', 'mechanic', 'dentist', 'boss', 'wife', 'husband', 'accountant', 'lawyer', 'neighbour', 'neighbor', 'friend', 'mother', 'father', 'mum', 'dad'];
+        if (commonRoles.includes(normalizedEntity)) {
+          resolvedPerson = textToParse;
+          resolvedRole = trimmedEntity;
+        } else {
+          resolvedPerson = trimmedEntity;
+          resolvedRole = textToParse;
+        }
+      }
+    }
+
+    resolvedRole = normalizeRoleName(resolvedRole);
+
+    // Explicit user clarification response clears any durable suppression
+    await unsuppressUserEntity(resolvedPerson, ezzyId);
+
+    // 1. Save relationship
+    await saveRelationships([{
+      person: resolvedPerson,
+      role: resolvedRole,
+      is_active: true,
+    }], { skipSuppressionCheck: true }, ezzyId);
+
+    // 2. Save user entity with structured metadata
+    const entityMetadata: Record<string, any> = phoneToSave ? { phone: phoneToSave } : {};
+    await saveUserEntity({
+      name: resolvedPerson,
+      entity_type: 'person',
+      role: resolvedRole,
+      normalized_role: normalizeRoleName(resolvedRole),
+      metadata: entityMetadata,
+    }, { skipSuppressionCheck: true }, ezzyId);
+
+    const phoneSuffix = phoneToSave ? ` — ${phoneToSave}` : '';
+
+    const retrievalCues = [
+      resolvedPerson.toLowerCase(),
+      resolvedRole.toLowerCase(),
+      `${resolvedPerson.toLowerCase()} (${resolvedRole.toLowerCase()})`,
+      `my ${resolvedRole.toLowerCase()}`,
+      `${resolvedPerson.toLowerCase()} is my ${resolvedRole.toLowerCase()}`,
+    ];
+    if (phoneToSave) {
+      retrievalCues.push(
+        phoneToSave.toLowerCase(),
+        `${resolvedPerson.toLowerCase()} phone`,
+        `${resolvedPerson.toLowerCase()} phone number`,
+        `${resolvedRole.toLowerCase()} phone`,
+        `${resolvedRole.toLowerCase()} phone number`,
+        `${resolvedPerson.toLowerCase()} ${phoneToSave.toLowerCase()}`
+      );
+    }
+
+    if (memoryId && isPhoneOffer) {
+      const allStored = await readMemories(ezzyId);
+      const targetMemory = allStored.find((m: any) => m.id === memoryId);
+      if (targetMemory) {
+        const updatedContent = phoneToSave && !targetMemory.interpretation.content.includes(phoneToSave)
+          ? `${targetMemory.interpretation.content}${phoneSuffix}`
+          : targetMemory.interpretation.content;
+
+        const existingCues = Array.isArray(targetMemory.interpretation.retrieval_cues)
+          ? targetMemory.interpretation.retrieval_cues
+          : [];
+        const newCues = retrievalCues.filter(c => !existingCues.includes(c));
+
+        const updatedInterpretation = {
+          ...targetMemory.interpretation,
+          content: updatedContent,
+          retrieval_cues: [...existingCues, ...newCues],
+        };
+
+        const updatedMem = await updateMemoryInDb(targetMemory.id, updatedInterpretation, updatedContent, ezzyId);
+
+        return res.json({
+          success: true,
+          message: `Saved ${resolvedPerson}'s phone number.`,
+          relationship: {
+            person: resolvedPerson,
+            role: resolvedRole,
+            normalized_role: normalizeRoleName(resolvedRole),
+          },
+          memory: updatedMem,
+        });
+      }
+    }
+
+    // 3. Create user-visible FACT memory card representing this explicit user-supplied knowledge
+    const factContent = phoneToSave
+      ? `${resolvedPerson} is my ${resolvedRole} — ${phoneToSave}`
+      : `${resolvedPerson} is my ${resolvedRole}`;
+    const factMemoryId = `mem_${Date.now()}_0_${Math.random().toString(36).substring(2, 9)}`;
+    const nowIso = new Date().toISOString();
+
+    const factMemory = {
+      id: factMemoryId,
+      originalText: phoneToSave
+        ? `${resolvedPerson} is my ${resolvedRole} — ${phoneToSave}`
+        : `${resolvedPerson} is my ${resolvedRole}`,
+      createdAt: nowIso,
+      isDone: false,
+      interpretation: {
+        content: factContent,
+        kind: 'fact',
+        intent: 'remember',
+        status: 'active',
+        people: [resolvedPerson],
+        places: [],
+        topics: ['relationship', resolvedRole, 'contact', extractedPhone ? 'phone' : null].filter(Boolean) as string[],
+        contexts: ['personal'],
+        retrieval_cues: retrievalCues,
+        items: [],
+        relationships: [{
+          person: resolvedPerson,
+          role: resolvedRole,
+          is_active: true,
+        }],
+        prerequisite: null,
+        original_time_expression: null,
+        resolved_datetime: null,
+        event_time_expression: null,
+        event_datetime: null,
+        reminder_time_expression: null,
+        reminder_datetime: null,
+        resurfacing: {
+          mode: 'none',
+          timing: 'Unscheduled',
+        },
+        suggested_action: null,
+        subject: null,
+      },
+    };
+
+    await insertMemories([factMemory], undefined, ezzyId);
+
+    const phoneOffer = (!phoneToSave && !isPhoneOffer && resolvedPerson && resolvedRole)
+      ? { person: resolvedPerson, role: resolvedRole }
+      : null;
+
+    return res.json({
+      success: true,
+      message: `Learned: ${resolvedPerson} is your ${resolvedRole}.`,
+      relationship: {
+        person: resolvedPerson,
+        role: resolvedRole,
+        normalized_role: normalizeRoleName(resolvedRole),
+      },
+      memory: factMemory,
+      phoneOffer: phoneOffer || null,
+    });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('[Ambiguity Rule] Error resolving clarification:', err);
+    return res.status(500).json({ error: 'Failed to resolve clarification' });
+  }
+});
+
+app.put('/api/memories/:id', async (req, res) => {
+  const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+  } catch (entErr: any) {
+    if (handleEntitlementError(res, entErr, ezzyId)) return;
+    throw entErr;
+  }
+
+  const { editedText, clientNow, clientTimeZone, clientLanguage, clientRegion } = req.body;
+
+  if (!editedText || typeof editedText !== 'string' || !editedText.trim()) {
+    return res.status(400).json({ error: 'Edited memory content is required' });
+  }
+
+  const trimmedText = editedText.trim();
+  console.log(`[API MEMORY EDIT] PUT /api/memories/${id} - Re-interpreting edited memory: "${trimmedText}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'})`);
+  const localContext = formatLocalTimeContext(clientNow, clientTimeZone, clientLanguage, clientRegion);
+  const ai = getGeminiClient();
+
+  try {
+    const oldMemory = await readMemoryById(id, ezzyId);
+
+    // Re-run the exact same interpretation and metadata extraction pipeline
+    const newInterpretation = await interpretSingleMemoryUnit(trimmedText, trimmedText, localContext, ai);
+    const updatedMemory = await updateMemoryInDb(id, newInterpretation, trimmedText, ezzyId);
+
+    if (!updatedMemory) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+
+    // Check for relationships that were removed or changed during the edit
+    const oldRelationships = (oldMemory && Array.isArray(oldMemory.interpretation?.relationships))
+      ? oldMemory.interpretation.relationships
+      : [];
+    const newRelationships = Array.isArray(newInterpretation.relationships)
+      ? newInterpretation.relationships
+      : [];
+
+    for (const oldRel of oldRelationships) {
+      if (!oldRel || !oldRel.person || !oldRel.role) continue;
+      const oldP = oldRel.person.trim();
+      const oldR = oldRel.role.trim();
+      const oldNormR = normalizeRoleName(oldR);
+
+      const stillPresentInNew = newRelationships.some((newRel: any) =>
+        newRel &&
+        newRel.person?.toLowerCase() === oldP.toLowerCase() &&
+        normalizeRoleName(newRel.role) === oldNormR &&
+        newRel.is_active !== false
+      );
+
+      if (!stillPresentInNew) {
+        console.log(`[Relationships] Deactivating old relationship due to memory edit: ${oldP} <-> ${oldR} in ezzyId "${ezzyId}"`);
+        await deactivateUserRelationship(oldP, oldR, ezzyId);
+      }
+    }
+
+    let phoneOffer: { person: string; role: string } | null = (updatedMemory as any)?.phoneOffer || null;
+
+    // Persist new/updated relationships
+    if (newRelationships.length > 0) {
+      const { phoneNumber } = extractPhoneNumber(trimmedText);
+      if (phoneNumber) {
+        for (const rel of newRelationships) {
+          if (rel && rel.person && rel.role && rel.is_active !== false) {
+            await saveUserEntity({
+              name: rel.person,
+              entity_type: 'person',
+              role: rel.role,
+              normalized_role: normalizeRoleName(rel.role),
+              metadata: { phone: phoneNumber },
+            }, undefined, ezzyId);
+          }
+        }
+      } else if (!phoneOffer) {
+        const activeRel = newRelationships.find((r: any) => r && r.person && r.role && r.is_active !== false);
+        if (activeRel) {
+          phoneOffer = { person: activeRel.person, role: activeRel.role };
+        }
+      }
+      await saveRelationships(newRelationships, undefined, ezzyId);
+    }
+
+    console.log(`[API MEMORY EDIT] Successfully updated memory ${id} in ezzyId "${ezzyId}". People:`, updatedMemory.interpretation?.people);
+    return res.json({ memory: updatedMemory, phoneOffer: phoneOffer || null });
+  } catch (err: any) {
+    console.error('Error updating memory:', err);
+    return res.status(500).json({ error: 'Failed to re-interpret and update memory' });
+  }
+});
+
+app.patch('/api/memories/:id/toggle', async (req, res) => {
+  const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const updated = await toggleMemoryInDb(id, ezzyId);
+    if (!updated) {
+      return res.status(404).json({ error: 'Memory not found' });
+    }
+    return res.json({ memory: updated });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error toggling memory:', error);
+    return res.status(500).json({ error: 'Failed to toggle memory status' });
+  }
+});
+
+app.delete('/api/memories/:id', async (req, res) => {
+  const { id } = req.params;
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const memoryToDelete = await readMemoryById(id, ezzyId);
+    await deleteMemoryFromDb(id, ezzyId);
+
+    // If the deleted memory asserted relationships, synchronize/deactivate them
+    if (memoryToDelete && Array.isArray(memoryToDelete.interpretation?.relationships)) {
+      const rels = memoryToDelete.interpretation.relationships;
+      if (rels.length > 0) {
+        const remainingMemories = await readMemories(ezzyId);
+        for (const rel of rels) {
+          if (!rel || !rel.person || !rel.role) continue;
+          const p = rel.person.trim();
+          const r = rel.role.trim();
+          const normR = normalizeRoleName(r);
+
+          const isStillAssertedInOtherMemory = remainingMemories.some(m => {
+            if (m.id === id) return false;
+            const mRels = m.interpretation?.relationships;
+            if (!Array.isArray(mRels)) return false;
+            return mRels.some((otherRel: any) =>
+              otherRel &&
+              otherRel.person?.toLowerCase() === p.toLowerCase() &&
+              normalizeRoleName(otherRel.role) === normR &&
+              otherRel.is_active !== false
+            );
+          });
+
+          if (!isStillAssertedInOtherMemory) {
+            console.log(`[Relationships] Deactivating relationship for deleted memory in ezzyId "${ezzyId}": ${p} <-> ${r}`);
+            await deactivateUserRelationship(p, r, ezzyId);
+          }
+        }
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error deleting memory:', error);
+    return res.status(500).json({ error: 'Failed to delete memory' });
+  }
+});
+
+app.delete('/api/lists', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { subject } = req.body;
+    if (!subject || typeof subject !== 'string' || !subject.trim()) {
+      return res.status(400).json({ error: 'List subject name is required' });
+    }
+
+    const targetSubject = subject.trim();
+    const normTarget = targetSubject.replace(/\s+/g, ' ').toLowerCase();
+    console.log(`[API LIST DELETE] DELETE /api/lists - Target subject: "${targetSubject}" (norm: "${normTarget}") in ezzyId "${ezzyId}"`);
+
+    const allMemories = await readMemories(ezzyId);
+    const memoriesToDelete = allMemories.filter(
+      (m) => {
+        const s = m.interpretation?.subject;
+        return s && typeof s === 'string' && s.replace(/\s+/g, ' ').trim().toLowerCase() === normTarget;
+      }
+    );
+
+    if (memoriesToDelete.length === 0) {
+      return res.json({ success: true, count: 0, deletedIds: [] });
+    }
+
+    const deletedIds = memoriesToDelete.map((m) => m.id);
+
+    // Delete each memory and its scheduled reminders
+    for (const mem of memoriesToDelete) {
+      await deleteMemoryFromDb(mem.id, ezzyId);
+    }
+
+    // Collect relationships asserted by deleted memories
+    const relsToCheck: Array<{ person: string; role: string }> = [];
+    for (const mem of memoriesToDelete) {
+      if (Array.isArray(mem.interpretation?.relationships)) {
+        for (const rel of mem.interpretation.relationships) {
+          if (rel && rel.person && rel.role) {
+            relsToCheck.push({ person: rel.person.trim(), role: rel.role.trim() });
+          }
+        }
+      }
+    }
+
+    // Safeguard relationships if not asserted elsewhere in remaining memories
+    if (relsToCheck.length > 0) {
+      const remainingMemories = await readMemories(ezzyId);
+      for (const rel of relsToCheck) {
+        const p = rel.person;
+        const r = rel.role;
+        const normR = normalizeRoleName(r);
+
+        const isStillAssertedInOtherMemory = remainingMemories.some((m) => {
+          const mRels = m.interpretation?.relationships;
+          if (!Array.isArray(mRels)) return false;
+          return mRels.some(
+            (otherRel: any) =>
+              otherRel &&
+              otherRel.person?.toLowerCase() === p.toLowerCase() &&
+              normalizeRoleName(otherRel.role) === normR &&
+              otherRel.is_active !== false
+          );
+        });
+
+        if (!isStillAssertedInOtherMemory) {
+          console.log(`[Relationships] Deactivating relationship for deleted list items in ezzyId "${ezzyId}": ${p} <-> ${r}`);
+          await deactivateUserRelationship(p, r, ezzyId);
+        }
+      }
+    }
+
+    console.log(`[API LIST DELETE] Successfully deleted ${memoriesToDelete.length} memories for list "${targetSubject}" in ezzyId "${ezzyId}"`);
+    return res.json({ success: true, count: memoriesToDelete.length, deletedIds });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error deleting list memories:', error);
+    return res.status(500).json({ error: 'Failed to delete list memories' });
+  }
+});
+
+// -------------------------------------------------------------
+// EXTERNAL WEB LOOKUP & VERIFICATION PIPELINE
+// -------------------------------------------------------------
+
+app.post('/api/memories/:id/lookup', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    throw err;
+  }
+
+  const { id } = req.params;
+  const { query, memoryContent, clientRegion = 'AU', clientLanguage = 'en-AU' } = req.body;
+
+  const searchQuery = (query && typeof query === 'string' ? query.trim() : '') ||
+                      (memoryContent && typeof memoryContent === 'string' ? memoryContent.trim() : '');
+
+  console.log(`[API LOOKUP] POST /api/memories/${id}/lookup - Query: "${searchQuery}" (region: ${clientRegion}, lang: ${clientLanguage})`);
+
+  if (!searchQuery) {
+    return res.status(400).json({ error: 'Search query or memory content is required' });
+  }
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    return res.json({
+      lookup: {
+        summary: `Search query: "${searchQuery}". (Configure GEMINI_API_KEY for live grounded search results).`,
+        sources: [],
+        verified: false,
+        correction: null,
+      },
+    });
+  }
+
+  try {
+    const regionalGuidance = clientRegion === 'AU'
+      ? 'Prefer Australian retailers/sources/services (e.g. Booktopia, Dymocks, Angus & Robertson, Readings, QBD Books, Amazon AU, ABC iview, SBS On Demand, Stan, local merchants/venues) where appropriate.'
+      : `Prefer relevant retailers/sources/services operating in region "${clientRegion}" where appropriate.`;
+
+    const lookupPrompt = `You are performing a user-requested external web search for an Ezzymigo memory item.
+
+User Memory Context: "${memoryContent || searchQuery}"
+Search Query: "${searchQuery}"
+User Operating Region: "${clientRegion}" (Language: "${clientLanguage}")
+
+Instructions:
+1. Search Google for accurate, up-to-date information matching what the user was looking for (e.g. books, movies/TV, streaming services, products, restaurants, venues, events/tickets, services).
+2. Identify the accurate item title and creator/author/director/merchant/organization where applicable.
+3. Extract useful, direct destination results (retailers, product pages, bookstores, publisher sites, streaming platforms, official ticketing/booking pages) found by Google Search grounding.
+   - ${regionalGuidance}
+   - Merchant/Source name: Identify each merchant or platform clearly (e.g. "Booktopia", "Dymocks", "Hardie Grant Publishing", "Botanic Gardens of Sydney").
+   - Clickable Link / URL: Provide the actual URL or search grounding redirect link returned by Google Search grounding. STRICT RULE: NEVER invent, fabricate, or guess URLs. Only supply genuine URLs provided by Google Search.
+   - Price: Include the price if reliably and clearly found in search results (e.g. "$29.99 AUD", "$36.99 AUD") or null if unavailable.
+   - Availability: State the availability status if found (e.g. "Available", "Pre-order", "In Stock", "Out of Stock") or null if unavailable.
+   - Action Type: "purchase" | "view" | "stream" | "book" | "info".
+4. Provide a concise, friendly 1 to 2 sentence explanatory summary.
+5. Check for any entity, title, author, or spelling discrepancies between the user's stored memory context and verified web results (e.g. if the user wrote "Vanessa Fooks" instead of "Vanessa Fuchs", or a slightly misspelled title/product).
+6. If a correction is detected, provide structured correction details so the user can easily update their memory with the accurate wording.
+7. STRICT RULE: Do NOT attempt or simulate any financial transactions or purchases.
+
+Provide your response strictly in the following JSON format:
+\`\`\`json
+{
+  "item_title": "Verified Title or Item Name",
+  "creator": "Author, Creator, Director, or Organization (or null if not applicable)",
+  "category": "book",
+  "summary": "Concise 1-2 sentence summary of search findings.",
+  "actionable_results": [
+    {
+      "title": "What the Flora? by Vanessa Fuchs",
+      "source_name": "Booktopia",
+      "url": "https://...",
+      "price": "$29.99 AUD",
+      "availability": "Available / Pre-order",
+      "action_type": "purchase"
+    }
+  ],
+  "verified": true,
+  "correction": null
+}
+\`\`\`
+Or if an entity / name / title / spelling discrepancy was identified:
+\`\`\`json
+{
+  "item_title": "What the Flora?: Incredible Stories from the Brilliant and Bizarre World of Plants",
+  "creator": "Vanessa Fuchs",
+  "category": "book",
+  "summary": "Written by science communicator Vanessa Fuchs for the Botanic Gardens of Sydney, exploring the fascinating world of botany.",
+  "actionable_results": [
+    {
+      "title": "What the Flora? by Vanessa Fuchs",
+      "source_name": "Dymocks",
+      "url": "https://...",
+      "price": "$36.99 AUD",
+      "availability": "Available / Pre-order",
+      "action_type": "purchase"
+    }
+  ],
+  "verified": true,
+  "correction": {
+    "field": "author",
+    "current_value": "Vanessa Fooks",
+    "suggested_value": "Vanessa Fuchs",
+    "full_corrected_text": "Purchase the book 'What the Flora' by Vanessa Fuchs.",
+    "explanation": "I found this author listed as Vanessa Fuchs."
+  }
+}
+\`\`\``;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: lookupPrompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.1,
+      },
+    });
+
+    // Extract grounding web sources from metadata
+    const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const groundingSources: Array<{ title: string; url: string }> = [];
+    if (Array.isArray(rawChunks)) {
+      for (const chunk of rawChunks) {
+        if (chunk.web?.uri) {
+          try {
+            const parsedUrl = new URL(chunk.web.uri);
+            const displayTitle = chunk.web.title || parsedUrl.hostname.replace(/^www\./, '');
+            groundingSources.push({
+              title: displayTitle,
+              url: chunk.web.uri,
+            });
+          } catch {
+            groundingSources.push({
+              title: chunk.web.title || 'Web Source',
+              url: chunk.web.uri,
+            });
+          }
+        }
+      }
+    }
+
+    let lookupData: any = {
+      item_title: null,
+      creator: null,
+      category: null,
+      summary: response.text || 'No search results available.',
+      actionable_results: [],
+      sources: [],
+      verified: true,
+      correction: null,
+    };
+
+    if (response.text) {
+      try {
+        const cleaned = response.text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed && typeof parsed === 'object') {
+          lookupData.item_title = parsed.item_title || null;
+          lookupData.creator = parsed.creator || null;
+          lookupData.category = parsed.category || null;
+          lookupData.summary = parsed.summary || response.text;
+          lookupData.verified = parsed.verified !== undefined ? Boolean(parsed.verified) : true;
+
+          if (Array.isArray(parsed.actionable_results)) {
+            lookupData.actionable_results = parsed.actionable_results
+              .filter((item: any) => item && typeof item === 'object')
+              .map((item: any) => {
+                let validUrl = typeof item.url === 'string' && item.url.startsWith('http') ? item.url : '';
+                
+                // If URL is missing or placeholder, attempt match with grounding source
+                if (!validUrl && groundingSources.length > 0) {
+                  const match = groundingSources.find(
+                    (s) => s.title.toLowerCase().includes((item.source_name || '').toLowerCase()) ||
+                           (item.source_name || '').toLowerCase().includes(s.title.toLowerCase())
+                  );
+                  if (match) {
+                    validUrl = match.url;
+                  }
+                }
+
+                return {
+                  title: item.title || item.source_name || 'View Item',
+                  source_name: item.source_name || 'Retailer / Source',
+                  url: validUrl,
+                  price: item.price || null,
+                  availability: item.availability || null,
+                  action_type: item.action_type || 'view',
+                };
+              });
+          }
+
+          if (parsed.correction && typeof parsed.correction === 'object' && parsed.correction.full_corrected_text) {
+            lookupData.correction = {
+              field: parsed.correction.field || 'entity',
+              current_value: parsed.correction.current_value || '',
+              suggested_value: parsed.correction.suggested_value || '',
+              full_corrected_text: parsed.correction.full_corrected_text,
+              explanation: parsed.correction.explanation || `I found this listed as ${parsed.correction.suggested_value || 'a different name'}.`,
+            };
+          }
+        }
+      } catch {
+        lookupData.summary = response.text.replace(/```json[\s\S]*?```/gi, '').trim() || response.text;
+      }
+    }
+
+    // If actionable_results is empty but we have grounding sources, construct actionable results from grounding
+    if ((!lookupData.actionable_results || lookupData.actionable_results.length === 0) && groundingSources.length > 0) {
+      lookupData.actionable_results = groundingSources.slice(0, 4).map((src) => ({
+        title: src.title,
+        source_name: src.title,
+        url: src.url,
+        price: null,
+        availability: 'Available online',
+        action_type: 'view',
+      }));
+    }
+
+    lookupData.sources = groundingSources.slice(0, 4);
+
+    return res.json({ lookup: lookupData });
+  } catch (err: any) {
+    console.error('Error during memory lookup:', err);
+    return res.status(500).json({ error: 'Failed to perform web lookup' });
+  }
+});
+
+// -------------------------------------------------------------
+// Calendar Events API Endpoints (Isolated Storage Layer)
+// -------------------------------------------------------------
+
+// GET /api/calendar-events - List stored external calendar events
+app.get('/api/calendar-events', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const { startAfter, startBefore, limit } = req.query;
+    const events = await readCalendarEvents({
+      startAfter: typeof startAfter === 'string' ? startAfter : undefined,
+      startBefore: typeof startBefore === 'string' ? startBefore : undefined,
+      limit: limit ? Number(limit) : undefined,
+    }, ezzyId);
+    return res.json({ events });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error fetching calendar events:', err);
+    return res.status(500).json({ error: 'Failed to fetch calendar events' });
+  }
+});
+
+// POST /api/calendar-events/sync - Save a batch of synced calendar events
+app.post('/api/calendar-events/sync', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { events } = req.body;
+    if (!Array.isArray(events)) {
+      return res.status(400).json({ error: 'Expected an array of events' });
+    }
+
+    await upsertCalendarEvents(events, ezzyId);
+    const stored = await readCalendarEvents({}, ezzyId);
+    return res.json({ success: true, count: events.length, events: stored });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error syncing calendar events:', err);
+    return res.status(500).json({ error: 'Failed to save calendar events' });
+  }
+});
+
+// GET /api/relationships - List current active user relationships
+app.get('/api/relationships', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const relationships = await readActiveRelationships(ezzyId);
+    return res.json({ relationships });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error fetching relationships:', err);
+    return res.status(500).json({ error: 'Failed to fetch relationships' });
+  }
+});
+
+// POST /api/relationships/forget - Direct endpoint to forget an entity or relationship
+app.post('/api/relationships/forget', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { person, role } = req.body;
+    if (!person || typeof person !== 'string' || !person.trim()) {
+      return res.status(400).json({ error: 'Person name is required' });
+    }
+    const p = person.trim();
+    if (role && typeof role === 'string' && role.trim()) {
+      const result = await deactivateUserRelationship(p, role.trim(), ezzyId);
+      return res.json({ success: true, person: p, role: role.trim(), ...result });
+    } else {
+      const success = await forgetUserEntity(p, ezzyId);
+      return res.json({ success, person: p });
+    }
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error forgetting relationship/entity:', err);
+    return res.status(500).json({ error: 'Failed to forget knowledge' });
+  }
+});
+
+// POST /api/relationships/backfill - Idempotent sync of relationships from stored memories
+app.post('/api/relationships/backfill', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    await backfillStoredRelationships(ezzyId);
+    const relationships = await readActiveRelationships(ezzyId);
+    return res.json({ success: true, count: relationships.length, relationships });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error backfilling relationships:', err);
+    return res.status(500).json({ error: 'Failed to backfill relationships' });
+  }
+});
+
+// GET /api/occasions/preferences - Get stored user occasion preferences
+app.get('/api/occasions/preferences', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const preferences = await getEzzyOccasionPreferences(ezzyId);
+    return res.json({ preferences });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error fetching occasion preferences:', err);
+    return res.status(500).json({ error: 'Failed to fetch occasion preferences' });
+  }
+});
+
+// POST /api/occasions/preferences - Persist user occasion preferences
+app.post('/api/occasions/preferences', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const body = req.body || {};
+    const preferences = await saveEzzyOccasionPreferences(body, ezzyId);
+    return res.json({ success: true, preferences });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error saving occasion preferences:', err);
+    return res.status(500).json({ error: 'Failed to save occasion preferences' });
+  }
+});
+
+// POST /api/ask - Ask Ezzymigo retrieval endpoint (Powered by New Ezzy Unified Reasoning Loop)
+app.post('/api/ask', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { question, clientNow, clientTimeZone, clientLanguage, clientRegion, confirm } = req.body;
+    if (!question || typeof question !== 'string' || !question.trim()) {
+      return res.status(400).json({ error: 'Question is required' });
+    }
+
+    const trimmedQuestion = question.trim();
+    console.log(`[API ASK] POST /api/ask - Query: "${trimmedQuestion}" (ezzyId: ${ezzyId}, lang: ${clientLanguage || 'en-AU'}, region: ${clientRegion || 'AU'}, confirm: ${Boolean(confirm)})`);
+
+    // Phase A: Database retrieval for relationships
+    const activeRelationships = await readActiveRelationships(ezzyId);
+
+    // Check for Knowledge Modification / Forget / Correction requests (Ezzymigo Forget Rule)
+    const ai = getGeminiClient();
+    const knowledgeModResult = await evaluateKnowledgeModification(trimmedQuestion, activeRelationships, Boolean(confirm), ai, ezzyId);
+    if (knowledgeModResult && knowledgeModResult.handled) {
+      console.log(`[Knowledge Engine] Handled knowledge modification for: "${trimmedQuestion}" in ezzyId "${ezzyId}"`);
+      return res.json({
+        answer: knowledgeModResult.answer,
+        confirmation_required: knowledgeModResult.confirmation_required || false,
+        pending_action: knowledgeModResult.pending_action || undefined,
+        memory_ids: [],
+        calendar_event_ids: [],
+      });
+    }
+
+    // Phase B: Assemble bounded Personal World Snapshot for ASK_QUERY
+    const snapshot = await assembleEzzyWorldSnapshot({
+      ezzyId,
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      opportunity: 'ASK_QUERY',
+      trigger: 'ask_query',
+      input: trimmedQuestion,
+    });
+
+    // Phase C: Execute New Ezzy Unified Reasoning Loop (isolated, cannot mutate database)
+    const reasoningResult = await executeNewEzzyReasoningLoop(
+      'ASK_QUERY',
+      snapshot,
+      { input: trimmedQuestion },
+      ai
+    );
+
+    const { decision } = reasoningResult;
+    const answer =
+      decision.communication.body?.trim() ||
+      decision.communication.headline?.trim() ||
+      "I couldn't find anything relevant in your saved memories or calendar.";
+    const memory_ids: string[] = Array.isArray(decision.citedMemoryIds) ? decision.citedMemoryIds : [];
+    const calendar_event_ids: string[] = Array.isArray(decision.citedCalendarIds) ? decision.citedCalendarIds : [];
+
+    console.log(`[API ASK] Final New Ezzy result - Answer: "${answer}", Supporting memory_ids: ${JSON.stringify(memory_ids)}, calendar_event_ids: ${JSON.stringify(calendar_event_ids)}`);
+    return res.json({ answer, memory_ids, calendar_event_ids, is_out_of_scope: false });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error answering question with Ezzymigo:', error);
+    return res.status(500).json({ error: 'Failed to retrieve answer for question' });
+  }
+});
+
+// -------------------------------------------------------------
+// NEW EZZY TODAY & ATTENTION API ENDPOINTS
+// Unified Reasoning Loop - Canonical Today Orientation & Review
+// -------------------------------------------------------------
+
+// GET /api/today - Canonical New Ezzy Today Evaluation & Attention Review
+app.get('/api/today', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
+    const clientTzStr = typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined;
+    const forceRefresh = req.query.force === 'true';
+
+    const state = await getShadowDisplayState(ezzyId, clientNowStr);
+
+    const freshness = checkAttentionFreshness({
+      evaluation: state.todayEvaluation,
+      review: state.attentionReview,
+      clientNow: clientNowStr,
+      clientTimeZone: clientTzStr,
+      forceRefresh,
+    });
+
+    if (freshness.isStale) {
+      try {
+        console.log(`[Today] Stale trigger: ${freshness.reason}, running fresh evaluation for ${ezzyId}`);
+        await evaluateShadowOpportunity({
+          ezzyId,
+          opportunity: 'TODAY_ORIENT',
+          trigger: freshness.reason || 'stale_refresh',
+          clientNow: clientNowStr,
+          clientTimeZone: clientTzStr,
+        });
+        await runUnifiedAttentionReview(
+          ezzyId,
+          freshness.reason || 'today_sync_refresh',
+          clientNowStr,
+          clientTzStr
+        );
+        const freshState = await getShadowDisplayState(ezzyId, clientNowStr);
+        return res.json({
+          evaluation: freshState.todayEvaluation,
+          todayEvaluation: freshState.todayEvaluation,
+          checkInEvaluation: freshState.checkInEvaluation,
+          recentEvaluations: freshState.recentEvaluations,
+          attentionReview: freshState.attentionReview,
+          attentionChannel: freshState.attentionReview?.active_channel || [],
+          isEvaluating: false,
+          nextInvalidationAt: freshness.nextInvalidationAt,
+        });
+      } catch (syncErr) {
+        console.warn('[Today] Sync refresh failed, using cached state:', syncErr);
+      }
+    }
+
+    return res.json({
+      evaluation: state.todayEvaluation,
+      todayEvaluation: state.todayEvaluation,
+      checkInEvaluation: state.checkInEvaluation,
+      recentEvaluations: state.recentEvaluations,
+      attentionReview: state.attentionReview,
+      attentionChannel: state.attentionReview?.active_channel || [],
+      isEvaluating: false,
+      nextInvalidationAt: freshness.nextInvalidationAt,
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error fetching latest today evaluation:', error);
+    return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
+  }
+});
+
+// POST /api/today/dismiss - Explicitly dismiss a ticker communication
+app.post('/api/today/dismiss', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const { communicationId, reason, ttlHours } = req.body || {};
+    if (!communicationId) {
+      return res.status(400).json({ error: 'communicationId is required' });
+    }
+    const dismissId = await recordShadowDismissal({
+      ezzyId,
+      communicationId,
+      reason,
+      ttlHours: typeof ttlHours === 'number' ? ttlHours : undefined,
+    });
+    // Immediately re-run attention review to curate next item
+    const clientNow = typeof req.body?.clientNow === 'string' ? req.body.clientNow : undefined;
+    const clientTimeZone = typeof req.body?.clientTimeZone === 'string' ? req.body.clientTimeZone : undefined;
+    const review = await runUnifiedAttentionReview(
+      ezzyId,
+      'explicit_dismissal',
+      clientNow,
+      clientTimeZone
+    );
+    return res.json({
+      success: true,
+      dismissId,
+      attentionReview: review,
+      attentionChannel: review.active_channel || [],
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error dismissing ticker item:', error);
+    return res.status(500).json({ error: 'Failed to dismiss ticker item' });
+  }
+});
+
+// GET /api/shadow/today - Compatibility alias for GET /api/today
+app.get('/api/shadow/today', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const clientNowStr = typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined;
+    const state = await getShadowDisplayState(ezzyId, clientNowStr);
+
+    const now = Date.now();
+    const evalAge = state.todayEvaluation ? now - new Date(state.todayEvaluation.timestamp).getTime() : Infinity;
+    if (!state.todayEvaluation || evalAge > 10 * 60 * 1000) {
+      evaluateShadowOpportunity({
+        ezzyId,
+        opportunity: 'TODAY_ORIENT',
+        trigger: state.todayEvaluation ? 'cache_refresh' : 'initial_load',
+        clientNow: typeof req.query.clientNow === 'string' ? req.query.clientNow : undefined,
+        clientTimeZone: typeof req.query.clientTimeZone === 'string' ? req.query.clientTimeZone : undefined,
+      }).catch((err) => console.warn('[Today Background Evaluation Error]:', err));
+    }
+
+    return res.json({
+      evaluation: state.todayEvaluation,
+      todayEvaluation: state.todayEvaluation,
+      checkInEvaluation: state.checkInEvaluation,
+      recentEvaluations: state.recentEvaluations,
+      attentionReview: state.attentionReview,
+      attentionChannel: state.attentionReview?.active_channel || [],
+      isEvaluating: false,
+    });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error fetching latest today evaluation:', error);
+    return res.status(500).json({ error: 'Failed to fetch latest today evaluation' });
+  }
+});
+
+// POST /api/interactions (and legacy /api/shadow/interactions) - Record authoritative user interaction with communication provenance
+const handleRecordInteraction = async (req: express.Request, res: express.Response) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const {
+      communicationId,
+      evaluationId,
+      opportunity,
+      promptHeadline,
+      promptQuestion,
+      userResponse,
+      capturedMemoryId,
+    } = req.body || {};
+
+    if (!communicationId || !userResponse) {
+      return res.status(400).json({ error: 'communicationId and userResponse are required' });
+    }
+
+    const interactionId = await recordShadowInteraction({
+      ezzyId,
+      communicationId,
+      evaluationId,
+      opportunity,
+      promptHeadline,
+      promptQuestion,
+      userResponse,
+      capturedMemoryId,
+    });
+
+    return res.status(201).json({ success: true, interactionId });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error recording interaction:', error);
+    return res.status(500).json({ error: 'Failed to record interaction' });
+  }
+};
+app.post('/api/interactions', handleRecordInteraction);
+app.post('/api/shadow/interactions', handleRecordInteraction);
+
+// POST /api/review (and legacy /api/shadow/review) - Explicitly trigger executive Attention Review
+const handleAttentionReview = async (req: express.Request, res: express.Response) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { trigger, clientNow, clientTimeZone } = req.body || {};
+    const review = await runUnifiedAttentionReview(
+      ezzyId,
+      trigger || 'manual_trigger',
+      clientNow,
+      clientTimeZone
+    );
+
+    return res.json({ review });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error running attention review:', error);
+    return res.status(500).json({ error: 'Failed to run attention review' });
+  }
+};
+app.post('/api/review', handleAttentionReview);
+app.post('/api/shadow/review', handleAttentionReview);
+
+// POST /api/evaluate (and legacy /api/shadow/evaluate) - Explicit or triggered evaluation
+const handleEvaluateOpportunity = async (req: express.Request, res: express.Response) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const {
+      opportunity,
+      trigger,
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      input,
+      targetEventId,
+    } = req.body || {};
+
+    const evaluation = await evaluateShadowOpportunity({
+      ezzyId,
+      opportunity: opportunity || 'TODAY_ORIENT',
+      trigger: trigger || 'manual_refresh',
+      clientNow,
+      clientTimeZone,
+      clientLanguage,
+      clientRegion,
+      input,
+      targetEventId,
+    });
+
+    return res.json({ evaluation });
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error executing evaluation:', error);
+    return res.status(500).json({ error: 'Failed to execute evaluation' });
+  }
+};
+app.post('/api/evaluate', handleEvaluateOpportunity);
+app.post('/api/shadow/evaluate', handleEvaluateOpportunity);
+
+// -------------------------------------------------------------
+// Ezzy Instance & Entitlement Boundaries API Endpoints
+// -------------------------------------------------------------
+
+// GET /api/instances - List all instances with entitlement status
+app.get('/api/instances', async (req, res) => {
+  try {
+    const instances = await listEzzyInstances();
+    return res.json({ instances });
+  } catch (err: any) {
+    console.error('Error listing Ezzy instances:', err);
+    return res.status(500).json({ error: 'Failed to list Ezzy instances' });
+  }
+});
+
+// GET /api/instances/:id - Get a specific instance with detailed entitlement status
+app.get('/api/instances/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const instance = await getEzzyInstance(id);
+    if (!instance) {
+      return res.status(404).json({ error: `Ezzy instance "${id}" not found` });
+    }
+    const readCheck = await checkEzzyEntitlement(id, 'read');
+    const writeCheck = await checkEzzyEntitlement(id, 'write');
+    const members = await getEzzyMembers(id);
+
+    return res.json({
+      instance,
+      members,
+      entitlement: {
+        status: instance.status,
+        plan: instance.plan,
+        isTrial: instance.status === 'trial',
+        isExpired: instance.status === 'expired',
+        readAllowed: readCheck.allowed,
+        writeAllowed: writeCheck.allowed,
+        memberLimit: instance.max_members,
+        memberCount: members.length,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error fetching Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to fetch Ezzy instance' });
+  }
+});
+
+// POST /api/instances - Create a new isolated Ezzy instance
+app.post('/api/instances', async (req, res) => {
+  try {
+    const { id, name, plan, status, max_members, trial_ends_at, expires_at, created_by } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Instance name is required' });
+    }
+
+    const instance = await createEzzyInstance({
+      id: typeof id === 'string' && id.trim() ? id.trim() : undefined,
+      name: name.trim(),
+      plan: plan || 'free_trial',
+      status: status || 'trial',
+      max_members: typeof max_members === 'number' ? max_members : 5,
+      trial_ends_at: trial_ends_at || undefined,
+      expires_at: expires_at || undefined,
+      created_by: created_by || undefined,
+    });
+
+    return res.status(201).json({ success: true, instance });
+  } catch (err: any) {
+    console.error('Error creating Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to create Ezzy instance' });
+  }
+});
+
+// PATCH /api/instances/:id - Update instance status (trial/active/expired), plan, or limits
+app.patch('/api/instances/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, plan, status, max_members, trial_ends_at, expires_at } = req.body || {};
+    const updated = await updateEzzyInstance(id, {
+      name: typeof name === 'string' ? name.trim() : undefined,
+      plan: typeof plan === 'string' ? plan : undefined,
+      status: typeof status === 'string' ? (status as any) : undefined,
+      max_members: typeof max_members === 'number' ? max_members : undefined,
+      trial_ends_at: trial_ends_at !== undefined ? trial_ends_at : undefined,
+      expires_at: expires_at !== undefined ? expires_at : undefined,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ error: `Ezzy instance "${id}" not found` });
+    }
+
+    return res.json({ success: true, instance: updated });
+  } catch (err: any) {
+    console.error('Error updating Ezzy instance:', err);
+    return res.status(500).json({ error: 'Failed to update Ezzy instance' });
+  }
+});
+
+// GET /api/instances/:id/members - List members in an instance
+app.get('/api/instances/:id/members', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const members = await getEzzyMembers(id);
+    return res.json({ instanceId: id, members });
+  } catch (err: any) {
+    console.error('Error fetching instance members:', err);
+    return res.status(500).json({ error: 'Failed to fetch instance members' });
+  }
+});
+
+// POST /api/instances/:id/members - Add a member to an instance (enforces member limits)
+app.post('/api/instances/:id/members', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, displayName, email, role } = req.body || {};
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const member = await addEzzyMember(id, userId.trim(), {
+      displayName: displayName ? String(displayName).trim() : undefined,
+      email: email ? String(email).trim() : undefined,
+      role: (role ? String(role).trim() : 'member') as MemberRole,
+    });
+
+    return res.status(201).json({ success: true, member });
+  } catch (err: any) {
+    console.error('Error adding instance member:', err);
+    if (err instanceof EntitlementViolation || err?.code === 'MEMBER_LIMIT_EXCEEDED') {
+      return res.status(403).json({ error: err.message, code: err.code || 'MEMBER_LIMIT_EXCEEDED' });
+    }
+    return res.status(500).json({ error: 'Failed to add member to instance' });
+  }
+});
+
+// DELETE /api/instances/:id/members/:userId - Remove a member from an instance
+app.delete('/api/instances/:id/members/:userId', async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    await removeEzzyMember(id, userId);
+    return res.json({ success: true, instanceId: id, userId });
+  } catch (err: any) {
+    console.error('Error removing instance member:', err);
+    return res.status(500).json({ error: 'Failed to remove member from instance' });
+  }
+});
+
+// Vite middleware & Static serving
+async function setupServer() {
+  await initBunnyDb();
+  await cleanupContaminatedOriginalTexts();
+  await backfillStoredRelationships();
+
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    
+    // Prevent mobile browsers from caching HTML entry points & service worker
+    app.use((req, res, next) => {
+      if (
+        req.path === '/' ||
+        req.path.endsWith('.html') ||
+        req.path === '/sw.js' ||
+        req.path.endsWith('manifest.webmanifest')
+      ) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+      next();
+    });
+
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('index.html') || filePath.endsWith('sw.js') || filePath.endsWith('.webmanifest')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+          } else if (filePath.includes('/assets/')) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      })
+    );
+
+    app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Ezzymigo server running on port ${PORT}`);
+    backfillMemoryEntities().catch(err => {
+      console.warn('[MemoryEntities Backfill] Startup non-fatal error:', err);
+    });
+  });
+}
+
+setupServer();

@@ -302,7 +302,7 @@ export async function initBunnyDb(): Promise<void> {
         }
       ]);
 
-      // Check and add ezzy_id column to existing scoped tables if not yet present
+      // Check and add columns to tables if not yet present using a single batched PRAGMA roundtrip
       const tablesToMigrate = [
         'memories',
         'scheduled_reminders',
@@ -316,88 +316,79 @@ export async function initBunnyDb(): Promise<void> {
         'memory_vectors'
       ];
 
+      const pragmaStatements = [
+        { sql: `PRAGMA table_info(memories);` },
+        { sql: `PRAGMA table_info(scheduled_reminders);` },
+        { sql: `PRAGMA table_info(calendar_events);` },
+        { sql: `PRAGMA table_info(user_relationships);` },
+        { sql: `PRAGMA table_info(user_entities);` },
+        { sql: `PRAGMA table_info(memory_entities);` },
+        { sql: `PRAGMA table_info(memory_search_projection);` },
+        { sql: `PRAGMA table_info(push_subscriptions);` },
+        { sql: `PRAGMA table_info(suppressed_entities);` },
+        { sql: `PRAGMA table_info(memory_vectors);` },
+        { sql: `PRAGMA table_info(shadow_dismissals);` }
+      ];
+
+      const pragmaResults = await executeBunnySql(pragmaStatements);
+      const pragmaMap: Record<string, string[]> = {};
+      const tablesChecked = [
+        'memories',
+        'scheduled_reminders',
+        'calendar_events',
+        'user_relationships',
+        'user_entities',
+        'memory_entities',
+        'memory_search_projection',
+        'push_subscriptions',
+        'suppressed_entities',
+        'memory_vectors',
+        'shadow_dismissals'
+      ];
+      tablesChecked.forEach((tbl, idx) => {
+        pragmaMap[tbl] = (pragmaResults[idx]?.rows || []).map((r: any) => r.name);
+      });
+
+      const migrationStatements: Array<{ sql: string; args?: any[] }> = [];
       for (const tbl of tablesToMigrate) {
-        try {
-          const infoRes = await executeBunnySql([{ sql: `PRAGMA table_info(${tbl});` }]);
-          const cols = (infoRes[0]?.rows || []).map((r: any) => r.name);
-          if (!cols.includes('ezzy_id')) {
-            await executeBunnySql([{
-              sql: `ALTER TABLE ${tbl} ADD COLUMN ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default';`
-            }]);
-            console.log(`[Bunny DB] Migrated table "${tbl}" with ezzy_id column.`);
-          }
-        } catch (colErr: any) {
-          // Ignore if column already exists or table virtual
-          if (!String(colErr?.message || '').includes('duplicate column')) {
-            console.warn(`[Bunny DB] Note during ezzy_id check on ${tbl}:`, colErr?.message || colErr);
-          }
+        const cols = pragmaMap[tbl] || [];
+        if (!cols.includes('ezzy_id')) {
+          migrationStatements.push({
+            sql: `ALTER TABLE ${tbl} ADD COLUMN ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default';`
+          });
         }
       }
 
-      // Check and add user_id column to push_subscriptions
-      try {
-        const pInfo = await executeBunnySql([{ sql: `PRAGMA table_info(push_subscriptions);` }]);
-        const pCols = (pInfo[0]?.rows || []).map((r: any) => r.name);
-        if (!pCols.includes('user_id')) {
-          await executeBunnySql([{
-            sql: `ALTER TABLE push_subscriptions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user';`
-          }]);
-          console.log('[Bunny DB] Migrated table "push_subscriptions" with user_id column.');
-        }
-      } catch (pErr: any) {
-        if (!String(pErr?.message || '').includes('duplicate column')) {
-          console.warn('[Bunny DB] Note during user_id check on push_subscriptions:', pErr?.message || pErr);
-        }
+      if (!pragmaMap['push_subscriptions']?.includes('user_id')) {
+        migrationStatements.push({
+          sql: `ALTER TABLE push_subscriptions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default_user';`
+        });
       }
 
-      // Check and add created_by column to memories and scheduled_reminders
       for (const tbl of ['memories', 'scheduled_reminders']) {
-        try {
-          const infoRes = await executeBunnySql([{ sql: `PRAGMA table_info(${tbl});` }]);
-          const cols = (infoRes[0]?.rows || []).map((r: any) => r.name);
-          if (!cols.includes('created_by')) {
-            await executeBunnySql([{
-              sql: `ALTER TABLE ${tbl} ADD COLUMN created_by TEXT DEFAULT NULL;`
-            }]);
-            console.log(`[Bunny DB] Migrated table "${tbl}" with created_by column.`);
-          }
-        } catch (colErr: any) {
-          if (!String(colErr?.message || '').includes('duplicate column')) {
-            console.warn(`[Bunny DB] Note during created_by check on ${tbl}:`, colErr?.message || colErr);
-          }
+        if (!pragmaMap[tbl]?.includes('created_by')) {
+          migrationStatements.push({
+            sql: `ALTER TABLE ${tbl} ADD COLUMN created_by TEXT DEFAULT NULL;`
+          });
         }
       }
 
-      // Check and add subject_person column to user_relationships
-      try {
-        const rInfo = await executeBunnySql([{ sql: `PRAGMA table_info(user_relationships);` }]);
-        const rCols = (rInfo[0]?.rows || []).map((r: any) => r.name);
-        if (!rCols.includes('subject_person')) {
-          await executeBunnySql([{
-            sql: `ALTER TABLE user_relationships ADD COLUMN subject_person TEXT NOT NULL DEFAULT 'user';`
-          }]);
-          console.log('[Bunny DB] Migrated table "user_relationships" with subject_person column.');
-        }
-      } catch (rErr: any) {
-        if (!String(rErr?.message || '').includes('duplicate column')) {
-          console.warn('[Bunny DB] Note during subject_person check on user_relationships:', rErr?.message || rErr);
-        }
+      if (!pragmaMap['user_relationships']?.includes('subject_person')) {
+        migrationStatements.push({
+          sql: `ALTER TABLE user_relationships ADD COLUMN subject_person TEXT NOT NULL DEFAULT 'user';`
+        });
       }
 
-      // Check and add ttl_hours column to shadow_dismissals
-      try {
-        const dInfo = await executeBunnySql([{ sql: `PRAGMA table_info(shadow_dismissals);` }]);
-        const dCols = (dInfo[0]?.rows || []).map((r: any) => r.name);
-        if (!dCols.includes('ttl_hours')) {
-          await executeBunnySql([{
-            sql: `ALTER TABLE shadow_dismissals ADD COLUMN ttl_hours INTEGER DEFAULT 48;`
-          }]);
-          console.log('[Bunny DB] Migrated table "shadow_dismissals" with ttl_hours column.');
-        }
-      } catch (dErr: any) {
-        if (!String(dErr?.message || '').includes('duplicate column')) {
-          console.warn('[Bunny DB] Note during ttl_hours check on shadow_dismissals:', dErr?.message || dErr);
-        }
+      if (!pragmaMap['shadow_dismissals']?.includes('ttl_hours')) {
+        migrationStatements.push({
+          sql: `ALTER TABLE shadow_dismissals ADD COLUMN ttl_hours INTEGER DEFAULT 48;`
+        });
+      }
+
+      if (migrationStatements.length > 0) {
+        await executeBunnySql(migrationStatements).catch((err) => {
+          console.warn('[Bunny DB] Non-fatal note during batch column migrations:', err?.message || err);
+        });
       }
 
       // Add indexes for ezzy_id and isolation

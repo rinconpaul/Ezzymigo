@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@keyframes marquee-scroll {
+  0%, 16% {
+    transform: translateX(0);
+  }
+  70%, 86% {
+    transform: translateX(var(--marquee-distance, 0px));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}

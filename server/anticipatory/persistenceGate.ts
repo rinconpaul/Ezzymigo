@@ -12,6 +12,8 @@
  * 4. ONLY an explicit Save / capture / reminder instruction crosses into the existing Tell/reminder pipeline.
  */
 
+import { isPureAcknowledgement } from '../memory/storageWorthiness';
+
 export type AnticipatoryResponseClassification =
   | 'DISMISS'
   | 'CONVERSATIONAL'
@@ -63,6 +65,7 @@ export function isAnticipatoryDismissal(text: string): boolean {
   if (!text) return true;
   const trimmed = text.trim();
   if (!trimmed) return true;
+  if (isPureAcknowledgement(trimmed)) return true;
   return DISMISSAL_EXACT_OR_LEADING_REGEX.test(trimmed) || DISMISSAL_PREFIX_REGEX.test(trimmed);
 }
 
@@ -202,7 +205,7 @@ export function evaluateAnticipatoryResponsePersistence(
   // If the response is not a dismissal and not a pure conversational pleasantry/status,
   // the explicit submission through the capture tray indicates intent to save substantive facts.
   if (options?.isCaptureFlow) {
-    if (CONVERSATIONAL_STATUS_REGEX.test(trimmed)) {
+    if (CONVERSATIONAL_STATUS_REGEX.test(trimmed) || isPureAcknowledgement(trimmed)) {
       return {
         shouldPersist: false,
         classification: 'CONVERSATIONAL',

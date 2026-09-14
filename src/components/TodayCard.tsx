@@ -3,6 +3,7 @@ import { Sparkles, Mic, MicOff, Send, Loader2, Check, X } from 'lucide-react';
 import { getUserPreferences } from '../utils/userPreferences';
 import { useSpeechDictation } from '../utils/useSpeechDictation';
 import { ConversationalContextEnvelope } from '../types';
+import { loadScopedCache, saveScopedCache } from '../utils/cacheManager';
 
 export interface TodayEvaluation {
   id: string;
@@ -48,6 +49,8 @@ export interface CommunicationItem {
 }
 
 interface TodayCardProps {
+  userId?: string | null;
+  ezzyId?: string | null;
   onSaveThought?: (
     text: string,
     context?: {
@@ -256,12 +259,25 @@ function extractCommunications(
 // -------------------------------------------------------------
 // CANONICAL TODAY COMPONENT
 // -------------------------------------------------------------
-export function TodayCard({ onSaveThought }: TodayCardProps) {
-  const [todayEvaluation, setTodayEvaluation] = useState<TodayEvaluation | null>(null);
-  const [checkInEvaluation, setCheckInEvaluation] = useState<TodayEvaluation | null>(null);
-  const [recentEvaluations, setRecentEvaluations] = useState<TodayEvaluation[]>([]);
-  const [attentionReview, setAttentionReview] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function TodayCard({ onSaveThought, userId, ezzyId }: TodayCardProps) {
+  const mountTimeRef = useRef<number>(performance.now());
+  const effectiveEzzyId = (ezzyId || 'ezzy_default').trim();
+  const effectiveUserId = (userId || 'anon').trim();
+
+  const initialCache = React.useMemo(() => {
+    return loadScopedCache<any>(
+      'ezzymigo_cached_today',
+      effectiveUserId,
+      effectiveEzzyId,
+      (d) => typeof d === 'object' && d !== null
+    );
+  }, [effectiveUserId, effectiveEzzyId]);
+
+  const [todayEvaluation, setTodayEvaluation] = useState<TodayEvaluation | null>(initialCache?.todayEvaluation || null);
+  const [checkInEvaluation, setCheckInEvaluation] = useState<TodayEvaluation | null>(initialCache?.checkInEvaluation || null);
+  const [recentEvaluations, setRecentEvaluations] = useState<TodayEvaluation[]>(initialCache?.recentEvaluations || []);
+  const [attentionReview, setAttentionReview] = useState<any>(initialCache?.attentionReview || null);
+  const [isLoading, setIsLoading] = useState(!initialCache);
 
   // Cycling ticker state
   const [communicationIndex, setCommunicationIndex] = useState(0);
@@ -276,31 +292,59 @@ export function TodayCard({ onSaveThought }: TodayCardProps) {
   const detailTrayRef = useRef<HTMLDivElement>(null);
   const prefs = getUserPreferences();
 
-  // Fetch canonical Today state from GET /api/today
+  // Fetch canonical Today state from GET /api/today with bounded timeout
   const fetchTodayState = useCallback(async () => {
+    const fetchStart = performance.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
     try {
       const tz = prefs.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Sydney';
       const now = new Date().toISOString();
-      const res = await fetch(`/api/today?clientNow=${encodeURIComponent(now)}&clientTimeZone=${encodeURIComponent(tz)}`);
+      const res = await fetch(
+        `/api/today?clientNow=${encodeURIComponent(now)}&clientTimeZone=${encodeURIComponent(tz)}&ezzy_id=${encodeURIComponent(effectiveEzzyId)}`,
+        {
+          signal: controller.signal,
+          headers: {
+            'x-ezzy-id': effectiveEzzyId,
+            ...(userId ? { 'x-user-id': userId } : {}),
+          },
+        }
+      );
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         const todayEval = data.todayEvaluation || data.evaluation || null;
         const checkInEval = data.checkInEvaluation || null;
         const recents = data.recentEvaluations || [];
+        const attReview = data.attentionReview || null;
 
         setTodayEvaluation(todayEval);
         setCheckInEvaluation(checkInEval);
         setRecentEvaluations(recents);
-        setAttentionReview(data.attentionReview || null);
+        setAttentionReview(attReview);
+
+        console.log(`[Client Timing] Fresh today state synced in ${(performance.now() - fetchStart).toFixed(1)}ms`);
+
+        // Cache valid state isolated by userId and ezzyId
+        saveScopedCache('ezzymigo_cached_today', effectiveUserId, effectiveEzzyId, {
+          todayEvaluation: todayEval,
+          checkInEvaluation: checkInEval,
+          recentEvaluations: recents,
+          attentionReview: attReview,
+        });
       }
-    } catch (err) {
-      console.warn('[Today Card] Error fetching today state:', err);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.warn('[Today Card] Network sync skipped, using last known state:', err?.name === 'AbortError' ? 'timed out' : err?.message);
     } finally {
       setIsLoading(false);
     }
-  }, [prefs.timezone]);
+  }, [prefs.timezone, effectiveEzzyId, effectiveUserId, userId]);
 
   useEffect(() => {
+    console.log(`[Client Timing] TodayCard mounted at ${(performance.now() - mountTimeRef.current).toFixed(1)}ms`);
     fetchTodayState();
   }, [fetchTodayState]);
 
@@ -515,7 +559,7 @@ export function TodayCard({ onSaveThought }: TodayCardProps) {
         }).catch((err) => console.warn('[Today Card] Interaction provenance error:', err));
       });
 
-      setSaveSuccess('Saved to Ezzy');
+      setSaveSuccess(savedMemoryId ? 'Saved to Ezzy' : 'Acknowledged');
       setResponseText('');
       setTimeout(() => {
         setIsDetailOpen(false);
