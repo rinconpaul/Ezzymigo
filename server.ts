@@ -149,11 +149,63 @@ export function extractEzzyId(req: express.Request): string {
   if (req.query && typeof req.query.ezzy_id === 'string' && req.query.ezzy_id.trim()) {
     return req.query.ezzy_id.trim();
   }
+  if (req.query && typeof (req.query as any).ezzyId === 'string' && (req.query as any).ezzyId.trim()) {
+    return (req.query as any).ezzyId.trim();
+  }
   if (req.body && typeof req.body.ezzy_id === 'string' && req.body.ezzy_id.trim()) {
     return req.body.ezzy_id.trim();
   }
+  if (req.body && typeof (req.body as any).ezzyId === 'string' && (req.body as any).ezzyId.trim()) {
+    return (req.body as any).ezzyId.trim();
+  }
   return DEFAULT_EZZY_ID;
 }
+
+// -------------------------------------------------------------
+// HTTP PRODUCTION DATA GUARD MIDDLEWARE
+// Permanently prevents automated test suites, scripts, or benchmarks
+// from mutating or polluting live production instances ('ezzy_default' or 'default_user').
+// All tests must supply an isolated disposable instance ID (e.g. x-ezzy-id: 'test_...').
+// -------------------------------------------------------------
+app.use((req, res, next) => {
+  const isTestHeader = Boolean(
+    req.headers['x-is-test'] === 'true' ||
+    req.headers['x-test-run'] === 'true' ||
+    req.headers['x-test-context'] === 'true' ||
+    req.headers['x-automation-test'] === 'true'
+  );
+
+  const queryIsTest = req.query && (req.query.isTest === 'true' || req.query.is_test === 'true');
+  const bodyIsTest = req.body && (req.body.isTest === true || req.body.is_test === true || req.body.isTestRun === true);
+
+  const isTestRequest = isTestHeader || Boolean(queryIsTest) || Boolean(bodyIsTest);
+
+  // For any mutating API route (POST, PUT, PATCH, DELETE):
+  const isMutatingMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method.toUpperCase());
+  const isApiRoute = req.path.startsWith('/api/');
+
+  if (isApiRoute && isTestRequest) {
+    const targetEzzyId = extractEzzyId(req);
+    const targetUserId = extractUserId(req);
+
+    const isTargetingProduction =
+      targetEzzyId === DEFAULT_EZZY_ID ||
+      targetUserId === 'default_user' ||
+      targetEzzyId === '' ||
+      !targetEzzyId;
+
+    if (isTargetingProduction) {
+      console.error(
+        `❌ [HTTP PRODUCTION DATA GUARD VIOLATION] Blocked test request from mutating production instance ('${targetEzzyId}')! Method: ${req.method} ${req.path}`
+      );
+      return res.status(403).json({
+        error: `[PRODUCTION DATA GUARD VIOLATION] Automated test request attempted to target production instance ('${targetEzzyId}'). Tests MUST use an isolated disposable test instance ID (e.g. x-ezzy-id: 'test_...').`,
+      });
+    }
+  }
+
+  next();
+});
 
 // Start background push dispatcher interval
 startReminderDispatcherInterval(10000);

@@ -18,8 +18,14 @@ export function extractUserId(req: Request): string {
   if (req.query && typeof req.query.user_id === 'string' && req.query.user_id.trim()) {
     return req.query.user_id.trim();
   }
+  if (req.query && typeof (req.query as any).userId === 'string' && (req.query as any).userId.trim()) {
+    return (req.query as any).userId.trim();
+  }
   if (req.body && typeof req.body.user_id === 'string' && req.body.user_id.trim()) {
     return req.body.user_id.trim();
+  }
+  if (req.body && typeof (req.body as any).userId === 'string' && (req.body as any).userId.trim()) {
+    return (req.body as any).userId.trim();
   }
   return DEFAULT_DEV_USER_ID;
 }

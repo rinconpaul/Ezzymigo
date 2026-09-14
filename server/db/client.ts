@@ -21,12 +21,29 @@ export function getBunnyTargetUrl(): string | null {
 
 // Helper to detect if running under an automated test runner / script
 export function isTestContext(): boolean {
-  if (process.env.NODE_ENV === 'test' || process.env.IS_TEST_RUN === 'true') {
+  if (process.env.NODE_ENV === 'test' || process.env.IS_TEST_RUN === 'true' || process.env.VITEST === 'true') {
     return true;
   }
   const argvStr = process.argv.join(' ');
-  return argvStr.includes('/scripts/') || argvStr.includes('test');
+  return argvStr.includes('/scripts/') || argvStr.includes('test') || argvStr.includes('vitest');
 }
+
+// Multi-tenant tables with ezzy_id / user_id columns that must never be mutated under production tenants in tests
+const PROTECTED_MULTI_TENANT_TABLES = [
+  'memories',
+  'user_entities',
+  'user_relationships',
+  'scheduled_reminders',
+  'memory_search_projection',
+  'memory_vectors',
+  'memory_entities',
+  'calendar_events',
+  'shadow_evaluations',
+  'shadow_interactions',
+  'shadow_dismissals',
+  'shadow_attention_reviews',
+  'suppressed_entities',
+];
 
 // Production Data Guard: Blocks test code from mutating live production / default_user / ezzy_default data
 export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
@@ -41,7 +58,7 @@ export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
     const isWrite = /^\s*(insert|update|delete|replace|drop|alter|truncate)\b/i.test(sqlLower);
     if (!isWrite) continue;
 
-    // Check if targeting protected default_user or ezzy_default record
+    // 1. Direct check: Explicit targeting of protected default_user or ezzy_default
     const hasProtectedTenantInSql = /\b(default_user|ezzy_default)\b/i.test(st.sql);
     const hasProtectedTenantInArgs =
       Array.isArray(st.args) &&
@@ -51,6 +68,30 @@ export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
       const err = `[PRODUCTION DATA GUARD VIOLATION] Automated test code attempted to execute write operation mutating protected record ('default_user' or 'ezzy_default')! SQL: "${st.sql}". Tests must use isolated test IDs (e.g. 'test_...').`;
       console.error(`❌ ${err}`);
       throw new Error(err);
+    }
+
+    // 2. Table-level check: Mutating multi-tenant tables without an explicit isolated test identifier
+    // Prevents SQLite column defaults (e.g. DEFAULT 'ezzy_default') from quietly writing to production
+    const targetsMultiTenantTable = PROTECTED_MULTI_TENANT_TABLES.some((tbl) =>
+      new RegExp(`\\b${tbl}\\b`, 'i').test(sqlLower)
+    );
+
+    if (targetsMultiTenantTable) {
+      // Must contain an isolated test identifier (test_..., ezzy_test_..., disposable_...)
+      const hasIsolatedTestIdInSql = /\b(test_[a-z0-9_]+|ezzy_test_[a-z0-9_]+|disposable_[a-z0-9_]+)\b/i.test(st.sql);
+      const hasIsolatedTestIdInArgs =
+        Array.isArray(st.args) &&
+        st.args.some(
+          (a) =>
+            typeof a === 'string' &&
+            /^(?:test_|ezzy_test_|disposable_)/i.test(a.trim())
+        );
+
+      if (!hasIsolatedTestIdInSql && !hasIsolatedTestIdInArgs) {
+        const err = `[PRODUCTION DATA GUARD VIOLATION] Automated test write on table in "${st.sql}" does not explicitly target an isolated test instance ('test_*', 'ezzy_test_*', 'disposable_*'). Omitting tenant ID causes fallback to production ezzy_default and is strictly prohibited.`;
+        console.error(`❌ ${err}`);
+        throw new Error(err);
+      }
     }
   }
 }

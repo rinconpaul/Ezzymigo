@@ -277,7 +277,7 @@ export function evaluateTodayRelevanceCandidates(
           occurrence_id: occurrenceId,
           relevance_reason: 'post_event_reflection',
           display_text: promptRes.prompt,
-          ticker_headlines: promptRes.tickerHeadlines,
+          ticker_headlines: (promptRes as any).tickerHeadlines || [promptRes.prompt],
           priority: 75,
           is_anticipatory: true,
           anticipatory_stage: 'reflect',
@@ -311,7 +311,7 @@ export function evaluateTodayRelevanceCandidates(
             occurrence_id: occurrenceId,
             relevance_reason: 'upcoming_appointment_prep',
             display_text: promptRes.prompt,
-            ticker_headlines: promptRes.tickerHeadlines,
+            ticker_headlines: (promptRes as any).tickerHeadlines || [promptRes.prompt],
             priority: 80,
             is_anticipatory: true,
             anticipatory_stage: 'prepare',
@@ -425,7 +425,7 @@ export async function computeTodayRelevance(
   const { readCalendarEvents } = await import('../calendar/store');
   const { readActiveRelationships } = await import('../relationships');
   const memories = await readMemories(ezzyId).catch(() => []);
-  const calendarEvents = await readCalendarEvents(ezzyId).catch(() => []);
+  const calendarEvents = await readCalendarEvents({}, ezzyId).catch(() => []);
   const relationships = await readActiveRelationships(ezzyId).catch(() => []);
   return evaluateTodayRelevance(memories, calendarEvents, relationships, new Date(nowIso), timeZone, '', dismissed);
 }

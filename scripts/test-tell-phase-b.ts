@@ -14,14 +14,25 @@ const LOCAL_CONTEXT = {
   clientRegion: 'AU',
 };
 
+// Permanent Isolation Fix: Unique disposable test tenant ID
+const TEST_EZZY_ID = `test_disposable_tell_b_${Date.now()}`;
+const TEST_USER_ID = `test_user_tell_b_${Date.now()}`;
+
 const createdMemoryIds: string[] = [];
 
 async function callTellHttp(text: string, lang = 'en-AU', region = 'AU') {
   const t0 = performance.now();
   const res = await fetch(`${BASE_URL}/api/memories`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-is-test': 'true',
+      'x-ezzy-id': TEST_EZZY_ID,
+      'x-user-id': TEST_USER_ID,
+    },
     body: JSON.stringify({
+      ezzy_id: TEST_EZZY_ID,
+      userId: TEST_USER_ID,
       originalText: text,
       text,
       clientNow: LOCAL_CONTEXT.clientNow,
@@ -48,8 +59,15 @@ async function callAskHttp(question: string, lang = 'en-AU', region = 'AU') {
   const t0 = performance.now();
   const res = await fetch(`${BASE_URL}/api/ask`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-is-test': 'true',
+      'x-ezzy-id': TEST_EZZY_ID,
+      'x-user-id': TEST_USER_ID,
+    },
     body: JSON.stringify({
+      ezzy_id: TEST_EZZY_ID,
+      userId: TEST_USER_ID,
       question,
       clientNow: LOCAL_CONTEXT.clientNow,
       clientTimeZone: LOCAL_CONTEXT.clientTimeZone,
@@ -67,17 +85,22 @@ async function callAskHttp(question: string, lang = 'en-AU', region = 'AU') {
 }
 
 async function cleanupAllTestMemories() {
-  if (createdMemoryIds.length === 0) return;
-  const uniqueIds = Array.from(new Set(createdMemoryIds));
-  console.log(`[Cleanup] Deleting ${uniqueIds.length} benchmark test memories...`);
-  for (const id of uniqueIds) {
-    try {
-      await deleteMemoryFromDb(id);
-    } catch (err) {
-      console.warn(`[Cleanup] Failed to delete memory ${id}:`, err);
-    }
+  console.log(`[Cleanup] Purging disposable test tenant: ${TEST_EZZY_ID}...`);
+  try {
+    await initBunnyDb();
+    await executeBunnySql([
+      { sql: `DELETE FROM memories WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM memory_search_projection WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM memory_vectors WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM memory_entities WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM user_entities WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM user_relationships WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+      { sql: `DELETE FROM scheduled_reminders WHERE ezzy_id = ?;`, args: [TEST_EZZY_ID] },
+    ]);
+    console.log(`[Cleanup] Successfully purged disposable test tenant ${TEST_EZZY_ID}.`);
+  } catch (err) {
+    console.warn(`[Cleanup] Failed to purge test tenant ${TEST_EZZY_ID}:`, err);
   }
-  console.log('[Cleanup] Test memories successfully deleted.');
 }
 
 // --------------------------------------------------------------------------
