@@ -4,12 +4,15 @@ import {
   ThinkingOpportunity,
   EzzyWorldSnapshot,
   ReasoningDecision,
+  ReasoningMode,
 } from '../snapshot/types';
+import { executeCapability } from '../capabilities/registry';
 
 export interface ExecuteReasoningOptions {
   input?: string;
   trigger?: string;
   targetEventId?: string;
+  clientRegion?: string;
 }
 
 const NEW_EZZY_SYSTEM_INSTRUCTION = `You are Ezzymigo (Ezzy), the user's long-term personal memory assistant.
@@ -20,47 +23,58 @@ Ezzymigo remembers things so the user does not have to continuously carry them m
 Remembering is insufficient—Ezzy must bring information forward while it can still help.
 Therefore: Storage does not imply surfacing mundane noise, BUT high-value commitments, appointments, and due reminders MUST be brought forward in a timely manner.
 
-CORE PRINCIPLES & BEHAVIOURAL CONTRACT:
-1. EVENING LOOK-AHEAD (Previous evening: timePhase "evening" / 5:00 pm - 10:00 pm):
-   - When civil time is evening, your primary proactive orientation duty is to look ahead to tomorrow morning!
-   - Inspect "calendar.tomorrowMorningEvents" and "commitments.tomorrowMorningDatedMemories".
-   - If an important next-morning commitment exists (e.g. Mum's hairdresser appointment at 10:00 am on Friday):
-     Set mode to "SPEAK", headline to "Looking Ahead to Tomorrow Morning" (or specific event), and body to a clear, helpful notice (e.g. "Looking ahead to tomorrow morning: Mum has a hairdresser's appointment at 10:00 am during your usual morning visit.").
-     Set reason to "Surfacing next-morning commitment during evening look-ahead window", source to "dated_memory" or "calendar_event", and priority to "high".
+GOVERNING PRINCIPLE FOR ANTICIPATORY INTELLIGENCE & CAPABILITIES:
+"Context resolves meaning; it does not manufacture intent."
+- DO NOT add occasion-specific logic or keyword mappings:
+  * Never hardcode: if birthday -> suggest restaurant; if anniversary -> suggest flowers; if doctor -> suggest questions.
+  * No regexes, no fixed category templates, no predetermined prompts for individual scenarios.
+- The deterministic system controls facts and boundaries. Gemini reasons about meaning.
 
-2. MORNING ORIENTATION (timePhase "morning" / before 12:00 pm):
-   - Surface today's upcoming appointments and morning commitments before they occur (e.g. Mum's 10:00 am appointment).
-   - Surface due or overdue reminders from "commitments.dueOrOverdueReminders".
-   - Prioritize upcoming appointments prominently while there is still time to prepare or act.
+THE 7-STEP REASONING & CAPABILITY LIFECYCLE:
+1. Review event: Evaluate upcoming calendar events or commitments in their temporal context.
+2. Decide if help is needed: Does this event involve logistical coordination, preparation, or decisions that the user has NOT yet handled?
+   * If already handled (e.g. memory shows "Doug booked Italian place" or user already arranged it) -> stay SILENT or simple informational notice.
+   * If mundane routine chore (e.g. routine grocery run) -> stay SILENT or simple reminder without unsolicited capability suggestions.
+3. Offer broad communication: If help may be useful, start with broad check-in or orientation (mode "COMMUNICATE" or "ASK").
+   * Check in generally on how plans are shaping up or ask if they would like a hand looking into anything.
+   * Do NOT jump ahead to picking specific venues, flowers, or bookings before understanding the user's situation.
+4. Interpret response: When the user responds (via input or recent interactions):
+   * If the user declines or says all sorted -> respect their choice, stay SILENT or simple warm acknowledgement. DO NOT invoke capabilities.
+   * If the user expresses a specific logistical need -> move to Step 5 or Step 6.
+5. Offer capability (mode "OFFER_CAPABILITY"):
+   * If the user mentions a need or undecided aspect without explicitly asking for search yet, offer an approved capability ("search_places"), stating clearly what Ezzy can look up and asking if they would like that.
+6. Use capability (mode "USE_CAPABILITY"):
+   * When the user explicitly asks Ezzy to find, research, recommend, or suggest options/places, or confirms Ezzy's offer:
+   * Set mode to "USE_CAPABILITY".
+   * Populate "capabilityRequest" with capability: "search_places" and parameters { query, location, criteria, placeType }.
+7. Present results (mode "COMMUNICATE"):
+   * Present verified, real options clearly and actionably with practical details (name, address, rating, key features, phone, link) so the user can easily take action.
 
-3. APPOINTMENT EXPIRATION & FOLLOW-UP:
-   - Once an appointment's scheduled time has passed, preparation prompts expire.
-   - For an appointment that concluded within the last 1–4 hours, independently evaluate whether asking about the outcome is worthwhile (e.g. "How did Mum's hairdresser appointment go this morning?").
-   - If an outcome note already exists in memory or user interactions, or if the user was already asked, do NOT repeat completed matters.
+PRIVACY & LOCATION RESOLUTION HIERARCHY:
+- Rule: Do not silently acquire precise location.
+- Hierarchy:
+  1. Explicit location: If the user or event explicitly specifies a location (e.g., "in Deakin", "near Canberra Hospital"), use that.
+  2. Home / General location: Look for where the user lives from active memories.
+  3. Broad locality: Use client region or timezone (e.g., Canberra, ACT; Sydney, NSW).
+  4. Clarification: If location is completely ambiguous, mode must be "ASK" to clarify the area before searching.
 
-4. DUE OR OVERDUE REMINDERS:
-   - Repeat due or overdue reminders from "commitments.dueOrOverdueReminders" appropriately until Done, dismissed, or deleted.
+SAFETY & BOUNDARIES:
+- Ezzy is strictly an informational and research assistant.
+- NEVER attempt automated bookings, reservations, text messages, or phone calls.
+- Always present actionable options so the user remains in full control.
 
-5. UPCOMING OCCASIONS:
-   - Provide useful advance notice for upcoming birthdays and special occasions within their advance preparation window (from "occasions").
+GENERIC REASONING CONTRACT MODES:
+- "SILENT": No communication needed right now.
+- "COMMUNICATE" (or "SPEAK"): Informative message, proactive orientation, or presentation of research results.
+- "ASK" (or "PROMPT"): Check-in, exploratory question, or asking for clarification.
+- "OFFER_CAPABILITY": Proposing an approved capability (e.g. search_places) to assist with an expressed need.
+- "USE_CAPABILITY": Invoking an approved capability (search_places) with structured parameters.
 
-6. NO ACTIONABLE CONTENT (THROTTLED HUMAN CHECK-IN):
-   - If there is genuinely no timely appointment, commitment, due reminder, or follow-up:
-     Ezzy may provide ONE restrained, warm human check-in appropriate to the time of day (e.g. "Good morning, Paul. How are you doing today?").
-     NEVER output fake filler like "Ezzymigo is quietly holding your context" or "quietly waiting".
-
-7. ZERO INVENTION & STRICT GROUNDING:
-   - Never invent personal facts, appointments, or medical notes.
-   - Cite exact memory IDs in "citedMemoryIds" and calendar IDs in "citedCalendarIds".
-
-8. FOR "ASK_QUERY" (INCLUDING CURRENT SCREEN CONTEXT):
-   - When the user asks a question, answer directly, cleanly, and helpfully in "communication.body".
-   - If the user asks about current screen visibility (e.g. "Why isn’t that showing in the TODAY ticker?", "Why is that on my screen?"):
-     Consult "currentScreenContext" (which includes activeTickerItem, recentCandidateResolutions, visibleAppointments) as well as the snapshot's commitments and calendar.
-     Resolve "that" cleanly to the relevant appointment, commitment, or memory.
-     Explain precisely why it is or is not showing based on scheduled time, current civil time (morning vs afternoon vs evening), whether the scheduled time has passed, and its suppression/attention resolution status.
-   - ABSOLUTE PROHIBITION ON MEMORY CREATION FOR ASK_QUERY:
-     When answering an Ask question, "proposedMutations" MUST ALWAYS BE EMPTY []. Never propose creating, storing, or saving a memory when the user is asking a question!`;
+EVENING LOOK-AHEAD & MORNING ORIENTATION:
+- Evening: Look ahead to tomorrow morning's commitments.
+- Morning: Surface today's upcoming commitments and due reminders before they occur.
+- Post-event: Expire preparation prompts. Optionally ask about outcome 1-4 hours after conclusion if not already recorded.
+- Ask Query: Answer user questions directly in body. Proposed mutations MUST be empty [] for ASK_QUERY.`;
 
 const REASONING_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -70,8 +84,17 @@ const REASONING_SCHEMA: Schema = {
       properties: {
         mode: {
           type: Type.STRING,
-          enum: ['SPEAK', 'PROMPT', 'SILENT'],
-          description: 'The communication mode. Use SILENT only when nothing needs attention right now.',
+          enum: [
+            'SILENT',
+            'COMMUNICATE',
+            'ASK',
+            'OFFER_CAPABILITY',
+            'USE_CAPABILITY',
+            'SPEAK',
+            'PROMPT',
+          ],
+          description:
+            'The communication mode. Use SILENT when nothing needs attention; COMMUNICATE for notices or presenting results; ASK for broad check-ins; OFFER_CAPABILITY to offer research; USE_CAPABILITY to run an approved capability.',
         },
         headline: {
           type: Type.STRING,
@@ -82,12 +105,12 @@ const REASONING_SCHEMA: Schema = {
           type: Type.STRING,
           nullable: true,
           description:
-            'Substantive message or explanation. For ASK_QUERY, this MUST contain the complete, direct answer to the user question (cannot be null when mode is SPEAK).',
+            'Substantive message, check-in, or explanation. For ASK_QUERY, this MUST contain the complete, direct answer.',
         },
         question: {
           type: Type.STRING,
           nullable: true,
-          description: 'Optional follow-up or check-in question (null if none or mode is SILENT)',
+          description: 'Optional follow-up, offer, or check-in question (null if none or mode is SILENT)',
         },
         reason: {
           type: Type.STRING,
@@ -97,7 +120,7 @@ const REASONING_SCHEMA: Schema = {
         source: {
           type: Type.STRING,
           nullable: true,
-          description: 'Source: calendar_event, dated_memory, scheduled_reminder, occasion, post_event, or human_checkin',
+          description: 'Source: calendar_event, dated_memory, scheduled_reminder, occasion, post_event, capability, or human_checkin',
         },
         priority: {
           type: Type.STRING,
@@ -119,6 +142,48 @@ const REASONING_SCHEMA: Schema = {
         },
       },
       required: ['mode', 'body'],
+    },
+    capabilityRequest: {
+      type: Type.OBJECT,
+      nullable: true,
+      description: 'Required when mode is USE_CAPABILITY. Structured parameters to invoke an approved capability.',
+      properties: {
+        capability: {
+          type: Type.STRING,
+          description: 'Must be "search_places"',
+        },
+        parameters: {
+          type: Type.OBJECT,
+          description: 'Search parameters',
+          properties: {
+            query: { type: Type.STRING },
+            location: { type: Type.STRING, nullable: true },
+            placeType: { type: Type.STRING, nullable: true },
+            criteria: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+          required: ['query'],
+        },
+        rationale: { type: Type.STRING, nullable: true },
+      },
+    },
+    capabilityOffer: {
+      type: Type.OBJECT,
+      nullable: true,
+      description: 'Required when mode is OFFER_CAPABILITY. Description of the capability offered.',
+      properties: {
+        capability: { type: Type.STRING },
+        description: { type: Type.STRING },
+        suggestedParameters: {
+          type: Type.OBJECT,
+          properties: {
+            query: { type: Type.STRING },
+            location: { type: Type.STRING, nullable: true },
+          },
+        },
+      },
     },
     proposedMutations: {
       type: Type.ARRAY,
@@ -212,7 +277,7 @@ EZZY WORLD SNAPSHOT:
 ${JSON.stringify(snapshot, null, 2)}
 
 Given what you know about this person, their circumstances, their history, and what is happening right now:
-Determine what (if anything) should be communicated, what should be persisted or resolved, and provide your concise rationale.
+${options.input ? `NOTE: The user has provided current input ("${options.input}"). Address their statement or request directly. If they are asking for recommendations, research, or assistance, use USE_CAPABILITY or COMMUNICATE with capabilityRequest to assist them.\n` : ''}Determine what (if anything) should be communicated, what should be persisted or resolved, and provide your concise rationale.
 Conform strictly to the JSON schema.`;
 
   const t0 = Date.now();
@@ -246,8 +311,19 @@ Conform strictly to the JSON schema.`;
   }
 
   // Sanitize mode & communication values
-  const mode = (parsed.communication?.mode || 'SILENT').toUpperCase();
-  const validMode = mode === 'SPEAK' || mode === 'PROMPT' ? mode : 'SILENT';
+  const rawMode = (parsed.communication?.mode || 'SILENT').toUpperCase();
+  const ALLOWED_MODES: ReasoningMode[] = [
+    'SILENT',
+    'COMMUNICATE',
+    'ASK',
+    'OFFER_CAPABILITY',
+    'USE_CAPABILITY',
+    'SPEAK',
+    'PROMPT',
+  ];
+  const validMode: ReasoningMode = (ALLOWED_MODES.includes(rawMode as any)
+    ? rawMode
+    : 'SILENT') as ReasoningMode;
 
   let cleanHeadline = validMode === 'SILENT' ? null : parsed.communication?.headline?.trim() || null;
   let cleanBody = validMode === 'SILENT' ? null : parsed.communication?.body?.trim() || null;
@@ -255,11 +331,62 @@ Conform strictly to the JSON schema.`;
 
   // Surgical Invariant for ASK_QUERY:
   // A headline alone must never substitute for a substantive answer in body.
-  // If the model produced a headline but left body null/blank on ASK_QUERY (e.g. "Doug is going to Sydney"),
-  // promote the text to body so that the consumer receives the substantive answer.
-  if (opportunity === 'ASK_QUERY' && validMode === 'SPEAK') {
+  if (opportunity === 'ASK_QUERY' && (validMode === 'SPEAK' || validMode === 'COMMUNICATE')) {
     if (!cleanBody && cleanHeadline) {
       cleanBody = cleanHeadline;
+    }
+  }
+
+  let capRequest = parsed.capabilityRequest || null;
+  const capOffer = parsed.capabilityOffer || null;
+  let capResult: any = null;
+
+  // Execute capability server-side if mode is USE_CAPABILITY or capabilityRequest is present
+  if (validMode === 'USE_CAPABILITY' || capRequest) {
+    if (!capRequest && validMode === 'USE_CAPABILITY') {
+      capRequest = {
+        capability: 'search_places',
+        parameters: {
+          query: cleanHeadline || cleanBody || options.input || 'places',
+        },
+      };
+    }
+
+    if (capRequest?.capability) {
+      try {
+        const execution = await executeCapability({
+          ezzyId: snapshot.ezzyId,
+          capability: capRequest.capability as any,
+          parameters: capRequest.parameters || {},
+          clientNow: snapshot.civilTime.iso,
+          clientTimeZone: snapshot.civilTime.timeZone,
+          clientRegion: options.clientRegion || (snapshot as any).clientRegion,
+          userMemories: snapshot.activeMemories,
+        });
+        capResult = execution.data;
+
+        // If places were found and the body is generic or empty, format clean actionable results
+        if (
+          capResult?.places?.length > 0 &&
+          (!cleanBody ||
+            cleanBody.length < 25 ||
+            cleanBody.toLowerCase().includes('searching') ||
+            cleanBody.toLowerCase().includes('looking'))
+        ) {
+          const placesText = capResult.places
+            .map((p: any) => {
+              const ratingText = p.rating ? ` (${p.rating}★)` : '';
+              const featText = p.features && p.features.length > 0 ? ` - ${p.features.join(', ')}` : '';
+              const contactText = p.phoneNumber ? ` | Tel: ${p.phoneNumber}` : '';
+              const webText = p.websiteUrl ? ` | ${p.websiteUrl}` : '';
+              return `• **${p.name}**${ratingText}: ${p.address}${featText}${contactText}${webText}`;
+            })
+            .join('\n');
+          cleanBody = `Here are suitable options in ${capResult.locationUsed}:\n\n${placesText}`;
+        }
+      } catch (err) {
+        console.warn('[Reasoning Loop] Capability execution failed:', err);
+      }
     }
   }
 
@@ -276,6 +403,9 @@ Conform strictly to the JSON schema.`;
       expiresAt: parsed.communication?.expiresAt || null,
       suppressionState: parsed.communication?.suppressionState || (validMode === 'SILENT' ? 'suppressed' : 'active'),
     },
+    capabilityRequest: capRequest,
+    capabilityOffer: capOffer,
+    capabilityResult: capResult,
     proposedMutations: opportunity === 'ASK_QUERY' ? [] : (Array.isArray(parsed.proposedMutations) ? parsed.proposedMutations : []),
     proposedResolutions: Array.isArray(parsed.proposedResolutions)
       ? parsed.proposedResolutions

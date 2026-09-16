@@ -174,7 +174,10 @@ export async function gatherCandidateCommunications(
           id: `cand_${r.id}`,
           evaluationId: r.id,
           opportunity: r.opportunity,
-          mode: comm.mode === 'SPEAK' ? 'SPEAK' : 'PROMPT',
+          mode:
+            comm.mode === 'SPEAK' || comm.mode === 'COMMUNICATE' || comm.mode === 'USE_CAPABILITY'
+              ? 'SPEAK'
+              : 'PROMPT',
           headline,
           body,
           question,

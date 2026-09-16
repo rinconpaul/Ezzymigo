@@ -138,6 +138,7 @@ import {
   invalidateEzzyCaches,
 } from './server/attention/freshness';
 import { recordShadowDismissal } from './server/attention/dismissals';
+import { executeCapability } from './server/capabilities/registry';
 
 export { extractUserId };
 
@@ -2330,6 +2331,76 @@ const handleEvaluateOpportunity = async (req: express.Request, res: express.Resp
 };
 app.post('/api/evaluate', handleEvaluateOpportunity);
 app.post('/api/shadow/evaluate', handleEvaluateOpportunity);
+
+// POST /api/capabilities/execute - Run an approved capability (e.g. search_places) with multi-tenant isolation and security guards
+app.post('/api/capabilities/execute', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { capability, parameters, clientNow, clientTimeZone, clientRegion } = req.body || {};
+    if (!capability) {
+      return res.status(400).json({ error: 'capability is required' });
+    }
+
+    const memories = await readMemories(ezzyId).catch(() => []);
+
+    const result = await executeCapability({
+      ezzyId,
+      capability,
+      parameters: parameters || {},
+      clientNow,
+      clientTimeZone,
+      clientRegion,
+      userMemories: memories,
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error executing capability:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to execute capability' });
+  }
+});
+
+// POST /api/capabilities/search-places - Direct endpoint for place/venue searches
+app.post('/api/capabilities/search-places', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+
+    const { query, location, placeType, criteria, limit, clientNow, clientTimeZone, clientRegion } = req.body || {};
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const memories = await readMemories(ezzyId).catch(() => []);
+
+    const result = await executeCapability({
+      ezzyId,
+      capability: 'search_places',
+      parameters: {
+        query,
+        location,
+        placeType,
+        criteria,
+        limit,
+      },
+      clientNow,
+      clientTimeZone,
+      clientRegion,
+      userMemories: memories,
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    if (handleEntitlementError(res, error, ezzyId)) return;
+    console.error('Error in search-places:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to search places' });
+  }
+});
 
 // -------------------------------------------------------------
 // Ezzy Instance & Entitlement Boundaries API Endpoints

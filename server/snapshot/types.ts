@@ -106,9 +106,30 @@ export interface EzzyWorldSnapshot {
   };
 }
 
+export type ReasoningMode =
+  | 'SILENT'
+  | 'COMMUNICATE'
+  | 'ASK'
+  | 'OFFER_CAPABILITY'
+  | 'USE_CAPABILITY'
+  | 'SPEAK'
+  | 'PROMPT';
+
+export interface CapabilityRequest {
+  capability: 'search_places' | string;
+  parameters: Record<string, any>;
+  rationale?: string;
+}
+
+export interface CapabilityOffer {
+  capability: 'search_places' | string;
+  description: string;
+  suggestedParameters?: Record<string, any>;
+}
+
 export interface ReasoningDecision {
   communication: {
-    mode: 'SPEAK' | 'PROMPT' | 'SILENT';
+    mode: ReasoningMode;
     headline: string | null;
     body: string | null;
     question: string | null;
@@ -119,6 +140,9 @@ export interface ReasoningDecision {
     expiresAt?: string | null;
     suppressionState?: string | null;
   };
+  capabilityRequest?: CapabilityRequest | null;
+  capabilityOffer?: CapabilityOffer | null;
+  capabilityResult?: any | null;
   proposedMutations: Array<{
     originalText: string;
     content: string;
