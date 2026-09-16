@@ -6,7 +6,7 @@ import {
   ReasoningDecision,
   ReasoningMode,
 } from '../snapshot/types';
-import { executeCapability } from '../capabilities/registry';
+import { executeCapability, areCapabilitiesEnabled } from '../capabilities/registry';
 
 export interface ExecuteReasoningOptions {
   input?: string;
@@ -353,39 +353,46 @@ Conform strictly to the JSON schema.`;
     }
 
     if (capRequest?.capability) {
-      try {
-        const execution = await executeCapability({
-          ezzyId: snapshot.ezzyId,
-          capability: capRequest.capability as any,
-          parameters: capRequest.parameters || {},
-          clientNow: snapshot.civilTime.iso,
-          clientTimeZone: snapshot.civilTime.timeZone,
-          clientRegion: options.clientRegion || (snapshot as any).clientRegion,
-          userMemories: snapshot.activeMemories,
-        });
-        capResult = execution.data;
+      if (!areCapabilitiesEnabled(snapshot.ezzyId)) {
+        capResult = {
+          disabled: true,
+          reason: 'Capability execution disabled in production (ENABLE_EZZY_CAPABILITIES is false).',
+        };
+      } else {
+        try {
+          const execution = await executeCapability({
+            ezzyId: snapshot.ezzyId,
+            capability: capRequest.capability as any,
+            parameters: capRequest.parameters || {},
+            clientNow: snapshot.civilTime.iso,
+            clientTimeZone: snapshot.civilTime.timeZone,
+            clientRegion: options.clientRegion || (snapshot as any).clientRegion,
+            userMemories: snapshot.activeMemories,
+          });
+          capResult = execution.data;
 
-        // If places were found and the body is generic or empty, format clean actionable results
-        if (
-          capResult?.places?.length > 0 &&
-          (!cleanBody ||
-            cleanBody.length < 25 ||
-            cleanBody.toLowerCase().includes('searching') ||
-            cleanBody.toLowerCase().includes('looking'))
-        ) {
-          const placesText = capResult.places
-            .map((p: any) => {
-              const ratingText = p.rating ? ` (${p.rating}★)` : '';
-              const featText = p.features && p.features.length > 0 ? ` - ${p.features.join(', ')}` : '';
-              const contactText = p.phoneNumber ? ` | Tel: ${p.phoneNumber}` : '';
-              const webText = p.websiteUrl ? ` | ${p.websiteUrl}` : '';
-              return `• **${p.name}**${ratingText}: ${p.address}${featText}${contactText}${webText}`;
-            })
-            .join('\n');
-          cleanBody = `Here are suitable options in ${capResult.locationUsed}:\n\n${placesText}`;
+          // If places were found and the body is generic or empty, format clean actionable results
+          if (
+            capResult?.places?.length > 0 &&
+            (!cleanBody ||
+              cleanBody.length < 25 ||
+              cleanBody.toLowerCase().includes('searching') ||
+              cleanBody.toLowerCase().includes('looking'))
+          ) {
+            const placesText = capResult.places
+              .map((p: any) => {
+                const ratingText = p.rating ? ` (${p.rating}★)` : '';
+                const featText = p.features && p.features.length > 0 ? ` - ${p.features.join(', ')}` : '';
+                const contactText = p.phoneNumber ? ` | Tel: ${p.phoneNumber}` : '';
+                const webText = p.websiteUrl ? ` | ${p.websiteUrl}` : '';
+                return `• **${p.name}**${ratingText}: ${p.address}${featText}${contactText}${webText}`;
+              })
+              .join('\n');
+            cleanBody = `Here are suitable options in ${capResult.locationUsed}:\n\n${placesText}`;
+          }
+        } catch (err) {
+          console.warn('[Reasoning Loop] Capability execution failed:', err);
         }
-      } catch (err) {
-        console.warn('[Reasoning Loop] Capability execution failed:', err);
       }
     }
   }

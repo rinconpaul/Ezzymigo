@@ -175,13 +175,13 @@ export async function initBunnyDb(): Promise<void> {
         {
           sql: `CREATE INDEX IF NOT EXISTS idx_mem_entities_memory ON memory_entities(memory_id);`
         },
-        {
+        ...(process.env.NODE_ENV !== 'test' && !process.argv.some(a => a.includes('verify')) ? [{
           // Normalize legacy all-day calendar events to true civil date strings (YYYY-MM-DD)
           sql: `UPDATE calendar_events
                 SET startDatetime = SUBSTR(startDatetime, 1, 10),
                     endDatetime = SUBSTR(endDatetime, 1, 10)
                 WHERE isAllDay = 1 AND startDatetime LIKE '%T%';`
-        },
+        }] : []),
         {
           sql: `CREATE TABLE IF NOT EXISTS shadow_evaluations (
             id TEXT PRIMARY KEY,

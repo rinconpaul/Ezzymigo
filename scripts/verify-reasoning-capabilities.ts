@@ -14,6 +14,9 @@ import { resolveLocationHierarchy } from '../server/capabilities/location';
 import { EzzyWorldSnapshot } from '../server/snapshot/types';
 import { executeBunnySql } from '../server/db/client';
 
+// Enable capabilities strictly within this isolated test process
+process.env.ENABLE_EZZY_CAPABILITIES = 'true';
+
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
   console.error('FATAL: GEMINI_API_KEY is not set');

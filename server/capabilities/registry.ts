@@ -24,6 +24,27 @@ export const PROHIBITED_CAPABILITIES: ReadonlySet<string> = new Set([
   'make_payment',
 ]);
 
+/**
+ * Feature flag check for capability execution.
+ * Production capability execution is strictly disabled.
+ * Capabilities are ONLY executable when ENABLE_EZZY_CAPABILITIES is set in an isolated test process
+ * AND the target tenant is an isolated disposable test tenant (test_*, disposable_*, ezzy_test_*).
+ */
+export function areCapabilitiesEnabled(ezzyId?: string): boolean {
+  const isTestFlagEnabled = process.env.ENABLE_EZZY_CAPABILITIES === 'true';
+  const isDisposableTestTenant = Boolean(
+    ezzyId &&
+      (ezzyId.startsWith('test_') ||
+        ezzyId.startsWith('disposable_') ||
+        ezzyId.startsWith('ezzy_test_'))
+  );
+
+  if (isTestFlagEnabled && isDisposableTestTenant) {
+    return true;
+  }
+  return false;
+}
+
 export async function executeCapability(
   request: CapabilityExecutionRequest
 ): Promise<CapabilityExecutionResult> {
@@ -31,6 +52,13 @@ export async function executeCapability(
   const eid = (request.ezzyId || '').trim();
   if (!eid) {
     throw new Error('Tenant identification (ezzyId) is required for capability execution');
+  }
+
+  // 0. Production Feature Flag Guard: Strictly disabled for all production tenants
+  if (!areCapabilitiesEnabled(eid)) {
+    throw new Error(
+      `Capability execution is strictly disabled for tenant "${eid}". Production execution is not enabled.`
+    );
   }
 
   const capName = request.capability;

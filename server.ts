@@ -2359,6 +2359,9 @@ app.post('/api/capabilities/execute', async (req, res) => {
     return res.json(result);
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
+    if (error?.message && error.message.includes('strictly disabled')) {
+      return res.status(403).json({ error: error.message });
+    }
     console.error('Error executing capability:', error);
     return res.status(500).json({ error: error?.message || 'Failed to execute capability' });
   }
@@ -2397,6 +2400,9 @@ app.post('/api/capabilities/search-places', async (req, res) => {
     return res.json(result);
   } catch (error: any) {
     if (handleEntitlementError(res, error, ezzyId)) return;
+    if (error?.message && error.message.includes('strictly disabled')) {
+      return res.status(403).json({ error: error.message });
+    }
     console.error('Error in search-places:', error);
     return res.status(500).json({ error: error?.message || 'Failed to search places' });
   }
