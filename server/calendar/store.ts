@@ -377,3 +377,73 @@ export async function deleteCalendarEventFromDb(id: string, ezzyId?: string): Pr
   await executeBunnySql([{ sql, args }]);
   invalidateEzzyCaches(scopeEzzyId);
 }
+
+export interface CalendarDiagnostics {
+  provider: string;
+  searchedCalendars: Array<{ id: string; name: string; source: string; eventCount: number }>;
+  lastSyncTime: string | null;
+  totalEventsCount: number;
+}
+
+export async function getCalendarDiagnostics(ezzyId: string = 'ezzy_default'): Promise<CalendarDiagnostics> {
+  await initBunnyDb();
+  const eid = (ezzyId || 'ezzy_default').trim();
+  try {
+    const results = await executeBunnySql([
+      {
+        sql: `SELECT MAX(updatedAt) as lastSyncTime, COUNT(*) as totalEventsCount FROM calendar_events WHERE ezzy_id = ?;`,
+        args: [eid],
+      },
+      {
+        sql: `SELECT source, sourceEventId, title FROM calendar_events WHERE ezzy_id = ?;`,
+        args: [eid],
+      }
+    ]);
+
+    const lastSyncTime = results[0]?.rows?.[0]?.lastSyncTime || null;
+    const totalEventsCount = Number(results[0]?.rows?.[0]?.totalEventsCount || 0);
+
+    const calMap = new Map<string, { id: string; name: string; source: string; eventCount: number }>();
+    for (const r of results[1]?.rows || []) {
+      const srcId = String(r.sourceEventId || '');
+      const lastHash = srcId.lastIndexOf('#');
+      let calId = lastHash !== -1 ? srcId.substring(0, lastHash) : 'primary';
+      let calName = 'Primary Calendar';
+
+      if (calId.includes('holiday')) {
+        calName = 'Holidays in Australia';
+      } else if (calId.includes('contacts') || calId.includes('birthday')) {
+        calName = 'Birthdays & Contacts';
+      } else if (calId.includes('@') || calId === 'primary') {
+        calName = calId === 'primary' ? 'Primary Calendar' : `Primary Calendar (${calId})`;
+      } else {
+        calName = `Calendar (${calId})`;
+      }
+
+      if (!calMap.has(calId)) {
+        calMap.set(calId, { id: calId, name: calName, source: r.source || 'google_calendar', eventCount: 0 });
+      }
+      calMap.get(calId)!.eventCount++;
+    }
+
+    if (!calMap.has('primary') && !Array.from(calMap.keys()).some(k => k.includes('@') || k === 'primary')) {
+      calMap.set('primary', { id: 'primary', name: 'Primary Calendar', source: 'google_calendar', eventCount: 0 });
+    }
+
+    return {
+      provider: 'google_calendar',
+      searchedCalendars: Array.from(calMap.values()),
+      lastSyncTime: lastSyncTime ? String(lastSyncTime) : null,
+      totalEventsCount,
+    };
+  } catch (err) {
+    console.error('[Calendar Store] Error getting calendar diagnostics:', err);
+    return {
+      provider: 'google_calendar',
+      searchedCalendars: [{ id: 'primary', name: 'Primary Calendar', source: 'google_calendar', eventCount: 0 }],
+      lastSyncTime: null,
+      totalEventsCount: 0,
+    };
+  }
+}
+

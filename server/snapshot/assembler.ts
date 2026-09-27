@@ -1,6 +1,6 @@
 import { formatLocalTimeContext, getYMDInTz, getTimeStrInTz, getHourInTz } from '../utils/time';
 import { readMemories } from '../db/memories';
-import { readCalendarEvents } from '../calendar/store';
+import { readCalendarEvents, getCalendarDiagnostics } from '../calendar/store';
 import { readActiveRelationships } from '../relationships/index';
 import { getActiveUserOccasionOccurrences } from '../occasions/manager';
 import { executeBunnySql } from '../db/client';
@@ -68,6 +68,7 @@ export async function assembleEzzyWorldSnapshot(
     activeRelationships,
     occasionOccurrences,
     reminderRows,
+    calendarDiagnostics,
   ] = await Promise.all([
     readCalendarEvents(undefined, eid).catch(() => []),
     readMemories(eid).catch(() => []),
@@ -85,6 +86,12 @@ export async function assembleEzzyWorldSnapshot(
         args: [eid],
       },
     ]).catch(() => []),
+    getCalendarDiagnostics(eid).catch(() => ({
+      provider: 'google_calendar',
+      searchedCalendars: [{ id: 'primary', name: 'Primary Calendar', source: 'google_calendar', eventCount: 0 }],
+      lastSyncTime: null,
+      totalEventsCount: 0,
+    })),
   ]);
 
   // 1. Process Calendar Events
@@ -365,6 +372,7 @@ export async function assembleEzzyWorldSnapshot(
       recentlyCompletedEvents,
       upcomingEvents,
       tomorrowMorningEvents,
+      diagnostics: calendarDiagnostics,
     },
     commitments: {
       todayDatedMemories,

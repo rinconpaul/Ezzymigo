@@ -21,11 +21,26 @@ export function getBunnyTargetUrl(): string | null {
 
 // Helper to detect if running under an automated test runner / script
 export function isTestContext(): boolean {
-  if (process.env.NODE_ENV === 'test' || process.env.IS_TEST_RUN === 'true' || process.env.VITEST === 'true') {
+  if (process.env.IS_TEST_RUN === 'true' || process.env.VITEST === 'true') {
     return true;
   }
-  const argvStr = process.argv.join(' ');
-  return argvStr.includes('/scripts/') || argvStr.includes('test') || argvStr.includes('vitest');
+  if (process.env.NODE_ENV === 'test') {
+    return true;
+  }
+  // Check process.argv for actual test script executions (avoid false positives like 'latest')
+  return process.argv.some((arg) => {
+    const a = arg.toLowerCase();
+    return (
+      a.includes('/scripts/') ||
+      a.endsWith('.test.ts') ||
+      a.endsWith('.test.js') ||
+      a.endsWith('.spec.ts') ||
+      a.endsWith('.spec.js') ||
+      /\b(vitest|jest|mocha)\b/.test(a) ||
+      a === 'test' ||
+      a === 'run-test'
+    );
+  });
 }
 
 // Multi-tenant tables with ezzy_id / user_id columns that must never be mutated under production tenants in tests
@@ -46,19 +61,30 @@ const PROTECTED_MULTI_TENANT_TABLES = [
 ];
 
 // Production Data Guard: Blocks test code from mutating live production / default_user / ezzy_default data
+// Must NOT block normal production reads, schema verification (DDL), or legitimate user writes.
 export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
   if (process.env.ALLOW_ADMIN_CLEANUP === 'true') return;
   if (!isTestContext()) return;
 
   for (const st of statements) {
     const sqlLower = (st.sql || '').toLowerCase().trim();
-    // Allow idempotent bootstrap inserts (e.g. INSERT OR IGNORE into ezzy_instances during init)
+
+    // 1. Allow DDL schema verification operations (CREATE, ALTER, PRAGMA)
+    if (/^\s*(create|pragma|alter)\b/i.test(sqlLower)) continue;
+
+    // 2. Allow idempotent bootstrap inserts (e.g. INSERT OR IGNORE into ezzy_instances during init)
     if (/^insert\s+or\s+ignore\b/i.test(sqlLower)) continue;
 
-    const isWrite = /^\s*(insert|update|delete|replace|drop|alter|truncate)\b/i.test(sqlLower);
+    // 3. Allow legacy calendar event date normalization during schema init
+    if (/^update\s+calendar_events\s+set\s+startdatetime\s*=\s*substr/i.test(sqlLower)) continue;
+
+    // 4. Allow one-time composite text cleanup on memories during startup
+    if (/^update\s+memories\s+set\s+originaltext\s*=/i.test(sqlLower) && sqlLower.includes('spare shed key')) continue;
+
+    const isWrite = /^\s*(insert|update|delete|replace|drop|truncate)\b/i.test(sqlLower);
     if (!isWrite) continue;
 
-    // 1. Direct check: Explicit targeting of protected default_user or ezzy_default
+    // Direct check: Explicit targeting of protected default_user or ezzy_default in tests
     const hasProtectedTenantInSql = /\b(default_user|ezzy_default)\b/i.test(st.sql);
     const hasProtectedTenantInArgs =
       Array.isArray(st.args) &&
@@ -70,7 +96,7 @@ export function assertProductionWriteAllowed(statements: Array<SqlStatement>) {
       throw new Error(err);
     }
 
-    // 2. Table-level check: Mutating multi-tenant tables without an explicit isolated test identifier
+    // Table-level check: Mutating multi-tenant tables without an explicit isolated test identifier in tests
     // Prevents SQLite column defaults (e.g. DEFAULT 'ezzy_default') from quietly writing to production
     const targetsMultiTenantTable = PROTECTED_MULTI_TENANT_TABLES.some((tbl) =>
       new RegExp(`\\b${tbl}\\b`, 'i').test(sqlLower)

@@ -74,7 +74,13 @@ EVENING LOOK-AHEAD & MORNING ORIENTATION:
 - Evening: Look ahead to tomorrow morning's commitments.
 - Morning: Surface today's upcoming commitments and due reminders before they occur.
 - Post-event: Expire preparation prompts. Optionally ask about outcome 1-4 hours after conclusion if not already recorded.
-- Ask Query: Answer user questions directly in body. Proposed mutations MUST be empty [] for ASK_QUERY.`;
+- Ask Query: Answer user questions directly in body. Proposed mutations MUST be empty [] for ASK_QUERY.
+
+CALENDAR TRUTHFULNESS & DIAGNOSTICS:
+- When answering queries about calendar events or appointments:
+  * Answer directly and factually based ONLY on the events present in the snapshot.
+  * NEVER speculate about "sync delay", "sync issues", "recent additions", or "another calendar" unless explicitly supported by adapter evidence in snapshot.calendar.diagnostics.
+  * If an appointment is not found on the schedule, state clearly that it is not found on the searched calendars, and reference truthful adapter diagnostics (searched calendars and last sync time) if helpful.`;
 
 const REASONING_SCHEMA: Schema = {
   type: Type.OBJECT,

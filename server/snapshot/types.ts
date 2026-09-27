@@ -74,6 +74,12 @@ export interface EzzyWorldSnapshot {
     recentlyCompletedEvents: SnapshotCalendarEvent[];
     upcomingEvents: SnapshotCalendarEvent[];
     tomorrowMorningEvents: SnapshotCalendarEvent[];
+    diagnostics?: {
+      provider: string;
+      searchedCalendars: Array<{ id: string; name: string; source: string; eventCount: number }>;
+      lastSyncTime: string | null;
+      totalEventsCount: number;
+    };
   };
   commitments: {
     todayDatedMemories: SnapshotMemoryItem[];
