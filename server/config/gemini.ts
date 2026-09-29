@@ -1,7 +1,36 @@
 import { GoogleGenAI } from '@google/genai';
 
+// Helper to detect if execution is within an automated test, benchmark, or verify script
+export function isAutomatedTestRunner(): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
+  if (process.env.IS_TEST_RUN === 'true' || process.env.IS_TEST === 'true' || process.env.VITEST === 'true') return true;
+  if (process.env.BLOCK_PRODUCTION_GEMINI === 'true') return true;
+  if (typeof process !== 'undefined' && Array.isArray(process.argv)) {
+    return process.argv.some((arg) => {
+      const a = arg.toLowerCase();
+      return (
+        a.includes('/scripts/') ||
+        a.includes('test-') ||
+        a.includes('torture') ||
+        a.includes('benchmark') ||
+        a.includes('audit') ||
+        a.includes('verify') ||
+        a.endsWith('.test.ts') ||
+        a.endsWith('.test.js')
+      );
+    });
+  }
+  return false;
+}
+
 // Lazy Gemini client helper
 export function getGeminiClient(): GoogleGenAI | null {
+  // PERMANENT GUARD: Prevent automated test runners from consuming production Gemini quota
+  if (isAutomatedTestRunner() && process.env.ALLOW_LIVE_GEMINI_IN_TESTS !== 'true') {
+    console.warn('[PERMANENT GUARD] Automated test runner detected. Live Gemini API calls are blocked to prevent quota consumption. Use mocks/fixtures.');
+    return null;
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn('GEMINI_API_KEY is not set in environment variables');

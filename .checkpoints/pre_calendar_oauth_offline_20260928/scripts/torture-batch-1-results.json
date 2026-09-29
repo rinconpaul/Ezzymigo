@@ -1,0 +1,538 @@
+{
+  "batch": 1,
+  "indices": [
+    0,
+    10
+  ],
+  "total_in_batch": 11,
+  "passed_in_batch": 8,
+  "results": [
+    {
+      "test_id": "TC-EN-01",
+      "language": "en",
+      "category": "same_language, sibling_disambiguation",
+      "query": "What's Sarah's number if I need to reach her about a work thing during the day?",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_en_sarah_office"
+      ],
+      "forbidden_ids": [
+        "syn_en_sarah_home"
+      ],
+      "retrieved_ids": [
+        "syn_en_sarah_office",
+        "syn_en_sarah_home"
+      ],
+      "route": "ambiguity_rescue",
+      "passed": false,
+      "failure_reason": "Forbidden memory ID 'syn_en_sarah_home' was returned in retrieved IDs [syn_en_sarah_office, syn_en_sarah_home]",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+      "timings": {
+        "total_ms": 3780,
+        "embed_ms": 425,
+        "vec_sql_ms": 700,
+        "arb_ms": 906,
+        "rescue_ms": 183,
+        "hydrate_ms": 716
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_sarah_home",
+        "top_cosine_sim": 0.8025402873754501,
+        "sibling_candidates_in_band": 4,
+        "composite_scores": {
+          "syn_en_sarah_home": 0.8025402873754501,
+          "syn_en_sarah_office": 0.8406376421451569,
+          "mem_1787695795490_0_7603r73": 0.66272731423378,
+          "mem_1787597925980_1_hugalao": 0.6025433242321014
+        },
+        "lexical_unique_anchors": {
+          "syn_en_sarah_home": [],
+          "syn_en_sarah_office": [
+            "work"
+          ],
+          "mem_1787695795490_0_7603r73": [
+            "the"
+          ],
+          "mem_1787597925980_1_hugalao": []
+        },
+        "ambiguity_rescue_triggered": true,
+        "ambiguity_rescue_reason": "CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS",
+        "ambiguity_rescue_output": {
+          "winningId": "syn_en_sarah_office",
+          "isAmbiguous": true,
+          "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+        }
+      }
+    },
+    {
+      "test_id": "TC-EN-02",
+      "language": "en",
+      "category": "same_language, role_mediated",
+      "query": "What did the electrician say about the fuse box?",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_en_electrician_role",
+        "syn_en_electrician_note"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_en_electrician_note"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": false,
+      "failure_reason": "Required memory ID 'syn_en_electrician_role' was NOT returned in retrieved IDs [syn_en_electrician_note]",
+      "defect_classification": "MISSING_REQUIRED_ID",
+      "timings": {
+        "total_ms": 3622,
+        "embed_ms": 434,
+        "vec_sql_ms": 716,
+        "arb_ms": 721,
+        "rescue_ms": 0,
+        "hydrate_ms": 770
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_electrician_note",
+        "top_cosine_sim": 0.7471951544284821,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_en_electrician_note": 0.947195154428482,
+          "syn_en_electrician_role": 0.6587839901447297
+        },
+        "lexical_unique_anchors": {
+          "syn_en_electrician_note": [
+            "the",
+            "the",
+            "fuse",
+            "box"
+          ],
+          "syn_en_electrician_role": [
+            "electrician"
+          ]
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-EN-03",
+      "language": "en",
+      "category": "same_language, messy_phrasing",
+      "query": "uh when do I need to like, put the bins out again",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_en_bins"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_en_bins"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3594,
+        "embed_ms": 428,
+        "vec_sql_ms": 723,
+        "arb_ms": 725,
+        "rescue_ms": 0,
+        "hydrate_ms": 716
+      },
+      "telemetry": {
+        "top_candidate_id": "test_ask_mem_bins_tomorrow",
+        "top_cosine_sim": 0.6928482055664062,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "test_ask_mem_bins_tomorrow": 0.6928482055664062,
+          "syn_en_bins": 0.8369687736034394,
+          "mem_1787556414573_1_olajw9g": 0.7516247868537903
+        },
+        "lexical_unique_anchors": {
+          "test_ask_mem_bins_tomorrow": [],
+          "syn_en_bins": [
+            "put",
+            "the",
+            "out"
+          ],
+          "mem_1787556414573_1_olajw9g": [
+            "when",
+            "i",
+            "to"
+          ]
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-EN-04",
+      "language": "en",
+      "category": "same_language, near_miss_zero_result",
+      "query": "Did I buy a hose at Bunnings?",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [
+        "syn_en_compost"
+      ],
+      "retrieved_ids": [
+        "syn_en_compost"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": false,
+      "failure_reason": "Forbidden memory ID 'syn_en_compost' was returned in retrieved IDs [syn_en_compost]",
+      "defect_classification": "FORBIDDEN_ID_LEAKAGE",
+      "timings": {
+        "total_ms": 3516,
+        "embed_ms": 390,
+        "vec_sql_ms": 708,
+        "arb_ms": 707,
+        "rescue_ms": 0,
+        "hydrate_ms": 716
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_compost",
+        "top_cosine_sim": 0.711134135723114,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "syn_en_compost": 0.861134135723114,
+          "test_ask_mem_bunnings_yesterday": 0.7035512924194336,
+          "mem_1787891227708_0_d2153ab": 0.6552675247192383
+        },
+        "lexical_unique_anchors": {
+          "syn_en_compost": [
+            "a",
+            "at",
+            "bunnings"
+          ],
+          "test_ask_mem_bunnings_yesterday": [],
+          "mem_1787891227708_0_d2153ab": [
+            "did"
+          ]
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-EN-05",
+      "language": "en",
+      "category": "same_language, true_zero_result",
+      "query": "What's the boiling point of mercury?",
+      "expected_outcome": "zero_result",
+      "required_ids": [],
+      "forbidden_ids": [],
+      "retrieved_ids": [],
+      "route": "zero_result",
+      "passed": true,
+      "timings": {
+        "total_ms": 2151,
+        "embed_ms": 433,
+        "vec_sql_ms": 723,
+        "arb_ms": 0,
+        "rescue_ms": 0,
+        "hydrate_ms": 0
+      },
+      "telemetry": {
+        "top_candidate_id": "mem_1788036011287_0_6ah9w15",
+        "top_cosine_sim": 0.489582359790802,
+        "sibling_candidates_in_band": 0,
+        "composite_scores": {},
+        "lexical_unique_anchors": {},
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-EN-06",
+      "language": "en",
+      "category": "same_language, genuine_ambiguity",
+      "query": "What did Tom say?",
+      "expected_outcome": "ambiguity",
+      "required_ids": [
+        "syn_en_tom_dentist",
+        "syn_en_tom_car"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_en_tom_car",
+        "syn_en_tom_dentist"
+      ],
+      "route": "ambiguity_rescue",
+      "passed": true,
+      "timings": {
+        "total_ms": 3762,
+        "embed_ms": 427,
+        "vec_sql_ms": 698,
+        "arb_ms": 893,
+        "rescue_ms": 184,
+        "hydrate_ms": 714
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_tom_car",
+        "top_cosine_sim": 0.7187180519104004,
+        "sibling_candidates_in_band": 6,
+        "composite_scores": {
+          "syn_en_tom_car": 0.7187180519104004,
+          "syn_en_tom_dentist": 0.7145145833492279,
+          "mem_1787799864116_0_bf9dpob": 0.6353882849216461,
+          "mem_1787891227708_0_d2153ab": 0.6611460626125336,
+          "mem_1788036011287_0_6ah9w15": 0.6063768267631531,
+          "test_ask_mem_sold_chair": 0.6044451594352722
+        },
+        "lexical_unique_anchors": {
+          "syn_en_tom_car": [],
+          "syn_en_tom_dentist": [],
+          "mem_1787799864116_0_bf9dpob": [],
+          "mem_1787891227708_0_d2153ab": [
+            "say"
+          ],
+          "mem_1788036011287_0_6ah9w15": [],
+          "test_ask_mem_sold_chair": []
+        },
+        "ambiguity_rescue_triggered": true,
+        "ambiguity_rescue_reason": "ZERO_UNIQUE_ANCHORS_AND_WEAK_VECTOR_SEPARATION",
+        "ambiguity_rescue_output": {
+          "winningId": "syn_en_tom_car",
+          "isAmbiguous": true,
+          "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+        }
+      }
+    },
+    {
+      "test_id": "TC-EN-07",
+      "language": "en",
+      "category": "same_language, currency_locale",
+      "query": "How much was the total roofing quote including the call-out?",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_en_quote"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_en_quote"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3552,
+        "embed_ms": 403,
+        "vec_sql_ms": 720,
+        "arb_ms": 714,
+        "rescue_ms": 0,
+        "hydrate_ms": 720
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_quote",
+        "top_cosine_sim": 0.7555680572986603,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_en_quote": 0.9555680572986602,
+          "test_ask_mem_plumber_quote": 0.6317494213581085
+        },
+        "lexical_unique_anchors": {
+          "syn_en_quote": [
+            "the",
+            "the",
+            "call",
+            "out"
+          ],
+          "test_ask_mem_plumber_quote": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-EN-08",
+      "language": "en",
+      "category": "same_language, dates_times",
+      "query": "When's my dentist thing now?",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_en_dentist_apt"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_en_dentist_apt"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3667,
+        "embed_ms": 1039,
+        "vec_sql_ms": 699,
+        "arb_ms": 742,
+        "rescue_ms": 0,
+        "hydrate_ms": 719
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_en_dentist_apt",
+        "top_cosine_sim": 0.7719502598047256,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "syn_en_dentist_apt": 0.8219502598047257,
+          "mem_1787556414573_1_olajw9g": 0.6143335998058319,
+          "mem_1787632041513_0_dryrcqz": 0.6066798865795135
+        },
+        "lexical_unique_anchors": {
+          "syn_en_dentist_apt": [
+            "dentist"
+          ],
+          "mem_1787556414573_1_olajw9g": [],
+          "mem_1787632041513_0_dryrcqz": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-FR-01",
+      "language": "fr",
+      "category": "same_language, sibling_disambiguation",
+      "query": "Qu'est-ce que Pierre a dit à propos de la voiture ?",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_fr_pierre_garage"
+      ],
+      "forbidden_ids": [
+        "syn_fr_pierre_voisin"
+      ],
+      "retrieved_ids": [
+        "syn_fr_pierre_garage"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3578,
+        "embed_ms": 423,
+        "vec_sql_ms": 744,
+        "arb_ms": 699,
+        "rescue_ms": 0,
+        "hydrate_ms": 738
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_fr_pierre_garage",
+        "top_cosine_sim": 0.7019098103046417,
+        "sibling_candidates_in_band": 2,
+        "composite_scores": {
+          "syn_fr_pierre_garage": 0.8519098103046417,
+          "syn_fr_pierre_voisin": 0.6624804437160492
+        },
+        "lexical_unique_anchors": {
+          "syn_fr_pierre_garage": [
+            "que",
+            "dit",
+            "à"
+          ],
+          "syn_fr_pierre_voisin": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    },
+    {
+      "test_id": "TC-FR-02",
+      "language": "fr",
+      "category": "same_language, role_mediated",
+      "query": "Qu'est-ce que le dentiste a dit ?",
+      "expected_outcome": "exact_set",
+      "required_ids": [
+        "syn_fr_dentiste_role",
+        "syn_fr_dentiste_note"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_fr_dentiste_role",
+        "syn_fr_dentiste_note"
+      ],
+      "route": "ambiguity_rescue",
+      "passed": true,
+      "timings": {
+        "total_ms": 3673,
+        "embed_ms": 422,
+        "vec_sql_ms": 733,
+        "arb_ms": 875,
+        "rescue_ms": 176,
+        "hydrate_ms": 690
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_fr_dentiste_note",
+        "top_cosine_sim": 0.7709674090147018,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "syn_fr_dentiste_note": 0.8209674090147019,
+          "syn_fr_dentiste_role": 0.8396097779273987,
+          "mem_1787799864116_0_bf9dpob": 0.6089510321617126
+        },
+        "lexical_unique_anchors": {
+          "syn_fr_dentiste_note": [
+            "dit"
+          ],
+          "syn_fr_dentiste_role": [
+            "le",
+            "dentiste"
+          ],
+          "mem_1787799864116_0_bf9dpob": []
+        },
+        "ambiguity_rescue_triggered": true,
+        "ambiguity_rescue_reason": "CONTRADICTORY_VECTOR_AND_LEXICAL_WINNERS",
+        "ambiguity_rescue_output": {
+          "winningId": "syn_fr_dentiste_role",
+          "isAmbiguous": true,
+          "reason": "Ambiguity rescue error: {\"error\":{\"code\":404,\"message\":\"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.\",\"status\":\"NOT_FOUND\"}}"
+        }
+      }
+    },
+    {
+      "test_id": "TC-FR-03",
+      "language": "fr",
+      "category": "same_language, messy_phrasing",
+      "query": "euh c'est quand déjà qu'il faut sortir les poubelles",
+      "expected_outcome": "exact_single",
+      "required_ids": [
+        "syn_fr_poubelle"
+      ],
+      "forbidden_ids": [],
+      "retrieved_ids": [
+        "syn_fr_poubelle"
+      ],
+      "route": "vector_lexical_sibling",
+      "passed": true,
+      "timings": {
+        "total_ms": 3517,
+        "embed_ms": 414,
+        "vec_sql_ms": 743,
+        "arb_ms": 689,
+        "rescue_ms": 0,
+        "hydrate_ms": 714
+      },
+      "telemetry": {
+        "top_candidate_id": "syn_fr_poubelle",
+        "top_cosine_sim": 0.7364082634449005,
+        "sibling_candidates_in_band": 3,
+        "composite_scores": {
+          "syn_fr_poubelle": 0.8864082634449005,
+          "test_ask_mem_bins_tomorrow": 0.6340171098709106,
+          "mem_1787556414573_2_0ga9xlv": 0.6029349863529205
+        },
+        "lexical_unique_anchors": {
+          "syn_fr_poubelle": [
+            "sortir",
+            "les",
+            "poubelles"
+          ],
+          "test_ask_mem_bins_tomorrow": [],
+          "mem_1787556414573_2_0ga9xlv": []
+        },
+        "ambiguity_rescue_triggered": false,
+        "ambiguity_rescue_reason": null,
+        "ambiguity_rescue_output": null
+      }
+    }
+  ]
+}

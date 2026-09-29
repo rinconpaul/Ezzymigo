@@ -1,0 +1,2243 @@
+{
+  "summary": {
+    "totalRuns": 80,
+    "passCount": 70,
+    "failCount": 10,
+    "passRate": "87.5%",
+    "latency": {
+      "fastestMs": 1651,
+      "medianMs": 3031,
+      "slowestMs": 15306
+    },
+    "tokens": {
+      "promptTokens": 88690,
+      "outputTokens": 12488
+    }
+  },
+  "scenarios": {
+    "test_1_dr_marning": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "You have your appointment with Dr Marning in an hour. Just a reminder that you wanted to ask about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an upcoming doctor's appointment in one hour (cal_1) and explicitly noted an intention to ask Dr Marning to renew scripts (mem_1). Providing a timely, concise reminder is directly actionable. Passive facts about past blood tests and future prescription dates are not brought up to avoid unnecessary noise.",
+          "metrics": {
+            "latencyMs": 4122,
+            "promptTokens": 1328,
+            "candidateTokens": 214,
+            "totalTokens": 2124
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "Before you head in to see Dr Marning, you have a note to ask about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and previously noted an intention to ask for script renewals. Mentioning this directly actionable item is timely and helpful, while background facts regarding past blood tests or long-dated prescriptions are excluded to avoid clutter.",
+          "metrics": {
+            "latencyMs": 3044,
+            "promptTokens": 1328,
+            "candidateTokens": 199,
+            "totalTokens": 2160
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning at 10:30 AM",
+            "body": "A quick reminder before your appointment: you noted wanting to ask Dr Marning about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and had previously noted a specific task to ask about renewing their scripts. Providing a concise pre-event reminder is directly actionable and timely.",
+          "metrics": {
+            "latencyMs": 3095,
+            "promptTokens": 1328,
+            "candidateTokens": 184,
+            "totalTokens": 1946
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "A quick reminder before your appointment: you noted wanting to ask Dr Marning to renew your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and previously recorded an explicit task to ask about script renewals. Providing a brief reminder right before the appointment is directly actionable and timely.",
+          "metrics": {
+            "latencyMs": 3224,
+            "promptTokens": 1328,
+            "candidateTokens": 184,
+            "totalTokens": 2118
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "You have your appointment with Dr Marning in an hour. You noted earlier that you need to ask him about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and previously noted an actionable task to ask for script renewals. Surfacing this timely reminder is directly actionable and helpful before they head into the appointment.",
+          "metrics": {
+            "latencyMs": 4431,
+            "promptTokens": 1328,
+            "candidateTokens": 193,
+            "totalTokens": 1984
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "Just a reminder ahead of your visit: you noted to ask Dr Marning about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and previously noted an explicit task to ask about renewing scripts. Providing this reminder directly before the appointment is timely, actionable, and grounded without introducing extraneous facts.",
+          "metrics": {
+            "latencyMs": 3452,
+            "promptTokens": 1328,
+            "candidateTokens": 189,
+            "totalTokens": 2076
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning at 10:30 AM",
+            "body": "Just a reminder that you wanted to ask Dr Marning to renew your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and specifically recorded a task to ask for script renewals. Surfacing this reminder is timely and directly actionable.",
+          "metrics": {
+            "latencyMs": 3781,
+            "promptTokens": 1328,
+            "candidateTokens": 174,
+            "totalTokens": 2028
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "Before your appointment with Dr Marning at 10:30 AM, just a reminder that you noted wanting to ask him to renew your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning starting in one hour. Reminding them of their specific task to ask for script renewals is directly timely and actionable. Passive facts about Lipitor expiration and past blood tests are omitted to avoid unnecessary clutter.",
+          "metrics": {
+            "latencyMs": 3056,
+            "promptTokens": 1328,
+            "candidateTokens": 206,
+            "totalTokens": 1966
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "PROMPT",
+            "headline": "Upcoming: Dr Marning",
+            "body": "You have an appointment with Dr Marning at 10:30 AM. You noted wanting to ask about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an appointment with Dr Marning in one hour and had previously noted wanting to ask for script renewals. A timely pre-event reminder is directly actionable and helpful.",
+          "metrics": {
+            "latencyMs": 3134,
+            "promptTokens": 1328,
+            "candidateTokens": 181,
+            "totalTokens": 1952
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": "Dr Marning appointment at 10:30 AM",
+            "body": "A quick reminder before your appointment with Dr Marning in an hour: you noted that you need to ask about renewing your scripts.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [
+            "mem_1"
+          ],
+          "citedCalendarIds": [
+            "cal_1"
+          ],
+          "rationale": "The user has an upcoming doctor's appointment in one hour and had previously noted an intention to ask for prescription renewals. Delivering a brief, timely pre-event reminder is directly actionable without creating manufactured tasks or obligations.",
+          "metrics": {
+            "latencyMs": 4518,
+            "promptTokens": 1328,
+            "candidateTokens": 194,
+            "totalTokens": 2174
+          }
+        }
+      }
+    ],
+    "test_2_fathers_day_discussed": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already followed up yesterday evening and is marked as resolved in recent interactions. The key update regarding Roland moving was captured. Re-prompting would be repetitive.",
+          "metrics": {
+            "latencyMs": 2034,
+            "promptTokens": 1198,
+            "candidateTokens": 131,
+            "totalTokens": 1572
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already followed up on yesterday evening and is marked as resolved, with the key information about Roland's move already captured. Per the core behavioral principles, completed matters should not be repeated, making silence the correct choice.",
+          "metrics": {
+            "latencyMs": 2239,
+            "promptTokens": 1198,
+            "candidateTokens": 143,
+            "totalTokens": 1690
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already discussed yesterday evening and resolved, with the key takeaway about Roland moving already captured. Repeating this topic would be redundant, so silence is the appropriate choice.",
+          "metrics": {
+            "latencyMs": 2305,
+            "promptTokens": 1198,
+            "candidateTokens": 131,
+            "totalTokens": 1627
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already discussed yesterday evening and is marked as resolved in recent interactions. Following Principle 7 (Do not repeat completed matters) and Principle 3 (Silence is success), no further communication is needed.",
+          "metrics": {
+            "latencyMs": 2548,
+            "promptTokens": 1198,
+            "candidateTokens": 139,
+            "totalTokens": 1618
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already discussed and marked as resolved in recent interactions yesterday evening, and the information regarding Roland's move was captured. Per the core behavioral principles, do not repeat completed matters; staying silent is the appropriate choice.",
+          "metrics": {
+            "latencyMs": 2236,
+            "promptTokens": 1198,
+            "candidateTokens": 142,
+            "totalTokens": 1631
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already discussed and resolved yesterday evening, with the key update about Roland captured. Following up again would be repetitive and intrusive, so silence is the appropriate choice.",
+          "metrics": {
+            "latencyMs": 1651,
+            "promptTokens": 1198,
+            "candidateTokens": 131,
+            "totalTokens": 1621
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already followed up yesterday evening and marked resolved in recent interactions. Following the rule to not repeat completed matters and preferring silence over unnecessary prompting, no communication is warranted.",
+          "metrics": {
+            "latencyMs": 2652,
+            "promptTokens": 1198,
+            "candidateTokens": 132,
+            "totalTokens": 1680
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already followed up yesterday evening and marked as resolved, with the key update about Roland's move already saved to memory. Re-prompting about Father's Day would be repetitive.",
+          "metrics": {
+            "latencyMs": 3687,
+            "promptTokens": 1198,
+            "candidateTokens": 137,
+            "totalTokens": 1618
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already discussed yesterday evening and is marked as resolved in recent interactions. Following the rule to never repeat completed matters, no further prompt is warranted.",
+          "metrics": {
+            "latencyMs": 2206,
+            "promptTokens": 1198,
+            "candidateTokens": 128,
+            "totalTokens": 1619
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "Father's Day was already followed up yesterday evening, and the information regarding Roland's move was captured and stored. The matter is resolved, so no further communication is warranted.",
+          "metrics": {
+            "latencyMs": 1662,
+            "promptTokens": 1198,
+            "candidateTokens": 131,
+            "totalTokens": 1621
+          }
+        }
+      }
+    ],
+    "test_3_mum_visit": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user just finished visiting Mum. There are no pending tasks, questions, or specific follow-up items tracked. Proactively asking how the visit went would be intrusive small talk, so staying silent is the appropriate, respectful choice.",
+          "metrics": {
+            "latencyMs": 3430,
+            "promptTokens": 1027,
+            "candidateTokens": 151,
+            "totalTokens": 1727
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The visit with Mum concluded 15 minutes ago. There are no associated tasks, reminders, or prior context necessitating a debrief. In accordance with the restraint mandate, unsolicited conversational prompting is avoided, and silence is chosen.",
+          "metrics": {
+            "latencyMs": 3039,
+            "promptTokens": 1027,
+            "candidateTokens": 150,
+            "totalTokens": 1592
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user recently completed a visit with their mother. There are no associated tasks, follow-up items, or open loops requiring attention. Unsolicited check-ins without specific context or need are conversational filler; silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 2505,
+            "promptTokens": 1027,
+            "candidateTokens": 156,
+            "totalTokens": 1498
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user has just completed a visit with their mother. There are no associated follow-ups, pending action items, or specific details to check in on. In accordance with the restraint mandate, remaining silent avoids unnecessary conversational prompting.",
+          "metrics": {
+            "latencyMs": 2465,
+            "promptTokens": 1027,
+            "candidateTokens": 150,
+            "totalTokens": 1612
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The event 'Visit Mum' has recently concluded, but there are no pending tasks, follow-up items, or open threads associated with it. Unsolicited check-ins without specific purpose manufacture conversation; staying silent is the most respectful and intelligent choice.",
+          "metrics": {
+            "latencyMs": 2590,
+            "promptTokens": 1027,
+            "candidateTokens": 156,
+            "totalTokens": 1581
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user has just finished visiting their mother. There are no associated follow-ups, pending action items, or relevant context requiring post-event check-in. Remaining silent avoids unnecessary chatter and respects the user's space.",
+          "metrics": {
+            "latencyMs": 3067,
+            "promptTokens": 1027,
+            "candidateTokens": 150,
+            "totalTokens": 1554
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user just finished visiting their mother. There are no associated follow-up tasks, pending questions, or context requiring intervention. Asking an unsolicited conversational question would be intrusive and unnecessary, so silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 2238,
+            "promptTokens": 1027,
+            "candidateTokens": 151,
+            "totalTokens": 1430
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The visit with Mum has concluded, but there are no tracked tasks, pending action items, or health concerns associated with this routine visit. Prompting without a clear actionable purpose would manufacture unnecessary conversation.",
+          "metrics": {
+            "latencyMs": 3190,
+            "promptTokens": 1027,
+            "candidateTokens": 144,
+            "totalTokens": 1610
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user just finished visiting their mother 15 minutes ago. There are no outstanding tasks, notes, or items requiring follow-up. Proactively interrogating the user about the visit would be intrusive and unnecessary conversation filler, so silence is the most respectful choice.",
+          "metrics": {
+            "latencyMs": 2322,
+            "promptTokens": 1027,
+            "candidateTokens": 158,
+            "totalTokens": 1465
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [
+            "cal_mum"
+          ],
+          "rationale": "The user has just finished visiting their mum, but there are no tracked action items, follow-ups, or specific concerns related to the visit. Proactively prompting just to ask how it went would be conversational filler. Silence is the most respectful choice.",
+          "metrics": {
+            "latencyMs": 2870,
+            "promptTokens": 1027,
+            "candidateTokens": 155,
+            "totalTokens": 1602
+          }
+        }
+      }
+    ],
+    "test_4_mundane_task": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today and the only open task is a general low-priority chore ('sharpen the knives') with no specific deadline or urgency. Prompting the user about this first thing on Monday morning would be unnecessary nagging, so SILENCE is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 2219,
+            "promptTokens": 966,
+            "candidateTokens": 155,
+            "totalTokens": 1346
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events for today, and the only open task is a non-urgent chore ('sharpen the knives') with no set deadline. In accordance with the restraint principle, silence is the best choice to avoid unnecessary nagging.",
+          "metrics": {
+            "latencyMs": 2436,
+            "promptTokens": 966,
+            "candidateTokens": 143,
+            "totalTokens": 1374
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events for today, and the only open task is a non-urgent household chore ('sharpen the knives') with no specified deadline. Prompting unsolicited about sharpening knives on a Monday morning constitutes unnecessary nagging. Remaining silent is the most respectful and high-value decision.",
+          "metrics": {
+            "latencyMs": 2682,
+            "promptTokens": 966,
+            "candidateTokens": 153,
+            "totalTokens": 1475
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today, and the only pending task is a non-urgent chore ('sharpen the knives'). Initiating an unsolicited conversation would be unnecessary nagging. Remaining silent is the appropriate choice.",
+          "metrics": {
+            "latencyMs": 2494,
+            "promptTokens": 966,
+            "candidateTokens": 138,
+            "totalTokens": 1413
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or time-sensitive tasks scheduled for today. The only existing task is a low-priority household chore ('sharpen the knives') with no set deadline; bringing it up unprompted on a Monday morning would be unnecessary nagging.",
+          "metrics": {
+            "latencyMs": 2136,
+            "promptTokens": 966,
+            "candidateTokens": 146,
+            "totalTokens": 1444
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today and the only open task is a non-urgent chore ('sharpen the knives') with no set deadline. Prompting the user about this first thing on a Monday morning would be unnecessary noise, so silence is preferred.",
+          "metrics": {
+            "latencyMs": 2309,
+            "promptTokens": 966,
+            "candidateTokens": 147,
+            "totalTokens": 1422
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events for today and only an undated, non-urgent chore ('sharpen the knives'). Unsolicited prompting on a minor task first thing Monday morning constitutes nagging. Silence is the preferred outcome.",
+          "metrics": {
+            "latencyMs": 3031,
+            "promptTokens": 966,
+            "candidateTokens": 139,
+            "totalTokens": 1427
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events or time-sensitive commitments for this morning. The only open memory is an undated, low-urgency chore ('sharpen the knives'); prompting it now would be unsolicited nagging.",
+          "metrics": {
+            "latencyMs": 3052,
+            "promptTokens": 966,
+            "candidateTokens": 138,
+            "totalTokens": 1406
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today. The only open memory is an undated, low-urgency chore to sharpen knives. Prompting the user about an untimed domestic chore on a Monday morning would be unnecessary nagging, so SILENCE is the most respectful and effective choice.",
+          "metrics": {
+            "latencyMs": 2416,
+            "promptTokens": 966,
+            "candidateTokens": 152,
+            "totalTokens": 1413
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today. The only open task in memory ('sharpen the knives') is an undated, low-urgency household chore with no immediate deadline. Prompting the user about this first thing on a Monday morning would be unnecessary nagging. Silence is the most respectful and effective choice.",
+          "metrics": {
+            "latencyMs": 1771,
+            "promptTokens": 966,
+            "candidateTokens": 158,
+            "totalTokens": 1358
+          }
+        }
+      }
+    ],
+    "test_5_movie_mention": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Did you end up watching it, or just notice it was on?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a casual observation about a movie airing on TV. Per Principle 8, this passive observation should not be turned into a task or reminder. No personal preference or action was confirmed yet, so no memory needs to be persisted at this stage. A brief, conversational acknowledgment is appropriate for an inbound tell.",
+          "metrics": {
+            "latencyMs": 6490,
+            "promptTokens": 896,
+            "candidateTokens": 170,
+            "totalTokens": 2358
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on the night of 6 September 2026.",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": false
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a passive observation about a movie broadcast on TV last night. Per Principle 8, this should be treated as an observation/note rather than an intention or task to watch it. No response is required or actionable, so silence is the most respectful and non-intrusive choice.",
+          "metrics": {
+            "latencyMs": 11222,
+            "promptTokens": 896,
+            "candidateTokens": 246,
+            "totalTokens": 3628
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Got it.",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on the night of 6 September 2026.",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": true
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a passive observation about past programming. In accordance with guidelines, this observation is captured as a completed past note rather than creating any forward-looking reminder, task, or obligation, and acknowledged simply without manufacturing conversation.",
+          "metrics": {
+            "latencyMs": 5187,
+            "promptTokens": 896,
+            "candidateTokens": 232,
+            "totalTokens": 2316
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Did you end up watching it, or just notice it was on?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user made a casual remark about a movie airing on TV. Rather than manufacturing a task or saving trivial noise to memory before knowing their interest, respond naturally to clarify if they watched it or have thoughts on it.",
+          "metrics": {
+            "latencyMs": 5932,
+            "promptTokens": 896,
+            "candidateTokens": 150,
+            "totalTokens": 2028
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Did you end up watching it, or just notice it was on?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user made a casual remark about a past television broadcast. Per Rule 8, passive observations about past TV shows should not be converted into reminders, tasks, or calendar appointments. A simple, natural conversational response is provided without creating artificial obligations or cluttering long-term memory.",
+          "metrics": {
+            "latencyMs": 7191,
+            "promptTokens": 896,
+            "candidateTokens": 163,
+            "totalTokens": 2545
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on Sunday night (6 September 2026).",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": true
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a casual observation about a past TV broadcast. In accordance with behavioural guidelines, this passive comment is captured as a completed note rather than a future task or reminder to watch the movie. No reply is required as the user asked no question, and manufacturing conversational chatter would not provide genuine value.",
+          "metrics": {
+            "latencyMs": 8674,
+            "promptTokens": 896,
+            "candidateTokens": 246,
+            "totalTokens": 3033
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "A classic thriller. Did you end up watching it?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a casual observation about a movie being on TV. A brief, conversational acknowledgement is appropriate without manufacturing reminders or saving trivial trivia to long-term memory.",
+          "metrics": {
+            "latencyMs": 4668,
+            "promptTokens": 896,
+            "candidateTokens": 137,
+            "totalTokens": 1863
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Did you end up watching it, or just notice it was on?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on 6 September 2026.",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": true
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user made a casual observation about a movie broadcast. In accordance with Rule 8, this is treated as a passive comment rather than a future intention or task, so no reminder is scheduled. A brief, low-key response acknowledges the input without manufacturing obligations.",
+          "metrics": {
+            "latencyMs": 7078,
+            "promptTokens": 896,
+            "candidateTokens": 248,
+            "totalTokens": 2727
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on Sunday night (6 September 2026).",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": false
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a casual observation about a past TV broadcast. In accordance with Rule 8, this passive comment is treated as a factual note rather than a future intention or task, so no reminder is created. As there is no actionable need or question to address, remaining silent avoids manufacturing conversation.",
+          "metrics": {
+            "latencyMs": 15306,
+            "promptTokens": 896,
+            "candidateTokens": 245,
+            "totalTokens": 4984
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SPEAK",
+            "headline": null,
+            "body": "Did you end up watching it, or just catch that it was on?",
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [
+              {
+                "content": "Gone Girl was on TV on the night of 6 September 2026.",
+                "kind": "note",
+                "timingExpression": "last night",
+                "resolvedDatetime": "2026-09-06T20:00:00+10:00",
+                "isDone": false
+              }
+            ],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "The user shared a casual observation about a movie being on TV. Acknowledging conversationally without creating obligations or unsolicited tasks, while logging the mention as a low-priority note.",
+          "metrics": {
+            "latencyMs": 6257,
+            "promptTokens": 896,
+            "candidateTokens": 235,
+            "totalTokens": 1920
+          }
+        }
+      }
+    ],
+    "test_6_doug_connection": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or pending tasks scheduled for today. Doug's daughter's birthday is not until Sunday, and there are no immediate actions required, so staying silent is the best course.",
+          "metrics": {
+            "latencyMs": 2301,
+            "promptTokens": 1216,
+            "candidateTokens": 135,
+            "totalTokens": 1674
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events, urgent reminders, or actionable commitments for today. The user does not need unsolicited prompting or manufactured small talk about past conversations, making silence the most respectful and helpful choice.",
+          "metrics": {
+            "latencyMs": 4666,
+            "promptTokens": 1216,
+            "candidateTokens": 134,
+            "totalTokens": 1710
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events, tasks, or urgent reminders for today. Remaining silent avoids unnecessary interruption.",
+          "metrics": {
+            "latencyMs": 2511,
+            "promptTokens": 1216,
+            "candidateTokens": 116,
+            "totalTokens": 1738
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events, due tasks, or immediate commitments for today. Memories regarding Doug's visit were for the past weekend, and his daughter's birthday is later in the week with no tasks scheduled for this morning. Remaining silent respects the user's focus.",
+          "metrics": {
+            "latencyMs": 2970,
+            "promptTokens": 1216,
+            "candidateTokens": 151,
+            "totalTokens": 1795
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, tasks, or urgent matters scheduled for today. Doug's visit was last weekend, and his daughter's birthday is later in the week. Staying silent is respectful and avoids manufacturing conversation.",
+          "metrics": {
+            "latencyMs": 2227,
+            "promptTokens": 1216,
+            "candidateTokens": 139,
+            "totalTokens": 1799
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no events, tasks, or time-sensitive reminders scheduled for today (Tuesday). Remaining silent respects the user's focus and avoids manufacturing unnecessary conversation.",
+          "metrics": {
+            "latencyMs": 3042,
+            "promptTokens": 1216,
+            "candidateTokens": 127,
+            "totalTokens": 1884
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or pending tasks for today. Background notes about Doug's visit or his daughter's upcoming birthday require no immediate action on a Tuesday morning. Remaining silent is the most respectful and relevant choice.",
+          "metrics": {
+            "latencyMs": 2936,
+            "promptTokens": 1216,
+            "candidateTokens": 139,
+            "totalTokens": 1848
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events, pending tasks, or urgent items requiring the user's attention this morning. Staying silent is the most respectful and helpful choice.",
+          "metrics": {
+            "latencyMs": 2288,
+            "promptTokens": 1216,
+            "candidateTokens": 126,
+            "totalTokens": 1595
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or pending tasks scheduled for today. The recorded notes regarding Doug's visit and his daughter's upcoming birthday on Sunday do not require any unsolicited intervention on a Tuesday morning. Remaining silent is the most respectful and relevant choice.",
+          "metrics": {
+            "latencyMs": 2827,
+            "promptTokens": 1216,
+            "candidateTokens": 145,
+            "totalTokens": 1747
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or pending tasks scheduled for today. Existing memories pertain to past conversations and an upcoming birthday later in the week, requiring no proactive interruption at this time.",
+          "metrics": {
+            "latencyMs": 2000,
+            "promptTokens": 1216,
+            "candidateTokens": 130,
+            "totalTokens": 1718
+          }
+        }
+      }
+    ],
+    "test_7_unresolved_thread": [
+      {
+        "runIndex": 1,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or time-sensitive tasks scheduled for today. While there is an open thread regarding waiting on a revised quote from the plumber, prompting the user unprompted to follow up would manufacture an obligation and constitute nagging. Staying silent is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 6369,
+            "promptTokens": 1109,
+            "candidateTokens": 152,
+            "totalTokens": 2818
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events or time-sensitive tasks for today. While there is an unresolved matter regarding a revised quote from the plumber, unsolicited nagging without an explicit reminder set by the user violates the restraint principle. Silence is the appropriate choice.",
+          "metrics": {
+            "latencyMs": 3222,
+            "promptTokens": 1109,
+            "candidateTokens": 143,
+            "totalTokens": 1921
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today. While there is an older waiting item regarding a revised quote from the plumber, unprompted follow-ups on passive items risk nagging and manufacturing obligations. Silence is the most respectful and intelligent choice.",
+          "metrics": {
+            "latencyMs": 4163,
+            "promptTokens": 1109,
+            "candidateTokens": 143,
+            "totalTokens": 2194
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events for today and no active, time-sensitive reminders requested by the user. The pending plumber's quote is a passive waiting item rather than a scheduled task for today; proactively bringing it up would constitute unnecessary prompting and nagging. Silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 7358,
+            "promptTokens": 1109,
+            "candidateTokens": 154,
+            "totalTokens": 2283
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or time-sensitive commitments for today. While there is an open thread regarding a plumber's quote from earlier in the month, prompting unprompted without an explicit reminder requested by the user would constitute unnecessary nagging. Silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 3997,
+            "promptTokens": 1109,
+            "candidateTokens": 152,
+            "totalTokens": 1932
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, deadlines, or time-sensitive tasks scheduled for today. Unprompted nagging about the pending plumber quote from ten days ago would be intrusive rather than helpful, so silence is the most respectful choice.",
+          "metrics": {
+            "latencyMs": 3934,
+            "promptTokens": 1109,
+            "candidateTokens": 140,
+            "totalTokens": 1787
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or time-sensitive commitments for today. While there is a pending item regarding a revised quote from the plumber, it is waiting on external action and prompting the user unasked on a Monday morning would constitute nagging. Remaining silent respects the user's focus and adheres to the mandate that silence is a high-value outcome.",
+          "metrics": {
+            "latencyMs": 6394,
+            "promptTokens": 1109,
+            "candidateTokens": 164,
+            "totalTokens": 2600
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today. Although there is a pending matter regarding a revised quote from the plumber dating back a few weeks, bringing it up unprompted during morning orientation would constitute unnecessary nagging. Silence is the most respectful and restrained action.",
+          "metrics": {
+            "latencyMs": 3723,
+            "promptTokens": 1109,
+            "candidateTokens": 146,
+            "totalTokens": 1997
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events or time-sensitive commitments for today. While there is an open thread regarding a revised quote from the plumber, no reminder or deadline was set, and prompting about it unsolicited would constitute unnecessary nagging. Silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 5347,
+            "promptTokens": 1109,
+            "candidateTokens": 149,
+            "totalTokens": 2248
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": false,
+        "reasons": [
+          "FAIL: Missed resurfacing the long-standing unresolved plumber quote"
+        ],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events or time-sensitive commitments for today. The open matter regarding the plumber's revised quote has no explicit due date or reminder requested by the user; prompting them unprompted on a Monday morning would constitute unnecessary nagging and manufactured obligation. Silence is the most respectful choice.",
+          "metrics": {
+            "latencyMs": 4679,
+            "promptTokens": 1109,
+            "candidateTokens": 154,
+            "totalTokens": 2358
+          }
+        }
+      }
+    ],
+    "test_8_nothing_to_say": [
+      {
+        "runIndex": 1,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled calendar events, urgent tasks, or timely reminders for today. The existing memories are passive background facts and preferences that require no manufactured prompt or check-in. Remaining silent is the most respectful and intelligent choice.",
+          "metrics": {
+            "latencyMs": 2637,
+            "promptTokens": 1129,
+            "candidateTokens": 140,
+            "totalTokens": 1534
+          }
+        }
+      },
+      {
+        "runIndex": 2,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events scheduled for today and no active tasks or timely reminders requiring attention. The existing memories are passive background facts and preferences, which should not be manufactured into artificial conversation or obligations. Staying silent is the most respectful and appropriate response.",
+          "metrics": {
+            "latencyMs": 2291,
+            "promptTokens": 1129,
+            "candidateTokens": 144,
+            "totalTokens": 1662
+          }
+        }
+      },
+      {
+        "runIndex": 3,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events, active tasks, or timely items requiring attention this morning. The stored memories are passive facts and preferences, so remaining silent is the most respectful and helpful choice.",
+          "metrics": {
+            "latencyMs": 2283,
+            "promptTokens": 1129,
+            "candidateTokens": 132,
+            "totalTokens": 1530
+          }
+        }
+      },
+      {
+        "runIndex": 4,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, tasks, or time-sensitive reminders for today. The existing memories are passive background facts that require no prompt, making silence the most respectful and intelligent response.",
+          "metrics": {
+            "latencyMs": 2453,
+            "promptTokens": 1129,
+            "candidateTokens": 132,
+            "totalTokens": 1527
+          }
+        }
+      },
+      {
+        "runIndex": 5,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no scheduled events, pending tasks, or time-sensitive reminders for today. Remaining silent avoids unnecessary intrusion and respects the user's attention.",
+          "metrics": {
+            "latencyMs": 2475,
+            "promptTokens": 1129,
+            "candidateTokens": 125,
+            "totalTokens": 1567
+          }
+        }
+      },
+      {
+        "runIndex": 6,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, tasks, or time-sensitive reminders scheduled for today. The existing memories are passive facts and preferences, which should not be manufactured into obligations or unsolicited conversation. Silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 2589,
+            "promptTokens": 1129,
+            "candidateTokens": 141,
+            "totalTokens": 1630
+          }
+        }
+      },
+      {
+        "runIndex": 7,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, tasks, or urgent reminders for today. The existing memories are passive facts and preferences, so staying silent avoids manufacturing unnecessary conversation.",
+          "metrics": {
+            "latencyMs": 3765,
+            "promptTokens": 1129,
+            "candidateTokens": 125,
+            "totalTokens": 1556
+          }
+        }
+      },
+      {
+        "runIndex": 8,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, active tasks, or time-sensitive reminders for today. Remaining silent is the most helpful and respectful choice.",
+          "metrics": {
+            "latencyMs": 2609,
+            "promptTokens": 1129,
+            "candidateTokens": 122,
+            "totalTokens": 1469
+          }
+        }
+      },
+      {
+        "runIndex": 9,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, tasks, or time-sensitive reminders scheduled for today. The existing memories are passive background facts and preferences, so remaining silent avoids unnecessary clutter.",
+          "metrics": {
+            "latencyMs": 2023,
+            "promptTokens": 1129,
+            "candidateTokens": 129,
+            "totalTokens": 1477
+          }
+        }
+      },
+      {
+        "runIndex": 10,
+        "pass": true,
+        "reasons": [],
+        "decision": {
+          "communication": {
+            "mode": "SILENT",
+            "headline": null,
+            "body": null,
+            "closingQuestion": null
+          },
+          "proposedMutations": {
+            "memoriesToPersist": [],
+            "memoryIdsToResolve": []
+          },
+          "citedMemoryIds": [],
+          "citedCalendarIds": [],
+          "rationale": "There are no calendar events, active tasks, or timely obligations scheduled for today. The existing memories are passive background facts and preferences that require no prompting. Silence is the most respectful and appropriate choice.",
+          "metrics": {
+            "latencyMs": 2374,
+            "promptTokens": 1129,
+            "candidateTokens": 134,
+            "totalTokens": 1561
+          }
+        }
+      }
+    ]
+  }
+}

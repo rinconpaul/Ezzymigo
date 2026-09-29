@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, RefreshCw, Clock, MapPin, Users, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, RefreshCw, Clock, MapPin, Users, CheckCircle2, AlertCircle, Loader2, Link2, ShieldCheck } from 'lucide-react';
 import { CalendarEvent } from '../types';
-import { fetchGoogleCalendarEvents, getStoredCalendarEvents } from '../utils/googleCalendarSync';
-import { AuthState } from '../utils/googleCalendarAuth';
+import { getStoredCalendarEvents } from '../utils/googleCalendarSync';
+import {
+  AuthState,
+  fetchCalendarStatus,
+  triggerServerCalendarSync,
+  CalendarConnectionStatus,
+} from '../utils/googleCalendarAuth';
 import { formatDateTime, getUserPreferences } from '../utils/userPreferences';
 
 interface CalendarInspectorProps {
@@ -11,18 +16,23 @@ interface CalendarInspectorProps {
 
 export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [status, setStatus] = useState<CalendarConnectionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const loadStoredEvents = async (retryCount = 0) => {
+  const loadData = async (retryCount = 0) => {
     setIsLoading(true);
     try {
-      const list = await getStoredCalendarEvents();
+      const [list, calStatus] = await Promise.all([
+        getStoredCalendarEvents(),
+        fetchCalendarStatus(false).catch(() => null),
+      ]);
       setEvents(list);
+      if (calStatus) setStatus(calStatus);
     } catch (err: any) {
       if (retryCount < 3) {
-        setTimeout(() => loadStoredEvents(retryCount + 1), 1500 * (retryCount + 1));
+        setTimeout(() => loadData(retryCount + 1), 1500 * (retryCount + 1));
         return;
       }
       console.error('Failed to read calendar events:', err);
@@ -32,25 +42,36 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
   };
 
   useEffect(() => {
-    loadStoredEvents();
+    loadData();
+    const handler = () => loadData();
+    window.addEventListener('calendar-updated', handler);
+    return () => window.removeEventListener('calendar-updated', handler);
   }, []);
 
   const handleSyncCalendar = async () => {
     setIsSyncing(true);
     setMessage(null);
     try {
-      const synced = await fetchGoogleCalendarEvents(60);
-      setEvents(synced);
-      setMessage({
-        type: 'success',
-        text: `Successfully imported ${synced.length} event(s) for the next 60 days from Google Calendar.`,
-      });
+      const res = await triggerServerCalendarSync();
+      if (res.status) setStatus(res.status);
+      if (res.events) setEvents(res.events);
+      if (res.success) {
+        setMessage({
+          type: 'success',
+          text: `Successfully synced ${res.eventCount} event(s) across connected calendars via offline OAuth refresh token.`,
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: res.error || 'Calendar sync encountered an issue.',
+        });
+      }
       setTimeout(() => setMessage(null), 6000);
     } catch (err: any) {
       console.error('Calendar sync error:', err);
       setMessage({
         type: 'error',
-        text: err?.message || 'Failed to fetch events from Google Calendar.',
+        text: err?.message || 'Failed to sync events from Google Calendar.',
       });
     } finally {
       setIsSyncing(false);
@@ -122,13 +143,13 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
           </div>
           <div>
             <h3 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
-              Imported Calendar Events (Inspection)
+              Google Calendar Synchronization
               <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                 {events.length}
               </span>
             </h3>
             <p className="text-2xs text-zinc-500">
-              Isolated <code className="font-mono text-zinc-600">calendar_events</code> storage for manual acceptance testing
+              Server-side offline OAuth 2.0 with encrypted refresh token at rest
             </p>
           </div>
         </div>
@@ -136,7 +157,7 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={loadStoredEvents}
+            onClick={() => loadData()}
             disabled={isLoading || isSyncing}
             title="Refresh local inspection list"
             className="p-1.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
@@ -154,17 +175,89 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
             {isSyncing ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Fetching 60 Days...</span>
+                <span>Syncing Calendar...</span>
               </>
             ) : (
               <>
                 <Calendar className="w-3.5 h-3.5" />
-                <span>Fetch Google Calendar (Upcoming 60 Days)</span>
+                <span>Sync Now (Server OAuth)</span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      {/* Truthful Connection Status Panel */}
+      {status && (
+        <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 space-y-2 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  status.status === 'connected'
+                    ? 'bg-emerald-500'
+                    : status.status === 'stale'
+                    ? 'bg-amber-500'
+                    : status.status === 'needs_reconnecting'
+                    ? 'bg-rose-500'
+                    : status.status === 'syncing'
+                    ? 'bg-blue-500 animate-pulse'
+                    : 'bg-zinc-400'
+                }`}
+              />
+              <span className="font-semibold text-zinc-900">{status.display_status}</span>
+            </div>
+
+            {status.account_email && (
+              <span className="text-zinc-500 text-2xs font-mono">{status.account_email}</span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-zinc-200/60 text-2xs text-zinc-600">
+            <div>
+              <span className="text-zinc-400">Last successful sync: </span>
+              <span className="font-medium text-zinc-800">
+                {status.last_successful_sync_at
+                  ? new Date(status.last_successful_sync_at).toLocaleString('en-AU')
+                  : 'Never'}
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-400">Last attempted sync: </span>
+              <span className="font-medium text-zinc-800">
+                {status.last_attempted_sync_at
+                  ? new Date(status.last_attempted_sync_at).toLocaleString('en-AU')
+                  : 'Never'}
+              </span>
+            </div>
+          </div>
+
+          {status.calendars_included && status.calendars_included.length > 0 && (
+            <div className="pt-1.5 border-t border-zinc-200/60 flex items-center gap-2 flex-wrap text-2xs">
+              <span className="text-zinc-400 font-medium">Calendars included:</span>
+              {status.calendars_included.map((cal) => (
+                <span
+                  key={cal.id}
+                  className={`px-1.5 py-0.5 rounded text-3xs font-medium border ${
+                    cal.primary
+                      ? 'bg-blue-50 text-blue-800 border-blue-200 font-semibold'
+                      : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                  }`}
+                >
+                  {cal.summary} {cal.primary ? '(Primary)' : ''}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {status.last_sync_error && (
+            <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-800 text-2xs flex items-start gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{status.last_sync_error}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Feedback Banner */}
       {message && (
@@ -193,7 +286,7 @@ export const CalendarInspector: React.FC<CalendarInspectorProps> = ({ authState 
         <div className="text-center py-6 border border-dashed border-zinc-200 rounded-lg bg-zinc-50/50 space-y-1">
           <p className="text-xs font-medium text-zinc-700">No calendar events imported yet</p>
           <p className="text-2xs text-zinc-500 max-w-md mx-auto">
-            Click <strong>Fetch Google Calendar (Next 7 Days)</strong> to pull upcoming events from your connected Google Calendar into the storage table.
+            Click <strong>Sync Now (Server OAuth)</strong> to pull upcoming events from your connected Google Calendar into the storage table.
           </p>
         </div>
       ) : (

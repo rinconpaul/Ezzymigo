@@ -447,3 +447,231 @@ export async function getCalendarDiagnostics(ezzyId: string = 'ezzy_default'): P
   }
 }
 
+// -------------------------------------------------------------
+// Calendar Connections Store Layer (OAuth 2.0 Offline Access)
+// -------------------------------------------------------------
+
+export interface CalendarConnectionRecord {
+  id: string;
+  ezzy_id: string;
+  user_id: string;
+  provider: string;
+  encrypted_refresh_token: string | null;
+  encrypted_access_token: string | null;
+  token_expiry: string | null;
+  scopes: string[];
+  selected_calendar_ids: string[];
+  primary_calendar_id: string;
+  account_email: string | null;
+  connection_status: 'connected' | 'syncing' | 'stale' | 'needs_reconnecting' | 'disconnected';
+  last_successful_sync_at: string | null;
+  last_attempted_sync_at: string | null;
+  last_sync_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getCalendarConnection(
+  ezzyId: string,
+  userId: string,
+  provider: string = 'google_calendar'
+): Promise<CalendarConnectionRecord | null> {
+  await initBunnyDb();
+  const eid = (ezzyId || 'ezzy_default').trim();
+  const uid = (userId || 'default_user').trim();
+  try {
+    const results = await executeBunnySql([{
+      sql: `SELECT id, ezzy_id, user_id, provider, encrypted_refresh_token, encrypted_access_token, token_expiry, scopes, selected_calendar_ids, primary_calendar_id, account_email, connection_status, last_successful_sync_at, last_attempted_sync_at, last_sync_error, created_at, updated_at
+            FROM calendar_connections
+            WHERE ezzy_id = ? AND user_id = ? AND provider = ? LIMIT 1;`,
+      args: [eid, uid, provider]
+    }]);
+
+    const row = results[0]?.rows?.[0];
+    if (!row) return null;
+
+    let scopes: string[] = [];
+    try {
+      scopes = row.scopes ? JSON.parse(row.scopes) : [];
+    } catch {
+      scopes = [];
+    }
+
+    let selected_calendar_ids: string[] = ['primary'];
+    try {
+      selected_calendar_ids = row.selected_calendar_ids ? JSON.parse(row.selected_calendar_ids) : ['primary'];
+    } catch {
+      selected_calendar_ids = ['primary'];
+    }
+
+    return {
+      id: row.id,
+      ezzy_id: row.ezzy_id,
+      user_id: row.user_id,
+      provider: row.provider,
+      encrypted_refresh_token: row.encrypted_refresh_token || null,
+      encrypted_access_token: row.encrypted_access_token || null,
+      token_expiry: row.token_expiry || null,
+      scopes,
+      selected_calendar_ids,
+      primary_calendar_id: row.primary_calendar_id || 'primary',
+      account_email: row.account_email || null,
+      connection_status: row.connection_status || 'connected',
+      last_successful_sync_at: row.last_successful_sync_at || null,
+      last_attempted_sync_at: row.last_attempted_sync_at || null,
+      last_sync_error: row.last_sync_error || null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  } catch (err) {
+    console.error('[Calendar Store] Error getting calendar connection:', err);
+    return null;
+  }
+}
+
+export async function listAllActiveCalendarConnections(): Promise<CalendarConnectionRecord[]> {
+  await initBunnyDb();
+  try {
+    const results = await executeBunnySql([{
+      sql: `SELECT id, ezzy_id, user_id, provider, encrypted_refresh_token, encrypted_access_token, token_expiry, scopes, selected_calendar_ids, primary_calendar_id, account_email, connection_status, last_successful_sync_at, last_attempted_sync_at, last_sync_error, created_at, updated_at
+            FROM calendar_connections
+            WHERE connection_status != 'disconnected' AND encrypted_refresh_token IS NOT NULL;`
+    }]);
+
+    return (results[0]?.rows || []).map((row: any) => {
+      let scopes: string[] = [];
+      try {
+        scopes = row.scopes ? JSON.parse(row.scopes) : [];
+      } catch {
+        scopes = [];
+      }
+      let selected_calendar_ids: string[] = ['primary'];
+      try {
+        selected_calendar_ids = row.selected_calendar_ids ? JSON.parse(row.selected_calendar_ids) : ['primary'];
+      } catch {
+        selected_calendar_ids = ['primary'];
+      }
+      return {
+        id: row.id,
+        ezzy_id: row.ezzy_id,
+        user_id: row.user_id,
+        provider: row.provider,
+        encrypted_refresh_token: row.encrypted_refresh_token || null,
+        encrypted_access_token: row.encrypted_access_token || null,
+        token_expiry: row.token_expiry || null,
+        scopes,
+        selected_calendar_ids,
+        primary_calendar_id: row.primary_calendar_id || 'primary',
+        account_email: row.account_email || null,
+        connection_status: row.connection_status || 'connected',
+        last_successful_sync_at: row.last_successful_sync_at || null,
+        last_attempted_sync_at: row.last_attempted_sync_at || null,
+        last_sync_error: row.last_sync_error || null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    });
+  } catch (err) {
+    console.error('[Calendar Store] Error listing active connections:', err);
+    return [];
+  }
+}
+
+export async function saveCalendarConnection(
+  conn: Partial<CalendarConnectionRecord> & { ezzy_id: string; user_id: string; provider?: string }
+): Promise<CalendarConnectionRecord> {
+  await initBunnyDb();
+  const eid = conn.ezzy_id.trim();
+  const uid = conn.user_id.trim();
+  const provider = conn.provider || 'google_calendar';
+  const id = conn.id || `conn_${provider}_${eid}_${uid}`;
+  const nowIso = new Date().toISOString();
+
+  const existing = await getCalendarConnection(eid, uid, provider);
+
+  const merged = {
+    id,
+    ezzy_id: eid,
+    user_id: uid,
+    provider,
+    encrypted_refresh_token: conn.encrypted_refresh_token !== undefined ? conn.encrypted_refresh_token : (existing?.encrypted_refresh_token || null),
+    encrypted_access_token: conn.encrypted_access_token !== undefined ? conn.encrypted_access_token : (existing?.encrypted_access_token || null),
+    token_expiry: conn.token_expiry !== undefined ? conn.token_expiry : (existing?.token_expiry || null),
+    scopes: conn.scopes !== undefined ? conn.scopes : (existing?.scopes || []),
+    selected_calendar_ids: conn.selected_calendar_ids !== undefined ? conn.selected_calendar_ids : (existing?.selected_calendar_ids || ['primary']),
+    primary_calendar_id: conn.primary_calendar_id !== undefined ? conn.primary_calendar_id : (existing?.primary_calendar_id || 'primary'),
+    account_email: conn.account_email !== undefined ? conn.account_email : (existing?.account_email || null),
+    connection_status: conn.connection_status !== undefined ? conn.connection_status : (existing?.connection_status || 'connected'),
+    last_successful_sync_at: conn.last_successful_sync_at !== undefined ? conn.last_successful_sync_at : (existing?.last_successful_sync_at || null),
+    last_attempted_sync_at: conn.last_attempted_sync_at !== undefined ? conn.last_attempted_sync_at : (existing?.last_attempted_sync_at || null),
+    last_sync_error: conn.last_sync_error !== undefined ? conn.last_sync_error : (existing?.last_sync_error || null),
+    created_at: existing?.created_at || nowIso,
+    updated_at: nowIso,
+  };
+
+  await executeBunnySql([{
+    sql: `INSERT INTO calendar_connections (
+            id, ezzy_id, user_id, provider, encrypted_refresh_token, encrypted_access_token, token_expiry,
+            scopes, selected_calendar_ids, primary_calendar_id, account_email, connection_status,
+            last_successful_sync_at, last_attempted_sync_at, last_sync_error, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            encrypted_refresh_token = excluded.encrypted_refresh_token,
+            encrypted_access_token = excluded.encrypted_access_token,
+            token_expiry = excluded.token_expiry,
+            scopes = excluded.scopes,
+            selected_calendar_ids = excluded.selected_calendar_ids,
+            primary_calendar_id = excluded.primary_calendar_id,
+            account_email = excluded.account_email,
+            connection_status = excluded.connection_status,
+            last_successful_sync_at = excluded.last_successful_sync_at,
+            last_attempted_sync_at = excluded.last_attempted_sync_at,
+            last_sync_error = excluded.last_sync_error,
+            updated_at = excluded.updated_at;`,
+    args: [
+      merged.id,
+      merged.ezzy_id,
+      merged.user_id,
+      merged.provider,
+      merged.encrypted_refresh_token,
+      merged.encrypted_access_token,
+      merged.token_expiry,
+      JSON.stringify(merged.scopes),
+      JSON.stringify(merged.selected_calendar_ids),
+      merged.primary_calendar_id,
+      merged.account_email,
+      merged.connection_status,
+      merged.last_successful_sync_at,
+      merged.last_attempted_sync_at,
+      merged.last_sync_error,
+      merged.created_at,
+      merged.updated_at,
+    ]
+  }]);
+
+  return merged as CalendarConnectionRecord;
+}
+
+export async function disconnectCalendarConnection(
+  ezzyId: string,
+  userId: string,
+  provider: string = 'google_calendar'
+): Promise<void> {
+  await initBunnyDb();
+  const eid = (ezzyId || 'ezzy_default').trim();
+  const uid = (userId || 'default_user').trim();
+  const nowIso = new Date().toISOString();
+
+  await executeBunnySql([{
+    sql: `UPDATE calendar_connections
+          SET connection_status = 'disconnected',
+              encrypted_refresh_token = NULL,
+              encrypted_access_token = NULL,
+              token_expiry = NULL,
+              last_sync_error = NULL,
+              updated_at = ?
+          WHERE ezzy_id = ? AND user_id = ? AND provider = ?;`,
+    args: [nowIso, eid, uid, provider]
+  }]);
+}
+

@@ -53,6 +53,7 @@ const PROTECTED_MULTI_TENANT_TABLES = [
   'memory_vectors',
   'memory_entities',
   'calendar_events',
+  'calendar_connections',
   'shadow_evaluations',
   'shadow_interactions',
   'shadow_dismissals',

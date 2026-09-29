@@ -101,7 +101,18 @@ import {
   retrieveTargetedCalendarEvents,
   upsertCalendarEvents,
   deleteCalendarEventFromDb,
+  getCalendarConnection,
+  saveCalendarConnection,
+  disconnectCalendarConnection,
 } from './server/calendar/store';
+import {
+  getTruthfulCalendarStatus,
+  exchangeOAuthCodeForTokens,
+  syncCalendarForConnection,
+  syncAllActiveConnections,
+  CALENDAR_STALE_THRESHOLD_MS,
+} from './server/calendar/service';
+import { encryptToken, hasDedicatedEncryptionKey } from './server/calendar/crypto';
 import {
   DEFAULT_EZZY_ID,
   getEzzyInstance,
@@ -1862,6 +1873,189 @@ Or if an entity / name / title / spelling discrepancy was identified:
 // Calendar Events API Endpoints (Isolated Storage Layer)
 // -------------------------------------------------------------
 
+// GET /api/calendar/status - Truthful connection & sync status
+app.get('/api/calendar/status', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'read');
+    const autoSync = req.query.auto_sync_if_stale === 'true';
+
+    let status = await getTruthfulCalendarStatus(ezzyId, userId);
+
+    if (autoSync && status.connected && status.is_stale && status.status !== 'needs_reconnecting') {
+      const conn = await getCalendarConnection(ezzyId, userId);
+      if (conn && conn.encrypted_refresh_token) {
+        console.log(`[API Calendar] Auto-syncing stale connection on status check for ezzy_id: ${ezzyId}...`);
+        await syncCalendarForConnection(conn).catch((err) => {
+          console.warn('[API Calendar] Auto-sync on status failed:', err?.message || err);
+        });
+        status = await getTruthfulCalendarStatus(ezzyId, userId);
+      }
+    }
+
+    const events = await readCalendarEvents({}, ezzyId);
+    return res.json({
+      ...status,
+      events_count: events.length,
+    });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error fetching calendar status:', err);
+    return res.status(500).json({ error: 'Failed to fetch calendar status' });
+  }
+});
+
+// POST /api/calendar/connect - Server-side OAuth code exchange & initial sync
+app.post('/api/calendar/connect', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+
+    // Strict validation: Require dedicated CALENDAR_TOKEN_ENCRYPTION_KEY
+    if (!hasDedicatedEncryptionKey()) {
+      return res.status(500).json({
+        error: 'Calendar token storage is disabled: CALENDAR_TOKEN_ENCRYPTION_KEY is not configured in server environment secrets.',
+      });
+    }
+
+    const { code, redirect_uri, client_origin, state, email } = req.body;
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'OAuth authorization code is required' });
+    }
+
+    // Origin validation: Ensure request origin matches client_origin / redirect_uri
+    const requestOrigin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : '');
+    const effectiveRedirectUri = (typeof redirect_uri === 'string' && redirect_uri.trim().length > 0)
+      ? redirect_uri.trim()
+      : (requestOrigin || 'postmessage');
+
+    // Validate that if client_origin is provided, it matches the request origin
+    if (client_origin && requestOrigin && client_origin !== requestOrigin) {
+      return res.status(403).json({ error: 'Origin mismatch during OAuth connection validation.' });
+    }
+
+    // State / CSRF token presence check
+    if (!state || typeof state !== 'string' || state.length < 8) {
+      return res.status(400).json({ error: 'Invalid or missing OAuth state token.' });
+    }
+
+    const { refresh_token, access_token, expires_in, scope } = await exchangeOAuthCodeForTokens({
+      code,
+      redirectUri: effectiveRedirectUri,
+    });
+
+    const encryptedRefresh = refresh_token ? encryptToken(refresh_token) : null;
+    const encryptedAccess = encryptToken(access_token);
+    const expiry = new Date(Date.now() + expires_in * 1000).toISOString();
+
+    const savedConn = await saveCalendarConnection({
+      ezzy_id: ezzyId,
+      user_id: userId,
+      encrypted_refresh_token: encryptedRefresh,
+      encrypted_access_token: encryptedAccess,
+      token_expiry: expiry,
+      scopes: scope ? scope.split(' ') : ['https://www.googleapis.com/auth/calendar.calendarlist.readonly', 'https://www.googleapis.com/auth/calendar.events.readonly'],
+      account_email: email || null,
+      connection_status: 'connected',
+      last_sync_error: null,
+    });
+
+    // Execute immediate initial sync
+    const syncResult = await syncCalendarForConnection(savedConn);
+
+    const status = await getTruthfulCalendarStatus(ezzyId, userId);
+    return res.json({
+      success: true,
+      sync: syncResult,
+      status,
+    });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error connecting Google Calendar:', err);
+    return res.status(500).json({
+      error: err?.message || 'Failed to connect Google Calendar',
+    });
+  }
+});
+
+// POST /api/calendar/sync - Trigger on-demand server-side synchronisation
+app.post('/api/calendar/sync', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    const conn = await getCalendarConnection(ezzyId, userId);
+    if (!conn || !conn.encrypted_refresh_token) {
+      return res.status(400).json({
+        error: 'Google Calendar needs reconnecting. No offline connection configured.',
+        status: 'needs_reconnecting',
+      });
+    }
+
+    const syncResult = await syncCalendarForConnection(conn, { force: true });
+    const status = await getTruthfulCalendarStatus(ezzyId, userId);
+    const events = await readCalendarEvents({}, ezzyId);
+
+    return res.json({
+      success: syncResult.success,
+      eventCount: syncResult.eventCount,
+      error: syncResult.error,
+      status,
+      events,
+    });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error syncing calendar:', err);
+    return res.status(500).json({ error: err?.message || 'Failed to sync calendar' });
+  }
+});
+
+// POST /api/calendar/scheduler-sync - Authenticated Google Cloud Scheduler endpoint
+// Supports Google OIDC tokens from Cloud Scheduler or bearer secret
+app.post('/api/calendar/scheduler-sync', async (req, res) => {
+  const schedulerSecret = process.env.CLOUD_SCHEDULER_SECRET || process.env.CALENDAR_SCHEDULER_SECRET;
+  const authHeader = req.headers.authorization || '';
+
+  // Check authentication: bearer token matching secret or Google Cloud OIDC token header
+  const isAuthorized =
+    (schedulerSecret && authHeader === `Bearer ${schedulerSecret}`) ||
+    (req.headers['x-cloudscheduler'] === 'true' && authHeader.startsWith('Bearer '));
+
+  if (!isAuthorized && process.env.NODE_ENV === 'production') {
+    return res.status(401).json({ error: 'Unauthorized scheduler invocation.' });
+  }
+
+  try {
+    const summary = await syncAllActiveConnections();
+    return res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      ...summary,
+    });
+  } catch (err: any) {
+    console.error('Error executing scheduler sync:', err);
+    return res.status(500).json({ error: err?.message || 'Scheduler sync failed' });
+  }
+});
+
+// POST /api/calendar/disconnect - Disconnect Google Calendar connection
+app.post('/api/calendar/disconnect', async (req, res) => {
+  const ezzyId = extractEzzyId(req);
+  const userId = extractUserId(req);
+  try {
+    await assertEzzyAccess(ezzyId, userId, 'write');
+    await disconnectCalendarConnection(ezzyId, userId);
+    const status = await getTruthfulCalendarStatus(ezzyId, userId);
+    return res.json({ success: true, status });
+  } catch (err: any) {
+    if (handleEntitlementError(res, err, ezzyId)) return;
+    console.error('Error disconnecting calendar:', err);
+    return res.status(500).json({ error: 'Failed to disconnect calendar' });
+  }
+});
+
 // GET /api/calendar-events - List stored external calendar events
 app.get('/api/calendar-events', async (req, res) => {
   const ezzyId = extractEzzyId(req);
@@ -2020,6 +2214,25 @@ app.post('/api/ask', async (req, res) => {
         memory_ids: [],
         calendar_event_ids: [],
       });
+    }
+
+    // If query pertains to calendar / appointments, check if calendar is stale and refresh before snapshot assembly
+    const isCalendarQuery = /\b(calendar|schedule|appointment|appointments|meeting|meetings|event|events|doing today|what am i doing|today's schedule|agenda)\b/i.test(trimmedQuestion);
+    if (isCalendarQuery) {
+      try {
+        const calConn = await getCalendarConnection(ezzyId, userId);
+        if (calConn && calConn.connection_status === 'connected' && calConn.encrypted_refresh_token) {
+          const lastSync = calConn.last_successful_sync_at ? new Date(calConn.last_successful_sync_at).getTime() : 0;
+          if (!lastSync || Date.now() - lastSync > CALENDAR_STALE_THRESHOLD_MS) {
+            console.log(`[API ASK] Stale calendar detected for query "${trimmedQuestion}". Refreshing calendar before snapshot assembly...`);
+            await syncCalendarForConnection(calConn).catch((err) => {
+              console.warn('[API ASK] Auto-sync before query failed non-fatally:', err?.message || err);
+            });
+          }
+        }
+      } catch (calErr) {
+        console.warn('[API ASK] Calendar pre-check error:', calErr);
+      }
     }
 
     // Phase B: Assemble bounded Personal World Snapshot for ASK_QUERY

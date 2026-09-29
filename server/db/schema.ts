@@ -73,6 +73,27 @@ export async function initBunnyDb(): Promise<void> {
           );`
         },
         {
+          sql: `CREATE TABLE IF NOT EXISTS calendar_connections (
+            id TEXT PRIMARY KEY,
+            ezzy_id TEXT NOT NULL DEFAULT 'ezzy_default',
+            user_id TEXT NOT NULL DEFAULT 'default_user',
+            provider TEXT NOT NULL DEFAULT 'google_calendar',
+            encrypted_refresh_token TEXT,
+            encrypted_access_token TEXT,
+            token_expiry TEXT,
+            scopes TEXT NOT NULL DEFAULT '[]',
+            selected_calendar_ids TEXT NOT NULL DEFAULT '["primary"]',
+            primary_calendar_id TEXT DEFAULT 'primary',
+            account_email TEXT,
+            connection_status TEXT NOT NULL DEFAULT 'connected',
+            last_successful_sync_at TEXT,
+            last_attempted_sync_at TEXT,
+            last_sync_error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );`
+        },
+        {
           sql: `CREATE TABLE IF NOT EXISTS user_relationships (
             id TEXT PRIMARY KEY,
             person TEXT NOT NULL,
@@ -403,6 +424,8 @@ export async function initBunnyDb(): Promise<void> {
         { sql: `CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);` },
         { sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_suppressed_name_ezzy ON suppressed_entities(name, ezzy_id);` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_vec_ezzy ON memory_vectors(ezzy_id);` },
+        { sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_cal_conn_ezzy_user ON calendar_connections(ezzy_id, user_id, provider);` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_cal_conn_ezzy ON calendar_connections(ezzy_id);` },
       ]).catch(() => {});
 
       dbInitialized = true;

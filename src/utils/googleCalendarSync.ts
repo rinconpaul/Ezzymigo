@@ -1,4 +1,4 @@
-import { getGoogleAccessToken, connectGoogleCalendar } from './googleCalendarAuth';
+import { connectGoogleCalendar } from './googleCalendarAuth';
 import { CalendarEvent } from '../types';
 
 /**
@@ -102,174 +102,22 @@ export async function discoverGoogleCalendars(token: string): Promise<Discovered
 }
 
 export async function fetchGoogleCalendarEvents(daysAhead: number = DEFAULT_CALENDAR_SYNC_DAYS_AHEAD): Promise<CalendarEvent[]> {
-  let token = getGoogleAccessToken();
-  if (!token) {
-    // If not in memory, trigger connection popup
-    const authResult = await connectGoogleCalendar();
-    token = authResult.accessToken;
-  }
-
-  if (!token) {
-    throw new Error('No Google Calendar authorization token available. Please connect Google Calendar.');
-  }
-
-  // Query date boundaries anchored in Australia/Sydney
-  const now = new Date();
-  const startWindow = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const timeMin = startWindow.toISOString();
-  const end = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
-  const timeMax = end.toISOString();
-
-  // 1. Discover all active, visible, and selected calendars (primary, birthdays, secondary, family)
-  const calendars = await discoverGoogleCalendars(token);
-
-  // 2. Fetch events from each discovered calendar in parallel with pagination and Sydney timezone
-  const allEventsMap = new Map<string, CalendarEvent>();
-
-  const fetchPromises = calendars.map(async (cal) => {
-    // PROTECTED REGRESSION REQUIREMENT: eventTypes=birthday is strictly mandatory ONLY for the
-    // Google Contacts/Birthdays virtual calendar. It MUST NEVER be added to primary or user calendars
-    // where it would filter out normal doctor/consultation/personal appointments!
-    const isGoogleContactsVirtualCalendar =
-      cal.id === 'addressbook#contacts@group.v.calendar.google.com' ||
-      cal.id.startsWith('addressbook#contacts');
-
-    // Use canonical 'primary' identifier when primary is targeted to prevent email alias mismatches
-    const targetCalendarId = (cal.primary || cal.id === 'primary') ? 'primary' : cal.id;
-
-    const calendarEvents: CalendarEvent[] = [];
-    let pageToken: string | null = null;
-    let pageCount = 0;
-
-    try {
-      do {
-        pageCount++;
-        const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalendarId)}/events`);
-        url.searchParams.set('timeMin', timeMin);
-        url.searchParams.set('timeMax', timeMax);
-        url.searchParams.set('singleEvents', 'true');
-        url.searchParams.set('orderBy', 'startTime');
-        url.searchParams.set('maxResults', '250');
-        url.searchParams.set('timeZone', 'Australia/Sydney');
-
-        if (isGoogleContactsVirtualCalendar) {
-          url.searchParams.set('eventTypes', 'birthday');
-        }
-
-        if (pageToken) {
-          url.searchParams.set('pageToken', pageToken);
-        }
-
-        const response = await fetch(url.toString(), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/json',
-          },
-        });
-
-        if (response.status === 401) {
-          throw new Error('Google Calendar access token has expired. Please re-authenticate.');
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`[Google Calendar] Failed to fetch events for calendar "${cal.summary}" (${targetCalendarId}):`, errorText);
-          break;
-        }
-
-        const data = await response.json();
-        const rawItems: any[] = data.items || [];
-
-        for (const item of rawItems) {
-          const isAllDay = Boolean(item.start?.date && !item.start?.dateTime);
-          const startDatetime = isAllDay
-            ? (item.start?.date || new Date().toISOString().slice(0, 10))
-            : (item.start?.dateTime || new Date().toISOString());
-          const endDatetime = isAllDay
-            ? (item.end?.date || item.start?.date || startDatetime)
-            : (item.end?.dateTime || startDatetime);
-
-          const attendees = Array.isArray(item.attendees)
-            ? item.attendees.map((a: any) => a.displayName || a.email).filter(Boolean)
-            : [];
-
-          // Clean composite identity preserving calendar provenance
-          const calSlug = (cal.primary || cal.id === 'primary') ? 'primary' : cal.id.replace(/[^a-zA-Z0-9_-]/g, '_');
-          const compositeId = `cal_google_${calSlug}_${item.id}`;
-          const sourceEventId = `${cal.primary ? 'primary' : cal.id}#${item.id}`;
-
-          // Preserve birthday metadata and event type if present
-          let description = item.description || null;
-          if (item.eventType === 'birthday' || item.birthdayProperties) {
-            const birthdayMeta = {
-              eventType: item.eventType || 'birthday',
-              birthdayProperties: item.birthdayProperties || null,
-              calendar: cal.summary,
-            };
-            description = description ? `${description}\n${JSON.stringify(birthdayMeta)}` : JSON.stringify(birthdayMeta);
-          }
-
-          const calEvent: CalendarEvent = {
-            id: compositeId,
-            source: 'google_calendar',
-            source_event_id: sourceEventId,
-            title: item.summary || '(No title)',
-            description,
-            location: item.location || null,
-            attendees,
-            start_datetime: startDatetime,
-            end_datetime: endDatetime,
-            is_all_day: isAllDay,
-            status: item.status || 'confirmed',
-            updated_at: item.updated || new Date().toISOString(),
-          };
-
-          calendarEvents.push(calEvent);
-        }
-
-        pageToken = data.nextPageToken || null;
-      } while (pageToken && pageCount < 10);
-
-      return calendarEvents;
-    } catch (err: any) {
-      console.warn(`[Google Calendar] Error fetching events for calendar "${cal.summary}":`, err?.message || err);
-      if (err?.message?.includes('expired')) {
-        throw err;
-      }
-      return [];
-    }
-  });
-
-  const results = await Promise.all(fetchPromises);
-
-  // 3. Deduplicate events across calendars
-  for (const eventList of results) {
-    for (const ev of eventList) {
-      if (!allEventsMap.has(ev.id)) {
-        allEventsMap.set(ev.id, ev);
-      }
-    }
-  }
-
-  const parsedEvents = Array.from(allEventsMap.values());
-  console.log(`[Google Calendar] Merged and deduplicated ${parsedEvents.length} total event(s) across ${calendars.length} calendar(s).`);
-
-  // 4. Store in Ezzymigo's isolated calendar_events table
-  const syncRes = await fetch('/api/calendar-events/sync', {
+  const syncRes = await fetch('/api/calendar/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ events: parsedEvents }),
+    body: JSON.stringify({ daysAhead }),
   });
 
   if (!syncRes.ok) {
-    throw new Error('Failed to save imported events into local calendar database.');
+    const errBody = await syncRes.json().catch(() => ({}));
+    throw new Error(errBody.error || `Server calendar sync failed (${syncRes.status})`);
   }
 
-  const syncData = await syncRes.json();
+  const data = await syncRes.json();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('calendar-updated'));
   }
-  return syncData.events || parsedEvents;
+  return data.events || [];
 }
 
 export async function getStoredCalendarEvents(): Promise<CalendarEvent[]> {

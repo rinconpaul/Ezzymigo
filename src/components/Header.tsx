@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Brain, Bell, BellRing, CheckCircle2, Loader2, Calendar, LogOut, Check, ChevronDown, Filter } from 'lucide-react';
 import { checkPushSubscriptionStatus, subscribeToPushNotifications, sendTestNotification } from '../utils/pushManager';
-import { initGoogleAuth, connectGoogleCalendar, disconnectGoogleCalendar, AuthState } from '../utils/googleCalendarAuth';
+import {
+  initGoogleAuth,
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
+  fetchCalendarStatus,
+  AuthState,
+  CalendarConnectionStatus,
+} from '../utils/googleCalendarAuth';
 import { fetchGoogleCalendarEvents } from '../utils/googleCalendarSync';
 import { InboxFilterType } from '../types';
 
@@ -36,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isEnabling, setIsEnabling] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Google Calendar Auth State
+  // Google Calendar Auth & Server Status State
   const [authState, setAuthState] = useState<AuthState>({
     isConnected: false,
     user: null,
@@ -44,13 +51,29 @@ export const Header: React.FC<HeaderProps> = ({
     displayName: null,
     photoURL: null,
   });
+  const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null);
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+
+  const loadCalendarStatus = async (autoSync = true) => {
+    try {
+      const status = await fetchCalendarStatus(autoSync);
+      setCalendarStatus(status);
+    } catch (err) {
+      console.warn('Failed to load server calendar status:', err);
+    }
+  };
 
   useEffect(() => {
     checkPushSubscriptionStatus().then(setPushStatus);
     const unsubscribe = initGoogleAuth(setAuthState);
+    loadCalendarStatus(true);
+
+    const onCalUpdate = () => loadCalendarStatus(false);
+    window.addEventListener('calendar-updated', onCalUpdate);
+
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
+      window.removeEventListener('calendar-updated', onCalUpdate);
     };
   }, []);
 
@@ -95,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
         setTimeout(() => setFeedback(null), 5000);
       } catch (syncErr: any) {
         console.error('Google sync error after connect:', syncErr);
-        setFeedback(`Connected as ${res.user.email || 'User'}, but sync encountered an issue: ${syncErr?.message || 'Failed to fetch events'}`);
+        setFeedback(`Connected as ${res.account_email || 'User'}, but sync encountered an issue: ${syncErr?.message || 'Failed to fetch events'}`);
         setTimeout(() => setFeedback(null), 6000);
       }
     } catch (err: any) {
@@ -241,15 +264,50 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Google Calendar Connection Status / Button */}
-          {authState.isConnected ? (
-            <div className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-medium text-blue-900 bg-blue-50 px-2 py-1 sm:px-2.5 sm:py-1 rounded-md border border-blue-200">
-              <Check className="w-3 h-3 text-blue-600 shrink-0" />
-              <span>Calendar</span>
+          {calendarStatus?.connected ? (
+            <div
+              className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-medium px-2 py-1 sm:px-2.5 sm:py-1 rounded-md border transition-all ${
+                calendarStatus.status === 'needs_reconnecting'
+                  ? 'text-rose-900 bg-rose-50 border-rose-200'
+                  : calendarStatus.status === 'stale'
+                  ? 'text-amber-900 bg-amber-50 border-amber-200'
+                  : calendarStatus.status === 'syncing'
+                  ? 'text-blue-900 bg-blue-50 border-blue-200'
+                  : 'text-emerald-900 bg-emerald-50 border-emerald-200'
+              }`}
+              title={
+                calendarStatus.status === 'needs_reconnecting'
+                  ? calendarStatus.last_successful_sync_at
+                    ? `Google Calendar needs reconnecting. Last successfully synced ${new Date(calendarStatus.last_successful_sync_at).toLocaleString('en-AU')}`
+                    : 'Google Calendar needs reconnecting'
+                  : calendarStatus.display_status
+              }
+            >
+              {calendarStatus.status === 'syncing' ? (
+                <Loader2 className="w-3 h-3 text-blue-600 animate-spin shrink-0" />
+              ) : calendarStatus.status === 'needs_reconnecting' ? (
+                <button
+                  type="button"
+                  onClick={handleConnectGoogle}
+                  className="inline-flex items-center gap-1 hover:underline cursor-pointer"
+                  title="Reconnect Google Calendar"
+                >
+                  <Calendar className="w-3 h-3 text-rose-600 shrink-0" />
+                  <span>Calendar needs reconnecting</span>
+                </button>
+              ) : (
+                <Check className={`w-3 h-3 shrink-0 ${calendarStatus.status === 'stale' ? 'text-amber-600' : 'text-emerald-600'}`} />
+              )}
+
+              {calendarStatus.status !== 'needs_reconnecting' && (
+                <span className="truncate max-w-[200px] sm:max-w-none">{calendarStatus.display_status}</span>
+              )}
+
               <button
                 type="button"
                 onClick={handleDisconnectGoogle}
-                title={`Disconnect ${authState.email || 'Google Calendar'}`}
-                className="ml-0.5 text-blue-400 hover:text-blue-700 p-0.5 rounded transition-colors cursor-pointer"
+                title={`Disconnect ${calendarStatus.account_email || 'Google Calendar'}`}
+                className="ml-0.5 text-zinc-400 hover:text-zinc-700 p-0.5 rounded transition-colors cursor-pointer"
               >
                 <LogOut className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
               </button>
